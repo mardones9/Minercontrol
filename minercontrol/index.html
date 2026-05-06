@@ -7,43 +7,315 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
-:root{--dark:#0f172a;--blue:#2563eb;--orange:#f97316;--green:#16a34a;--red:#dc2626}
-*{box-sizing:border-box;font-family:Inter,Arial,sans-serif}
-body{margin:0;background:linear-gradient(rgba(15,23,42,.78),rgba(15,23,42,.78)),url("mineriachilena.jpeg");background-size:cover;background-position:center;background-attachment:fixed;color:#0f172a}
-.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
-.sidebar{background:rgba(15,23,42,.96);color:white;padding:22px;position:sticky;top:0;height:100vh}
-.logo{font-size:25px;font-weight:900}.subtitle{color:#cbd5e1;font-size:13px;margin:6px 0 25px}
-.menu button{width:100%;margin-bottom:9px;padding:12px;border:0;border-radius:12px;background:rgba(255,255,255,.08);color:white;text-align:left;cursor:pointer;font-weight:800}
-.menu button.active,.menu button:hover{background:linear-gradient(135deg,var(--blue),var(--orange))}
-.content{padding:28px;overflow-x:hidden}
-.hero{background:linear-gradient(135deg,rgba(37,99,235,.96),rgba(249,115,22,.92));color:white;border-radius:24px;padding:28px;margin-bottom:24px;box-shadow:0 20px 40px rgba(0,0,0,.22)}
-.hero h1{margin:0;font-size:34px}.hero p{margin:8px 0 0;color:#e5e7eb}
-.section{display:none}.section.active{display:block}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:22px}
-.card,.panel{background:rgba(255,255,255,.96);border-radius:20px;padding:20px;box-shadow:0 10px 25px rgba(15,23,42,.14);margin-bottom:20px}
-.card h3{margin:0 0 8px;color:#475569;font-size:14px}.number{font-size:34px;font-weight:900}
-.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;align-items:end}
-input,select,textarea{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:12px;font-size:14px;background:white}
-textarea{min-height:80px;resize:vertical}
-.btn{border:0;padding:12px 14px;border-radius:12px;background:var(--blue);color:white;font-weight:900;cursor:pointer}
-.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.dark{background:var(--dark)}.btn.orange{background:var(--orange)}
-.table-wrap{overflow-x:auto;border-radius:16px}table{width:100%;border-collapse:collapse;min-width:850px;background:white}
-th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14px;white-space:nowrap}th{background:#0f172a;color:white}
-.badge{display:inline-block;padding:5px 9px;border-radius:999px;color:white;font-size:12px;font-weight:900}
-.activo,.vigente,.autorizado,.operativo,.bajo{background:var(--green)}.inactivo,.vencido,.bloqueado,.critico,.fuera{background:var(--red)}.pendiente,.medio,.mantencion{background:var(--orange)}
-.small{padding:7px 9px;font-size:12px}.alert{background:#fee2e2;border-left:5px solid var(--red);padding:12px;border-radius:12px;margin-bottom:8px;color:#991b1b;font-weight:800}
-.okbox{background:#dcfce7;border-left:5px solid var(--green);padding:12px;border-radius:12px;color:#166534;font-weight:800}
-.faena-card{border:1px solid #dbeafe;border-radius:16px;padding:16px;margin-bottom:16px;background:#f8fafc}
-.faena-card h3{margin:0 0 8px;color:#0f172a}.cargo-title{margin:14px 0 8px;color:#2563eb;font-weight:900}
-@media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.content{padding:16px}.hero h1{font-size:26px}}
+:root{
+  --dark:#0f172a;
+  --dark2:#111827;
+  --blue:#2563eb;
+  --orange:#f97316;
+  --green:#16a34a;
+  --red:#dc2626;
+  --yellow:#f59e0b;
+  --white:#ffffff;
+}
+
+*{
+  box-sizing:border-box;
+  font-family:Inter,Arial,sans-serif;
+}
+
+body{
+  margin:0;
+  background:
+    linear-gradient(rgba(15,23,42,.80),rgba(15,23,42,.82)),
+    url("mineriachilena.jpeg");
+  background-size:cover;
+  background-position:center;
+  background-attachment:fixed;
+  color:#0f172a;
+}
+
+.app{
+  display:grid;
+  grid-template-columns:270px 1fr;
+  min-height:100vh;
+}
+
+.sidebar{
+  background:rgba(15,23,42,.97);
+  color:white;
+  padding:22px;
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+}
+
+.logo{
+  font-size:26px;
+  font-weight:900;
+}
+
+.subtitle{
+  color:#cbd5e1;
+  font-size:13px;
+  margin:6px 0 25px;
+}
+
+.menu button{
+  width:100%;
+  margin-bottom:9px;
+  padding:13px;
+  border:0;
+  border-radius:14px;
+  background:rgba(255,255,255,.08);
+  color:white;
+  text-align:left;
+  cursor:pointer;
+  font-weight:800;
+}
+
+.menu button.active,
+.menu button:hover{
+  background:linear-gradient(135deg,var(--blue),var(--orange));
+}
+
+.content{
+  padding:28px;
+  overflow-x:hidden;
+}
+
+.hero{
+  background:linear-gradient(135deg,rgba(37,99,235,.96),rgba(249,115,22,.92));
+  color:white;
+  border-radius:26px;
+  padding:30px;
+  margin-bottom:24px;
+  box-shadow:0 20px 45px rgba(0,0,0,.25);
+}
+
+.hero h1{
+  margin:0;
+  font-size:36px;
+}
+
+.hero p{
+  margin:8px 0 0;
+  color:#e5e7eb;
+  font-size:16px;
+}
+
+.section{
+  display:none;
+}
+
+.section.active{
+  display:block;
+}
+
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:16px;
+  margin-bottom:22px;
+}
+
+.card,.panel{
+  background:rgba(255,255,255,.96);
+  border-radius:22px;
+  padding:22px;
+  box-shadow:0 12px 28px rgba(15,23,42,.18);
+  margin-bottom:22px;
+}
+
+.card h3{
+  margin:0 0 8px;
+  color:#475569;
+  font-size:14px;
+}
+
+.number{
+  font-size:35px;
+  font-weight:900;
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:12px;
+  align-items:end;
+}
+
+input,select,textarea{
+  width:100%;
+  padding:13px;
+  border:1px solid #cbd5e1;
+  border-radius:14px;
+  font-size:14px;
+  background:white;
+}
+
+textarea{
+  min-height:80px;
+  resize:vertical;
+}
+
+.btn{
+  border:0;
+  padding:13px 15px;
+  border-radius:14px;
+  background:var(--blue);
+  color:white;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.btn:hover{
+  filter:brightness(.93);
+}
+
+.btn.green{background:var(--green)}
+.btn.red{background:var(--red)}
+.btn.dark{background:var(--dark)}
+.btn.orange{background:var(--orange)}
+.btn.yellow{background:var(--yellow)}
+
+.table-wrap{
+  overflow-x:auto;
+  border-radius:18px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:900px;
+  background:white;
+}
+
+th,td{
+  padding:13px;
+  border-bottom:1px solid #e2e8f0;
+  text-align:left;
+  font-size:14px;
+  white-space:nowrap;
+}
+
+th{
+  background:#0f172a;
+  color:white;
+}
+
+tr:hover td{
+  background:#f8fafc;
+}
+
+.badge{
+  display:inline-block;
+  padding:5px 10px;
+  border-radius:999px;
+  color:white;
+  font-size:12px;
+  font-weight:900;
+}
+
+.activo,.vigente,.autorizado,.operativo,.bajo{
+  background:var(--green);
+}
+
+.inactivo,.vencido,.bloqueado,.critico,.fuera{
+  background:var(--red);
+}
+
+.pendiente,.medio,.mantencion{
+  background:var(--orange);
+}
+
+.small{
+  padding:7px 9px;
+  font-size:12px;
+}
+
+.alert{
+  background:#fee2e2;
+  border-left:5px solid var(--red);
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:8px;
+  color:#991b1b;
+  font-weight:800;
+}
+
+.okbox{
+  background:#dcfce7;
+  border-left:5px solid var(--green);
+  padding:12px;
+  border-radius:12px;
+  color:#166534;
+  font-weight:800;
+}
+
+.info{
+  background:#dbeafe;
+  border-left:5px solid var(--blue);
+  padding:12px;
+  border-radius:12px;
+  color:#1e3a8a;
+  font-weight:800;
+}
+
+.faena-card{
+  border:1px solid #dbeafe;
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:16px;
+  background:#f8fafc;
+}
+
+.faena-card h3{
+  margin:0 0 8px;
+  color:#0f172a;
+}
+
+.cargo-title{
+  margin:14px 0 8px;
+  color:#2563eb;
+  font-weight:900;
+}
+
+.top-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+@media(max-width:900px){
+  .app{
+    grid-template-columns:1fr;
+  }
+
+  .sidebar{
+    position:relative;
+    height:auto;
+  }
+
+  .content{
+    padding:16px;
+  }
+
+  .hero h1{
+    font-size:27px;
+  }
+}
 </style>
 </head>
 
 <body>
+
 <div class="app">
+
 <aside class="sidebar">
   <div class="logo">MinerControl</div>
   <div class="subtitle">Enterprise Demo Minería</div>
+
   <div class="menu">
     <button class="active" onclick="showSection('dashboard',this)">Dashboard</button>
     <button onclick="showSection('trabajadores',this)">Trabajadores</button>
@@ -60,9 +332,10 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
 </aside>
 
 <main class="content">
+
 <div class="hero">
   <h1>MinerControl Enterprise</h1>
-  <p>Gestión profesional de trabajadores, faenas, contratistas, documentos, turnos y seguridad minera.</p>
+  <p>Sistema demo profesional para importar Excel, ordenar datos, gestionar trabajadores, faenas, documentos y exportar reportes empresariales.</p>
 </div>
 
 <section id="dashboard" class="section active">
@@ -74,7 +347,27 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
     <div class="card"><h3>Accesos bloqueados</h3><div class="number" id="kpiBloqueados">0</div></div>
     <div class="card"><h3>Alertas críticas</h3><div class="number" id="kpiAlertas">0</div></div>
   </div>
-  <div class="panel"><h3>Estado operacional</h3><div id="alertasDashboard"></div></div>
+
+  <div class="panel">
+    <h2>Estado operacional</h2>
+    <div id="alertasDashboard"></div>
+  </div>
+
+  <div class="panel table-wrap">
+    <h2>Resumen por faena</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Faena</th>
+          <th>Área</th>
+          <th>Trabajadores</th>
+          <th>Documentos vencidos</th>
+          <th>Accesos bloqueados</th>
+        </tr>
+      </thead>
+      <tbody id="tablaResumenFaenas"></tbody>
+    </table>
+  </div>
 </section>
 
 <section id="trabajadores" class="section">
@@ -86,13 +379,31 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
       <input id="trabCargo" placeholder="Cargo">
       <select id="trabContratista"></select>
       <select id="trabFaena"></select>
-      <select id="trabEstado"><option>Activo</option><option>Inactivo</option></select>
+      <select id="trabEstado">
+        <option>Activo</option>
+        <option>Inactivo</option>
+      </select>
       <button class="btn green" onclick="agregarTrabajador()">Agregar trabajador</button>
     </div>
   </div>
+
+  <div class="panel">
+    <input id="buscarTrabajador" placeholder="Buscar trabajador, RUT, cargo, faena o contratista..." oninput="render()">
+  </div>
+
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Nombre</th><th>RUT</th><th>Cargo</th><th>Contratista</th><th>Faena</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>RUT</th>
+          <th>Cargo</th>
+          <th>Contratista</th>
+          <th>Faena</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaTrabajadores"></tbody>
     </table>
   </div>
@@ -106,13 +417,28 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
       <input id="contRut" placeholder="RUT empresa">
       <input id="contContrato" placeholder="N° contrato">
       <input id="contTermino" type="date">
-      <select id="contEstado"><option>Vigente</option><option>Pendiente</option><option>Vencido</option></select>
+      <select id="contEstado">
+        <option>Vigente</option>
+        <option>Pendiente</option>
+        <option>Vencido</option>
+      </select>
       <button class="btn green" onclick="agregarContratista()">Agregar contratista</button>
     </div>
   </div>
+
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Empresa</th><th>RUT</th><th>Contrato</th><th>Término</th><th>Estado</th><th>Trabajadores</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Empresa</th>
+          <th>RUT</th>
+          <th>Contrato</th>
+          <th>Término</th>
+          <th>Estado</th>
+          <th>Trabajadores</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaContratistas"></tbody>
     </table>
   </div>
@@ -132,7 +458,16 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
 
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Faena</th><th>Área</th><th>Supervisor</th><th>Ubicación</th><th>Trabajadores</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Faena</th>
+          <th>Área</th>
+          <th>Supervisor</th>
+          <th>Ubicación</th>
+          <th>Trabajadores</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaFaenas"></tbody>
     </table>
   </div>
@@ -168,20 +503,30 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
   </div>
 
   <div class="panel">
-    <h2>Importar Excel masivo</h2>
+    <h2>Importar Excel masivo inteligente</h2>
     <p style="margin-top:0;color:#475569;font-weight:700">
-      Sube un Excel con columnas: Nombre, RUT, Cargo, Contratista o Empresa, Faena o Mina, Estado, Documento y Vencimiento.
+      Puedes subir un Excel con columnas como: Nombre, Trabajador, RUT, Cargo, Contratista, Empresa, Faena, Mina, Estado, Documento, Vencimiento, Turno, Horas, Extras, Acceso, Seguridad, Equipo.
     </p>
     <div class="form-grid">
       <input type="file" id="excelTrabajadores" accept=".xlsx,.xls">
       <button class="btn dark" onclick="importarExcelTrabajadores()">Importar Excel</button>
+      <button class="btn orange" onclick="exportarPlantilla()">Descargar plantilla Excel</button>
     </div>
     <div id="resultadoImportacion" class="okbox" style="display:none;margin-top:15px"></div>
   </div>
 
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Trabajador</th><th>Documento</th><th>Archivo</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Trabajador</th>
+          <th>Documento</th>
+          <th>Archivo</th>
+          <th>Vencimiento</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaDocumentos"></tbody>
     </table>
   </div>
@@ -193,16 +538,37 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
     <div class="form-grid">
       <select id="turnoTrabajador"></select>
       <input id="turnoFecha" type="date">
-      <select id="turnoSistema"><option>7x7</option><option>4x3</option><option>5x2</option></select>
-      <select id="turnoTipo"><option>Día</option><option>Noche</option></select>
+      <select id="turnoSistema">
+        <option>7x7</option>
+        <option>4x3</option>
+        <option>5x2</option>
+        <option>10x10</option>
+        <option>Especial</option>
+      </select>
+      <select id="turnoTipo">
+        <option>Día</option>
+        <option>Noche</option>
+      </select>
       <input id="turnoHoras" type="number" placeholder="Horas normales">
       <input id="turnoExtras" type="number" placeholder="Horas extra">
       <button class="btn green" onclick="agregarTurno()">Registrar turno</button>
     </div>
   </div>
+
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Trabajador</th><th>Fecha</th><th>Sistema</th><th>Tipo</th><th>Horas</th><th>Extras</th><th>Total</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Trabajador</th>
+          <th>Fecha</th>
+          <th>Sistema</th>
+          <th>Tipo</th>
+          <th>Horas</th>
+          <th>Extras</th>
+          <th>Total</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaTurnos"></tbody>
     </table>
   </div>
@@ -214,14 +580,27 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
     <div class="form-grid">
       <select id="accesoTrabajador"></select>
       <input id="accesoFecha" type="date">
-      <select id="accesoEstado"><option>Autorizado</option><option>Bloqueado</option><option>Pendiente</option></select>
+      <select id="accesoEstado">
+        <option>Autorizado</option>
+        <option>Bloqueado</option>
+        <option>Pendiente</option>
+      </select>
       <input id="accesoMotivo" placeholder="Motivo u observación">
       <button class="btn green" onclick="agregarAcceso()">Registrar acceso</button>
     </div>
   </div>
+
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Trabajador</th><th>Fecha</th><th>Estado</th><th>Motivo</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Trabajador</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>Motivo</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaAccesos"></tbody>
     </table>
   </div>
@@ -233,15 +612,35 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
     <div class="form-grid">
       <select id="segTrabajador"></select>
       <input id="segFecha" type="date">
-      <select id="segTipo"><option>Charla 5 minutos</option><option>Observación</option><option>Incidente</option><option>Accidente</option></select>
-      <select id="segNivel"><option>Bajo</option><option>Medio</option><option>Crítico</option></select>
+      <select id="segTipo">
+        <option>Charla 5 minutos</option>
+        <option>Observación</option>
+        <option>Incidente</option>
+        <option>Accidente</option>
+        <option>Entrega EPP</option>
+      </select>
+      <select id="segNivel">
+        <option>Bajo</option>
+        <option>Medio</option>
+        <option>Crítico</option>
+      </select>
       <textarea id="segDescripcion" placeholder="Descripción"></textarea>
       <button class="btn green" onclick="agregarSeguridad()">Registrar seguridad</button>
     </div>
   </div>
+
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Trabajador</th><th>Fecha</th><th>Tipo</th><th>Nivel</th><th>Descripción</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Trabajador</th>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Nivel</th>
+          <th>Descripción</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaSeguridad"></tbody>
     </table>
   </div>
@@ -253,15 +652,35 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
     <div class="form-grid">
       <input id="eqCodigo" placeholder="Código equipo">
       <input id="eqNombre" placeholder="Nombre equipo">
-      <select id="eqTipo"><option>Camión CAEX</option><option>Camioneta</option><option>Excavadora</option><option>Perforadora</option></select>
+      <select id="eqTipo">
+        <option>Camión CAEX</option>
+        <option>Camioneta</option>
+        <option>Excavadora</option>
+        <option>Perforadora</option>
+        <option>Equipo auxiliar</option>
+      </select>
       <select id="eqOperador"></select>
-      <select id="eqEstado"><option>Operativo</option><option>Mantención</option><option>Fuera de servicio</option></select>
+      <select id="eqEstado">
+        <option>Operativo</option>
+        <option>Mantención</option>
+        <option>Fuera de servicio</option>
+      </select>
       <button class="btn green" onclick="agregarEquipo()">Registrar equipo</button>
     </div>
   </div>
+
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Código</th><th>Equipo</th><th>Tipo</th><th>Operador</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Equipo</th>
+          <th>Tipo</th>
+          <th>Operador</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
       <tbody id="tablaEquipos"></tbody>
     </table>
   </div>
@@ -269,10 +688,20 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
 
 <section id="reportes" class="section">
   <div class="panel">
-    <h2>Reportes</h2>
-    <button class="btn green" onclick="cargarDemo()">Cargar datos demo profesional</button>
-    <button class="btn dark" onclick="exportarGeneral()">Exportar Excel general</button>
-    <button class="btn red" onclick="borrarTodo()">Borrar todo</button>
+    <h2>Reportes profesionales</h2>
+    <div class="top-actions">
+      <button class="btn green" onclick="cargarDemo()">Cargar datos demo profesional</button>
+      <button class="btn dark" onclick="exportarGeneral()">Exportar Excel general</button>
+      <button class="btn orange" onclick="exportarPlantilla()">Descargar plantilla Excel</button>
+      <button class="btn red" onclick="borrarTodo()">Borrar todo</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Qué hace el sistema</h2>
+    <div class="info">
+      Importa Excel → separa datos por módulos → muestra trabajadores, faenas, contratistas, documentos, turnos, accesos, seguridad y maquinaria → exporta un Excel final con hojas profesionales.
+    </div>
   </div>
 </section>
 
@@ -280,11 +709,19 @@ th,td{padding:13px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14p
   <div class="panel table-wrap">
     <h2>Historial de acciones</h2>
     <table>
-      <thead><tr><th>Fecha</th><th>Módulo</th><th>Acción</th><th>Detalle</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Módulo</th>
+          <th>Acción</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
       <tbody id="tablaHistorial"></tbody>
     </table>
   </div>
 </section>
+
 </main>
 </div>
 
@@ -299,7 +736,10 @@ let seguridad=JSON.parse(localStorage.getItem("mc_seguridad"))||[];
 let equipos=JSON.parse(localStorage.getItem("mc_equipos"))||[];
 let historial=JSON.parse(localStorage.getItem("mc_historial"))||[];
 
-function id(){return Date.now().toString()+Math.floor(Math.random()*9999)}
+function id(){
+  return Date.now().toString()+Math.floor(Math.random()*9999);
+}
+
 function guardar(){
   localStorage.setItem("mc_trabajadores",JSON.stringify(trabajadores));
   localStorage.setItem("mc_contratistas",JSON.stringify(contratistas));
@@ -311,221 +751,1228 @@ function guardar(){
   localStorage.setItem("mc_equipos",JSON.stringify(equipos));
   localStorage.setItem("mc_historial",JSON.stringify(historial));
 }
-function log(mod,acc,det){historial.unshift({fecha:new Date().toLocaleString("es-CL"),mod,acc,det});guardar()}
-function showSection(sec,btn){document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));document.getElementById(sec).classList.add("active");document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");render()}
-function normalizar(x){return String(x||"").trim()}
-function nombreTrab(idt){let t=trabajadores.find(x=>x.id===idt);return t?t.nombre:"Sin trabajador"}
-function dias(fecha){return Math.ceil((new Date(fecha)-new Date())/(1000*60*60*24))}
-function estadoDoc(v){if(!v)return"Pendiente";if(dias(v)<0)return"Vencido";if(dias(v)<=20)return"Pendiente";return"Vigente"}
-function cls(x){return String(x).toLowerCase().replaceAll(" ","").replace("crítico","critico").replace("fueradeservicio","fuera")}
-function opcionesTrab(){let data=[...trabajadores].filter(t=>t.estado==="Activo").sort((a,b)=>a.nombre.localeCompare(b.nombre));return data.length?data.map(t=>`<option value="${t.id}">${t.nombre} - ${t.cargo}</option>`).join(""):`<option value="">Sin trabajadores activos</option>`}
+
+function log(mod,acc,det){
+  historial.unshift({
+    fecha:new Date().toLocaleString("es-CL"),
+    mod,
+    acc,
+    det
+  });
+  guardar();
+}
+
+function showSection(sec,btn){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(sec).classList.add("active");
+  document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+}
+
+function limpiarTexto(x){
+  return String(x||"").trim();
+}
+
+function normalizarClave(x){
+  return String(x||"")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9]/g,"");
+}
+
+function nombreTrab(idt){
+  let t=trabajadores.find(x=>x.id===idt);
+  return t?t.nombre:"Sin trabajador";
+}
+
+function obtenerTrabajador(idt){
+  return trabajadores.find(x=>x.id===idt);
+}
+
+function dias(fecha){
+  if(!fecha)return 99999;
+  return Math.ceil((new Date(fecha)-new Date())/(1000*60*60*24));
+}
+
+function estadoDoc(v){
+  if(!v)return"Pendiente";
+  if(dias(v)<0)return"Vencido";
+  if(dias(v)<=20)return"Pendiente";
+  return"Vigente";
+}
+
+function cls(x){
+  return String(x)
+    .toLowerCase()
+    .replaceAll(" ","")
+    .replace("crítico","critico")
+    .replace("fueradeservicio","fuera");
+}
+
+function opcionesTrab(){
+  let data=[...trabajadores]
+    .filter(t=>t.estado==="Activo")
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
+
+  return data.length
+    ? data.map(t=>`<option value="${t.id}">${t.nombre} - ${t.cargo}</option>`).join("")
+    : `<option value="">Sin trabajadores activos</option>`;
+}
 
 function renderSelects(){
-  trabContratista.innerHTML=contratistas.length?contratistas.map(c=>`<option>${c.nombre}</option>`).join(""):`<option>Sin contratista</option>`;
-  trabFaena.innerHTML=faenas.length?faenas.map(f=>`<option>${f.nombre}</option>`).join(""):`<option>Sin faena</option>`;
-  docTrabajador.innerHTML=`<option value="">Agregar documento / seleccionar trabajador</option>`+opcionesTrab();
+  trabContratista.innerHTML=contratistas.length
+    ? contratistas.map(c=>`<option>${c.nombre}</option>`).join("")
+    : `<option>Sin contratista</option>`;
+
+  trabFaena.innerHTML=faenas.length
+    ? faenas.map(f=>`<option>${f.nombre}</option>`).join("")
+    : `<option>Sin faena</option>`;
+
+  docTrabajador.innerHTML=`<option value="">Seleccionar trabajador</option>`+opcionesTrab();
   turnoTrabajador.innerHTML=opcionesTrab();
   accesoTrabajador.innerHTML=opcionesTrab();
   segTrabajador.innerHTML=opcionesTrab();
   eqOperador.innerHTML=`<option value="">Sin operador</option>`+opcionesTrab();
 }
 
-function agregarTrabajador(){
-  if(!trabNombre.value||!trabRut.value||!trabCargo.value)return alert("Completa nombre, RUT y cargo.");
-  trabajadores.push({id:id(),nombre:trabNombre.value,rut:trabRut.value,cargo:trabCargo.value,contratista:trabContratista.value,faena:trabFaena.value,estado:trabEstado.value});
-  ordenarTodo();log("Trabajadores","Crear",trabNombre.value);trabNombre.value=trabRut.value=trabCargo.value="";guardar();render()
-}
-function agregarContratista(){
-  if(!contNombre.value||!contRut.value)return alert("Completa empresa y RUT.");
-  contratistas.push({id:id(),nombre:contNombre.value,rut:contRut.value,contrato:contContrato.value,termino:contTermino.value,estado:contEstado.value});
-  ordenarTodo();log("Contratistas","Crear",contNombre.value);contNombre.value=contRut.value=contContrato.value=contTermino.value="";guardar();render()
-}
-function agregarFaena(){
-  if(!faenaNombre.value||!faenaArea.value)return alert("Completa faena y área.");
-  faenas.push({id:id(),nombre:faenaNombre.value,area:faenaArea.value,supervisor:faenaSupervisor.value,ubicacion:faenaUbicacion.value});
-  ordenarTodo();log("Faenas","Crear",faenaNombre.value);faenaNombre.value=faenaArea.value=faenaSupervisor.value=faenaUbicacion.value="";guardar();render()
-}
-function agregarDocumento(){
-  if(!docTrabajador.value||!docVencimiento.value)return alert("Selecciona trabajador y vencimiento.");
-  let archivo=document.getElementById("docArchivo").files[0];
-  documentos.push({id:id(),trabajadorId:docTrabajador.value,tipo:docTipo.value,vencimiento:docVencimiento.value,archivo:archivo?archivo.name:"Sin archivo"});
-  log("Documentos","Crear",docTipo.value);
-  resultadoDocumento.style.display="none";docArchivo.value="";guardar();render()
-}
-function leerDocumento(){
-  let archivo=docArchivo.files[0];if(!archivo)return alert("Selecciona un documento primero");
-  let n=archivo.name.toLowerCase(),d="Documento general";
-  if(n.includes("licencia")&&n.includes("med"))d="Licencia médica";
-  else if(n.includes("licencia")||n.includes("conducir"))d="Licencia de conducir";
-  else if(n.includes("contrato"))d="Contrato";
-  else if(n.includes("cedula")||n.includes("dni")||n.includes("rut"))d="Cédula de identidad";
-  else if(n.includes("induccion"))d="Inducción minera";
-  else if(n.includes("seguro"))d="Seguro laboral";
-  else if(n.includes("ocupacional")||n.includes("examen"))d="Examen ocupacional";
-  docTipo.value=d;resultadoDocumento.style.display="block";resultadoDocumento.innerHTML=`Documento detectado automáticamente: <b>${d}</b><br>Archivo: ${archivo.name}`;
-}
-function obtenerValor(obj,nombres){
-  for(let n of nombres){if(obj[n]!==undefined&&obj[n]!==null&&String(obj[n]).trim()!=="")return String(obj[n]).trim()}
-  let keys=Object.keys(obj);
-  for(let k of keys){let low=k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");for(let n of nombres){let nn=n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");if(low.includes(nn))return String(obj[k]).trim()}}
-  return "";
-}
-function excelDate(v){
-  if(!v)return"";
-  if(typeof v==="number"){let d=XLSX.SSF.parse_date_code(v);if(d)return`${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`}
-  let s=String(v).trim();
-  if(s.includes("/")){let p=s.split("/");if(p.length===3)return`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`}
-  return s;
-}
-function importarExcelTrabajadores(){
-  let archivo=excelTrabajadores.files[0];if(!archivo)return alert("Selecciona un Excel primero.");
-  let lector=new FileReader();
-  lector.onload=function(e){
-    try{
-      let wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
-      let hoja=wb.Sheets[wb.SheetNames[0]];
-      let filas=XLSX.utils.sheet_to_json(hoja,{defval:""});
-      if(!filas.length)return alert("El Excel está vacío.");
-      let creados=0,duplicados=0,docs=0,faenasCreadas=0,contratistasCreados=0;
-      filas.forEach(r=>{
-        let nombre=obtenerValor(r,["Nombre","Trabajador","Nombre completo"]);
-        let rut=obtenerValor(r,["RUT","Rut"]);
-        let cargo=obtenerValor(r,["Cargo","Puesto"]);
-        let contratista=obtenerValor(r,["Contratista","Empresa","Empresa contratista"])||"Sin contratista";
-        let faena=obtenerValor(r,["Faena","Mina","Proyecto"])||"Sin faena";
-        let region=obtenerValor(r,["Región","Region"]);
-        let estado=obtenerValor(r,["Estado"])||"Activo";
-        let documento=obtenerValor(r,["Documento","Tipo documento"]);
-        let vencimiento=excelDate(obtenerValor(r,["Vencimiento","Fecha vencimiento","Vence"]));
-        if(!nombre)return;
-        let existe=trabajadores.find(t=>(t.rut&&rut&&t.rut===rut)||t.nombre.toLowerCase()===nombre.toLowerCase());
-        let trabajadorId;
-        if(existe){duplicados++;trabajadorId=existe.id}
-        else{
-          let nt={id:id(),nombre,rut,cargo:cargo||"Sin cargo",contratista,faena,estado};
-          trabajadores.push(nt);trabajadorId=nt.id;creados++;
-        }
-        if(!contratistas.find(c=>c.nombre.toLowerCase()===contratista.toLowerCase())){
-          contratistas.push({id:id(),nombre:contratista,rut:"",contrato:"Importado Excel",termino:"",estado:"Vigente"});contratistasCreados++;
-        }
-        if(!faenas.find(f=>f.nombre.toLowerCase()===faena.toLowerCase())){
-          faenas.push({id:id(),nombre:faena,area:region||"Importado Excel",supervisor:"",ubicacion:region});faenasCreadas++;
-        }
-        if(documento||vencimiento){
-          documentos.push({id:id(),trabajadorId,tipo:documento||"Documento general",vencimiento,archivo:archivo.name});docs++;
-        }
-      });
-      ordenarTodo();log("Excel","Importar",archivo.name);guardar();render();
-      resultadoImportacion.style.display="block";
-      resultadoImportacion.innerHTML=`Importación exitosa desde <b>${archivo.name}</b><br>Trabajadores creados: <b>${creados}</b><br>Documentos creados: <b>${docs}</b><br>Faenas creadas: <b>${faenasCreadas}</b><br>Contratistas creados: <b>${contratistasCreados}</b><br>Duplicados ignorados: <b>${duplicados}</b>`;
-    }catch(err){console.error(err);alert("No se pudo leer el Excel. Revisa que sea .xlsx o .xls.")}
-  };
-  lector.readAsArrayBuffer(archivo);
-}
 function ordenarTodo(){
   trabajadores.sort((a,b)=>a.nombre.localeCompare(b.nombre));
   contratistas.sort((a,b)=>a.nombre.localeCompare(b.nombre));
   faenas.sort((a,b)=>a.nombre.localeCompare(b.nombre));
 }
+
+function agregarTrabajador(){
+  if(!trabNombre.value||!trabRut.value||!trabCargo.value){
+    alert("Completa nombre, RUT y cargo.");
+    return;
+  }
+
+  trabajadores.push({
+    id:id(),
+    nombre:trabNombre.value,
+    rut:trabRut.value,
+    cargo:trabCargo.value,
+    contratista:trabContratista.value,
+    faena:trabFaena.value,
+    estado:trabEstado.value
+  });
+
+  ordenarTodo();
+  log("Trabajadores","Crear",trabNombre.value);
+
+  trabNombre.value="";
+  trabRut.value="";
+  trabCargo.value="";
+
+  guardar();
+  render();
+}
+
+function agregarContratista(){
+  if(!contNombre.value||!contRut.value){
+    alert("Completa empresa y RUT.");
+    return;
+  }
+
+  contratistas.push({
+    id:id(),
+    nombre:contNombre.value,
+    rut:contRut.value,
+    contrato:contContrato.value,
+    termino:contTermino.value,
+    estado:contEstado.value
+  });
+
+  ordenarTodo();
+  log("Contratistas","Crear",contNombre.value);
+
+  contNombre.value="";
+  contRut.value="";
+  contContrato.value="";
+  contTermino.value="";
+
+  guardar();
+  render();
+}
+
+function agregarFaena(){
+  if(!faenaNombre.value||!faenaArea.value){
+    alert("Completa faena y área.");
+    return;
+  }
+
+  faenas.push({
+    id:id(),
+    nombre:faenaNombre.value,
+    area:faenaArea.value,
+    supervisor:faenaSupervisor.value,
+    ubicacion:faenaUbicacion.value
+  });
+
+  ordenarTodo();
+  log("Faenas","Crear",faenaNombre.value);
+
+  faenaNombre.value="";
+  faenaArea.value="";
+  faenaSupervisor.value="";
+  faenaUbicacion.value="";
+
+  guardar();
+  render();
+}
+
+function agregarDocumento(){
+  if(!docTrabajador.value||!docVencimiento.value){
+    alert("Selecciona trabajador y vencimiento.");
+    return;
+  }
+
+  let archivo=document.getElementById("docArchivo").files[0];
+
+  documentos.push({
+    id:id(),
+    trabajadorId:docTrabajador.value,
+    tipo:docTipo.value,
+    vencimiento:docVencimiento.value,
+    archivo:archivo?archivo.name:"Sin archivo"
+  });
+
+  log("Documentos","Crear",docTipo.value);
+
+  resultadoDocumento.style.display="none";
+  docArchivo.value="";
+  docVencimiento.value="";
+
+  guardar();
+  render();
+}
+
+function leerDocumento(){
+  let archivo=docArchivo.files[0];
+
+  if(!archivo){
+    alert("Selecciona un documento primero.");
+    return;
+  }
+
+  let n=archivo.name.toLowerCase();
+  let d="Documento general";
+
+  if(n.includes("licencia")&&n.includes("med"))d="Licencia médica";
+  else if(n.includes("licencia")||n.includes("conducir"))d="Licencia de conducir";
+  else if(n.includes("contrato"))d="Contrato";
+  else if(n.includes("cedula")||n.includes("dni")||n.includes("rut"))d="Cédula de identidad";
+  else if(n.includes("induccion")||n.includes("inducción"))d="Inducción minera";
+  else if(n.includes("seguro"))d="Seguro laboral";
+  else if(n.includes("ocupacional")||n.includes("examen"))d="Examen ocupacional";
+
+  docTipo.value=d;
+  resultadoDocumento.style.display="block";
+  resultadoDocumento.innerHTML=`Documento detectado automáticamente: <b>${d}</b><br>Archivo: ${archivo.name}`;
+}
+
+function obtenerValor(obj,nombres){
+  for(let n of nombres){
+    if(obj[n]!==undefined&&obj[n]!==null&&String(obj[n]).trim()!==""){
+      return String(obj[n]).trim();
+    }
+  }
+
+  let keys=Object.keys(obj);
+
+  for(let k of keys){
+    let low=normalizarClave(k);
+
+    for(let n of nombres){
+      let nn=normalizarClave(n);
+
+      if(low.includes(nn)){
+        return String(obj[k]).trim();
+      }
+    }
+  }
+
+  return "";
+}
+
+function excelDate(v){
+  if(!v)return"";
+
+  if(typeof v==="number"){
+    let d=XLSX.SSF.parse_date_code(v);
+
+    if(d){
+      return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
+    }
+  }
+
+  let s=String(v).trim();
+
+  if(s.includes("/")){
+    let p=s.split("/");
+
+    if(p.length===3){
+      return `${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;
+    }
+  }
+
+  return s;
+}
+
+function buscarOCrearTrabajador(nombre,rut,cargo,contratista,faena,estado){
+  let existe=trabajadores.find(t=>
+    (t.rut&&rut&&t.rut===rut)||
+    t.nombre.toLowerCase()===nombre.toLowerCase()
+  );
+
+  if(existe){
+    return {id:existe.id,creado:false};
+  }
+
+  let nuevo={
+    id:id(),
+    nombre:nombre,
+    rut:rut,
+    cargo:cargo||"Sin cargo",
+    contratista:contratista||"Sin contratista",
+    faena:faena||"Sin faena",
+    estado:estado||"Activo"
+  };
+
+  trabajadores.push(nuevo);
+
+  return {id:nuevo.id,creado:true};
+}
+
+function buscarOCrearContratista(nombre){
+  if(!nombre)nombre="Sin contratista";
+
+  let existe=contratistas.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase());
+
+  if(existe)return false;
+
+  contratistas.push({
+    id:id(),
+    nombre:nombre,
+    rut:"",
+    contrato:"Importado Excel",
+    termino:"",
+    estado:"Vigente"
+  });
+
+  return true;
+}
+
+function buscarOCrearFaena(nombre,area,ubicacion){
+  if(!nombre)nombre="Sin faena";
+
+  let existe=faenas.find(f=>f.nombre.toLowerCase()===nombre.toLowerCase());
+
+  if(existe)return false;
+
+  faenas.push({
+    id:id(),
+    nombre:nombre,
+    area:area||"Importado Excel",
+    supervisor:"",
+    ubicacion:ubicacion||area||""
+  });
+
+  return true;
+}
+
+function importarExcelTrabajadores(){
+  let archivo=excelTrabajadores.files[0];
+
+  if(!archivo){
+    alert("Selecciona un Excel primero.");
+    return;
+  }
+
+  let lector=new FileReader();
+
+  lector.onload=function(e){
+    try{
+      let wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+      let totalTrab=0;
+      let totalDocs=0;
+      let totalTurnos=0;
+      let totalAccesos=0;
+      let totalSeguridad=0;
+      let totalEquipos=0;
+      let totalFaenas=0;
+      let totalContratistas=0;
+      let duplicados=0;
+
+      wb.SheetNames.forEach(nombreHoja=>{
+        let hoja=wb.Sheets[nombreHoja];
+        let filas=XLSX.utils.sheet_to_json(hoja,{defval:""});
+
+        filas.forEach(r=>{
+          let nombre=obtenerValor(r,["Nombre","Trabajador","Nombre completo","Empleado"]);
+          let rut=obtenerValor(r,["RUT","Rut","Documento identidad"]);
+          let cargo=obtenerValor(r,["Cargo","Puesto","Rol"]);
+          let contratista=obtenerValor(r,["Contratista","Empresa","Empresa contratista"])||"Sin contratista";
+          let faena=obtenerValor(r,["Faena","Mina","Proyecto","Centro"]);
+          let area=obtenerValor(r,["Área","Area","Gerencia"]);
+          let ubicacion=obtenerValor(r,["Ubicación","Ubicacion","Región","Region"]);
+          let estado=obtenerValor(r,["Estado","Estatus"])||"Activo";
+
+          let documento=obtenerValor(r,["Documento","Tipo documento","Certificado"]);
+          let vencimiento=excelDate(obtenerValor(r,["Vencimiento","Fecha vencimiento","Vence"]));
+
+          let fechaTurno=excelDate(obtenerValor(r,["Fecha turno","Fecha","Día","Dia"]));
+          let sistema=obtenerValor(r,["Sistema","Turno sistema","Jornada"])||"Especial";
+          let tipoTurno=obtenerValor(r,["Tipo turno","Turno","Día/Noche","Dia/Noche"]);
+          let horas=Number(obtenerValor(r,["Horas","Horas normales","Hrs"])||0);
+          let extras=Number(obtenerValor(r,["Extras","Horas extra","Horas extras"])||0);
+
+          let accesoEstado=obtenerValor(r,["Acceso","Estado acceso","Control acceso"]);
+          let accesoMotivo=obtenerValor(r,["Motivo","Observación acceso","Observacion acceso"]);
+
+          let segTipo=obtenerValor(r,["Seguridad","Evento seguridad","Tipo seguridad"]);
+          let segNivel=obtenerValor(r,["Nivel","Nivel seguridad","Criticidad"]);
+          let segDescripcion=obtenerValor(r,["Descripción","Descripcion","Detalle"]);
+
+          let eqCodigo=obtenerValor(r,["Código equipo","Codigo equipo","Equipo código"]);
+          let eqNombre=obtenerValor(r,["Equipo","Nombre equipo","Maquinaria"]);
+          let eqTipo=obtenerValor(r,["Tipo equipo","Tipo maquinaria"]);
+          let eqEstado=obtenerValor(r,["Estado equipo","Estado maquinaria"]);
+
+          let trabajadorId="";
+
+          if(nombre){
+            let res=buscarOCrearTrabajador(nombre,rut,cargo,contratista,faena||"Sin faena",estado);
+            trabajadorId=res.id;
+
+            if(res.creado)totalTrab++;
+            else duplicados++;
+
+            if(buscarOCrearContratista(contratista))totalContratistas++;
+            if(buscarOCrearFaena(faena||"Sin faena",area,ubicacion))totalFaenas++;
+          }
+
+          if(trabajadorId&&(documento||vencimiento)){
+            documentos.push({
+              id:id(),
+              trabajadorId:trabajadorId,
+              tipo:documento||"Documento general",
+              vencimiento:vencimiento,
+              archivo:archivo.name
+            });
+            totalDocs++;
+          }
+
+          if(trabajadorId&&(fechaTurno||horas>0||extras>0)){
+            turnos.push({
+              id:id(),
+              trabajadorId:trabajadorId,
+              fecha:fechaTurno||new Date().toISOString().slice(0,10),
+              sistema:sistema,
+              tipo:tipoTurno||"Día",
+              horas:horas,
+              extras:extras
+            });
+            totalTurnos++;
+          }
+
+          if(trabajadorId&&accesoEstado){
+            accesos.push({
+              id:id(),
+              trabajadorId:trabajadorId,
+              fecha:fechaTurno||new Date().toISOString().slice(0,10),
+              estado:accesoEstado,
+              motivo:accesoMotivo
+            });
+            totalAccesos++;
+          }
+
+          if(trabajadorId&&segTipo){
+            seguridad.push({
+              id:id(),
+              trabajadorId:trabajadorId,
+              fecha:fechaTurno||new Date().toISOString().slice(0,10),
+              tipo:segTipo,
+              nivel:segNivel||"Bajo",
+              descripcion:segDescripcion||"Importado desde Excel"
+            });
+            totalSeguridad++;
+          }
+
+          if(eqCodigo||eqNombre){
+            equipos.push({
+              id:id(),
+              codigo:eqCodigo||"SIN-CODIGO",
+              nombre:eqNombre||"Equipo importado",
+              tipo:eqTipo||"Equipo auxiliar",
+              operadorId:trabajadorId,
+              estado:eqEstado||"Operativo"
+            });
+            totalEquipos++;
+          }
+        });
+      });
+
+      ordenarTodo();
+      log("Excel","Importar",archivo.name);
+      guardar();
+      render();
+
+      resultadoImportacion.style.display="block";
+      resultadoImportacion.innerHTML=`
+        Importación exitosa desde <b>${archivo.name}</b><br>
+        Trabajadores creados: <b>${totalTrab}</b><br>
+        Contratistas creados: <b>${totalContratistas}</b><br>
+        Faenas creadas: <b>${totalFaenas}</b><br>
+        Documentos creados: <b>${totalDocs}</b><br>
+        Turnos creados: <b>${totalTurnos}</b><br>
+        Accesos creados: <b>${totalAccesos}</b><br>
+        Seguridad creada: <b>${totalSeguridad}</b><br>
+        Equipos creados: <b>${totalEquipos}</b><br>
+        Duplicados detectados: <b>${duplicados}</b>
+      `;
+    }catch(err){
+      console.error(err);
+      alert("No se pudo leer el Excel. Revisa que sea .xlsx o .xls.");
+    }
+  };
+
+  lector.readAsArrayBuffer(archivo);
+}
+
 function agregarTurno(){
-  let h=Number(turnoHoras.value||0),e=Number(turnoExtras.value||0);
-  if(!turnoTrabajador.value||!turnoFecha.value||h<=0)return alert("Completa trabajador, fecha y horas.");
-  if(h+e>24)return alert("No puede superar 24 horas.");
-  turnos.push({id:id(),trabajadorId:turnoTrabajador.value,fecha:turnoFecha.value,sistema:turnoSistema.value,tipo:turnoTipo.value,horas:h,extras:e});
-  log("Turnos","Crear",nombreTrab(turnoTrabajador.value));turnoHoras.value=turnoExtras.value="";guardar();render()
+  let h=Number(turnoHoras.value||0);
+  let e=Number(turnoExtras.value||0);
+
+  if(!turnoTrabajador.value||!turnoFecha.value||h<=0){
+    alert("Completa trabajador, fecha y horas.");
+    return;
+  }
+
+  if(h+e>24){
+    alert("No puede superar 24 horas.");
+    return;
+  }
+
+  turnos.push({
+    id:id(),
+    trabajadorId:turnoTrabajador.value,
+    fecha:turnoFecha.value,
+    sistema:turnoSistema.value,
+    tipo:turnoTipo.value,
+    horas:h,
+    extras:e
+  });
+
+  log("Turnos","Crear",nombreTrab(turnoTrabajador.value));
+
+  turnoHoras.value="";
+  turnoExtras.value="";
+
+  guardar();
+  render();
 }
+
 function agregarAcceso(){
-  if(!accesoTrabajador.value||!accesoFecha.value)return alert("Completa trabajador y fecha.");
-  accesos.push({id:id(),trabajadorId:accesoTrabajador.value,fecha:accesoFecha.value,estado:accesoEstado.value,motivo:accesoMotivo.value});
-  log("Acceso","Crear",nombreTrab(accesoTrabajador.value));accesoMotivo.value="";guardar();render()
+  if(!accesoTrabajador.value||!accesoFecha.value){
+    alert("Completa trabajador y fecha.");
+    return;
+  }
+
+  accesos.push({
+    id:id(),
+    trabajadorId:accesoTrabajador.value,
+    fecha:accesoFecha.value,
+    estado:accesoEstado.value,
+    motivo:accesoMotivo.value
+  });
+
+  log("Acceso","Crear",nombreTrab(accesoTrabajador.value));
+
+  accesoMotivo.value="";
+
+  guardar();
+  render();
 }
+
 function agregarSeguridad(){
-  if(!segTrabajador.value||!segFecha.value||!segDescripcion.value)return alert("Completa los datos.");
-  seguridad.push({id:id(),trabajadorId:segTrabajador.value,fecha:segFecha.value,tipo:segTipo.value,nivel:segNivel.value,descripcion:segDescripcion.value});
-  log("Seguridad","Crear",segTipo.value);segDescripcion.value="";guardar();render()
+  if(!segTrabajador.value||!segFecha.value||!segDescripcion.value){
+    alert("Completa los datos.");
+    return;
+  }
+
+  seguridad.push({
+    id:id(),
+    trabajadorId:segTrabajador.value,
+    fecha:segFecha.value,
+    tipo:segTipo.value,
+    nivel:segNivel.value,
+    descripcion:segDescripcion.value
+  });
+
+  log("Seguridad","Crear",segTipo.value);
+
+  segDescripcion.value="";
+
+  guardar();
+  render();
 }
+
 function agregarEquipo(){
-  if(!eqCodigo.value||!eqNombre.value)return alert("Completa código y equipo.");
-  equipos.push({id:id(),codigo:eqCodigo.value,nombre:eqNombre.value,tipo:eqTipo.value,operadorId:eqOperador.value,estado:eqEstado.value});
-  log("Maquinaria","Crear",eqCodigo.value);eqCodigo.value=eqNombre.value="";guardar();render()
+  if(!eqCodigo.value||!eqNombre.value){
+    alert("Completa código y equipo.");
+    return;
+  }
+
+  equipos.push({
+    id:id(),
+    codigo:eqCodigo.value,
+    nombre:eqNombre.value,
+    tipo:eqTipo.value,
+    operadorId:eqOperador.value,
+    estado:eqEstado.value
+  });
+
+  log("Maquinaria","Crear",eqCodigo.value);
+
+  eqCodigo.value="";
+  eqNombre.value="";
+
+  guardar();
+  render();
 }
-function del(arr,idv,mod){
+
+function eliminarDe(arreglo,idv,mod){
   if(!confirm("¿Eliminar registro?"))return;
-  window[arr]=window[arr].filter(x=>x.id!==idv);
-  trabajadores=window.trabajadores;contratistas=window.contratistas;faenas=window.faenas;documentos=window.documentos;turnos=window.turnos;accesos=window.accesos;seguridad=window.seguridad;equipos=window.equipos;
-  log(mod,"Eliminar",idv);guardar();render()
+
+  if(arreglo==="trabajadores")trabajadores=trabajadores.filter(x=>x.id!==idv);
+  if(arreglo==="contratistas")contratistas=contratistas.filter(x=>x.id!==idv);
+  if(arreglo==="faenas")faenas=faenas.filter(x=>x.id!==idv);
+  if(arreglo==="documentos")documentos=documentos.filter(x=>x.id!==idv);
+  if(arreglo==="turnos")turnos=turnos.filter(x=>x.id!==idv);
+  if(arreglo==="accesos")accesos=accesos.filter(x=>x.id!==idv);
+  if(arreglo==="seguridad")seguridad=seguridad.filter(x=>x.id!==idv);
+  if(arreglo==="equipos")equipos=equipos.filter(x=>x.id!==idv);
+
+  log(mod,"Eliminar",idv);
+  guardar();
+  render();
 }
+
 function alertas(){
   let a=[];
-  documentos.forEach(d=>{let e=estadoDoc(d.vencimiento);if(e==="Vencido")a.push("Documento vencido: "+d.tipo+" - "+nombreTrab(d.trabajadorId));if(e==="Pendiente")a.push("Documento por vencer: "+d.tipo+" - "+nombreTrab(d.trabajadorId))});
-  turnos.forEach(t=>{if(t.horas+t.extras>12)a.push("Jornada extensa: "+nombreTrab(t.trabajadorId))});
-  accesos.forEach(x=>{if(x.estado==="Bloqueado")a.push("Acceso bloqueado: "+nombreTrab(x.trabajadorId))});
-  seguridad.forEach(s=>{if(s.nivel==="Crítico")a.push("Evento crítico de seguridad: "+nombreTrab(s.trabajadorId))});
-  equipos.forEach(e=>{if(e.estado==="Fuera de servicio")a.push("Equipo fuera de servicio: "+e.codigo)});
+
+  documentos.forEach(d=>{
+    let e=estadoDoc(d.vencimiento);
+
+    if(e==="Vencido"){
+      a.push("Documento vencido: "+d.tipo+" - "+nombreTrab(d.trabajadorId));
+    }
+
+    if(e==="Pendiente"){
+      a.push("Documento por vencer: "+d.tipo+" - "+nombreTrab(d.trabajadorId));
+    }
+  });
+
+  turnos.forEach(t=>{
+    if(Number(t.horas)+Number(t.extras)>12){
+      a.push("Jornada extensa: "+nombreTrab(t.trabajadorId));
+    }
+  });
+
+  accesos.forEach(x=>{
+    if(x.estado==="Bloqueado"){
+      a.push("Acceso bloqueado: "+nombreTrab(x.trabajadorId));
+    }
+  });
+
+  seguridad.forEach(s=>{
+    if(s.nivel==="Crítico"){
+      a.push("Evento crítico de seguridad: "+nombreTrab(s.trabajadorId));
+    }
+  });
+
+  equipos.forEach(e=>{
+    if(e.estado==="Fuera de servicio"){
+      a.push("Equipo fuera de servicio: "+e.codigo);
+    }
+  });
+
   return a;
 }
+
 function renderDesgloseFaenas(){
-  if(!faenas.length){desgloseFaenas.innerHTML=`<div class="okbox">Aún no hay faenas importadas.</div>`;return}
+  if(!faenas.length){
+    desgloseFaenas.innerHTML=`<div class="okbox">Aún no hay faenas importadas.</div>`;
+    return;
+  }
+
   desgloseFaenas.innerHTML=faenas.map(f=>{
-    let trab=trabajadores.filter(t=>t.faena===f.nombre).sort((a,b)=>a.cargo.localeCompare(b.cargo)||a.nombre.localeCompare(b.nombre));
+    let trab=trabajadores
+      .filter(t=>t.faena===f.nombre)
+      .sort((a,b)=>a.cargo.localeCompare(b.cargo)||a.nombre.localeCompare(b.nombre));
+
     let cargos=[...new Set(trab.map(t=>t.cargo||"Sin cargo"))].sort();
-    let html=`<div class="faena-card"><h3>${f.nombre}</h3><p><b>Ubicación:</b> ${f.ubicacion||"Sin ubicación"} | <b>Total trabajadores:</b> ${trab.length}</p>`;
+
+    let html=`<div class="faena-card">
+      <h3>${f.nombre}</h3>
+      <p><b>Ubicación:</b> ${f.ubicacion||"Sin ubicación"} | <b>Total trabajadores:</b> ${trab.length}</p>`;
+
     cargos.forEach(c=>{
       let lista=trab.filter(t=>(t.cargo||"Sin cargo")===c);
-      html+=`<div class="cargo-title">${c} (${lista.length})</div><div class="table-wrap"><table><thead><tr><th>Nombre</th><th>RUT</th><th>Contratista</th><th>Estado</th><th>Documentos</th></tr></thead><tbody>`;
-      lista.forEach(t=>{let docs=documentos.filter(d=>d.trabajadorId===t.id).map(d=>d.tipo).join(", ")||"Sin documentos";html+=`<tr><td>${t.nombre}</td><td>${t.rut}</td><td>${t.contratista}</td><td><span class="badge ${cls(t.estado)}">${t.estado}</span></td><td>${docs}</td></tr>`});
+
+      html+=`<div class="cargo-title">${c} (${lista.length})</div>
+      <div class="table-wrap">
+      <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>RUT</th>
+          <th>Contratista</th>
+          <th>Estado</th>
+          <th>Documentos</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+      lista.forEach(t=>{
+        let docs=documentos
+          .filter(d=>d.trabajadorId===t.id)
+          .map(d=>d.tipo)
+          .join(", ")||"Sin documentos";
+
+        html+=`<tr>
+          <td>${t.nombre}</td>
+          <td>${t.rut}</td>
+          <td>${t.contratista}</td>
+          <td><span class="badge ${cls(t.estado)}">${t.estado}</span></td>
+          <td>${docs}</td>
+        </tr>`;
+      });
+
       html+=`</tbody></table></div>`;
     });
-    html+=`</div>`;return html;
+
+    html+=`</div>`;
+
+    return html;
   }).join("");
 }
+
+function renderResumenFaenas(){
+  tablaResumenFaenas.innerHTML=faenas.map(f=>{
+    let trab=trabajadores.filter(t=>t.faena===f.nombre);
+    let ids=trab.map(t=>t.id);
+
+    let vencidos=documentos.filter(d=>
+      ids.includes(d.trabajadorId)&&estadoDoc(d.vencimiento)==="Vencido"
+    ).length;
+
+    let bloqueados=accesos.filter(a=>
+      ids.includes(a.trabajadorId)&&a.estado==="Bloqueado"
+    ).length;
+
+    return `<tr>
+      <td>${f.nombre}</td>
+      <td>${f.area}</td>
+      <td>${trab.length}</td>
+      <td>${vencidos}</td>
+      <td>${bloqueados}</td>
+    </tr>`;
+  }).join("");
+}
+
 function render(){
   renderSelects();
-  tablaTrabajadores.innerHTML=trabajadores.map(t=>`<tr><td>${t.nombre}</td><td>${t.rut}</td><td>${t.cargo}</td><td>${t.contratista}</td><td>${t.faena}</td><td><span class="badge ${cls(t.estado)}">${t.estado}</span></td><td><button class="btn red small" onclick="del('trabajadores','${t.id}','Trabajadores')">Eliminar</button></td></tr>`).join("");
-  tablaContratistas.innerHTML=contratistas.map(c=>`<tr><td>${c.nombre}</td><td>${c.rut}</td><td>${c.contrato}</td><td>${c.termino}</td><td><span class="badge ${cls(c.estado)}">${c.estado}</span></td><td>${trabajadores.filter(t=>t.contratista===c.nombre).length}</td><td><button class="btn red small" onclick="del('contratistas','${c.id}','Contratistas')">Eliminar</button></td></tr>`).join("");
-  tablaFaenas.innerHTML=faenas.map(f=>`<tr><td>${f.nombre}</td><td>${f.area}</td><td>${f.supervisor}</td><td>${f.ubicacion}</td><td>${trabajadores.filter(t=>t.faena===f.nombre).length}</td><td><button class="btn red small" onclick="del('faenas','${f.id}','Faenas')">Eliminar</button></td></tr>`).join("");
-  tablaDocumentos.innerHTML=documentos.map(d=>{let e=estadoDoc(d.vencimiento);return`<tr><td>${nombreTrab(d.trabajadorId)}</td><td>${d.tipo}</td><td>${d.archivo||"Sin archivo"}</td><td>${d.vencimiento}</td><td><span class="badge ${cls(e)}">${e}</span></td><td><button class="btn red small" onclick="del('documentos','${d.id}','Documentos')">Eliminar</button></td></tr>`}).join("");
-  tablaTurnos.innerHTML=turnos.map(t=>`<tr><td>${nombreTrab(t.trabajadorId)}</td><td>${t.fecha}</td><td>${t.sistema}</td><td>${t.tipo}</td><td>${t.horas}</td><td>${t.extras}</td><td>${t.horas+t.extras}</td><td><button class="btn red small" onclick="del('turnos','${t.id}','Turnos')">Eliminar</button></td></tr>`).join("");
-  tablaAccesos.innerHTML=accesos.map(a=>`<tr><td>${nombreTrab(a.trabajadorId)}</td><td>${a.fecha}</td><td><span class="badge ${cls(a.estado)}">${a.estado}</span></td><td>${a.motivo}</td><td><button class="btn red small" onclick="del('accesos','${a.id}','Acceso')">Eliminar</button></td></tr>`).join("");
-  tablaSeguridad.innerHTML=seguridad.map(s=>`<tr><td>${nombreTrab(s.trabajadorId)}</td><td>${s.fecha}</td><td>${s.tipo}</td><td><span class="badge ${cls(s.nivel)}">${s.nivel}</span></td><td>${s.descripcion}</td><td><button class="btn red small" onclick="del('seguridad','${s.id}','Seguridad')">Eliminar</button></td></tr>`).join("");
-  tablaEquipos.innerHTML=equipos.map(e=>`<tr><td>${e.codigo}</td><td>${e.nombre}</td><td>${e.tipo}</td><td>${e.operadorId?nombreTrab(e.operadorId):"Sin operador"}</td><td><span class="badge ${cls(e.estado)}">${e.estado}</span></td><td><button class="btn red small" onclick="del('equipos','${e.id}','Maquinaria')">Eliminar</button></td></tr>`).join("");
-  tablaHistorial.innerHTML=historial.map(h=>`<tr><td>${h.fecha}</td><td>${h.mod}</td><td>${h.acc}</td><td>${h.det}</td></tr>`).join("");
+
+  let q=(buscarTrabajador?.value||"").toLowerCase();
+
+  let trabajadoresFiltrados=trabajadores.filter(t=>
+    t.nombre.toLowerCase().includes(q)||
+    t.rut.toLowerCase().includes(q)||
+    t.cargo.toLowerCase().includes(q)||
+    t.contratista.toLowerCase().includes(q)||
+    t.faena.toLowerCase().includes(q)
+  );
+
+  tablaTrabajadores.innerHTML=trabajadoresFiltrados.map(t=>`
+    <tr>
+      <td>${t.nombre}</td>
+      <td>${t.rut}</td>
+      <td>${t.cargo}</td>
+      <td>${t.contratista}</td>
+      <td>${t.faena}</td>
+      <td><span class="badge ${cls(t.estado)}">${t.estado}</span></td>
+      <td><button class="btn red small" onclick="eliminarDe('trabajadores','${t.id}','Trabajadores')">Eliminar</button></td>
+    </tr>
+  `).join("");
+
+  tablaContratistas.innerHTML=contratistas.map(c=>`
+    <tr>
+      <td>${c.nombre}</td>
+      <td>${c.rut}</td>
+      <td>${c.contrato}</td>
+      <td>${c.termino}</td>
+      <td><span class="badge ${cls(c.estado)}">${c.estado}</span></td>
+      <td>${trabajadores.filter(t=>t.contratista===c.nombre).length}</td>
+      <td><button class="btn red small" onclick="eliminarDe('contratistas','${c.id}','Contratistas')">Eliminar</button></td>
+    </tr>
+  `).join("");
+
+  tablaFaenas.innerHTML=faenas.map(f=>`
+    <tr>
+      <td>${f.nombre}</td>
+      <td>${f.area}</td>
+      <td>${f.supervisor}</td>
+      <td>${f.ubicacion}</td>
+      <td>${trabajadores.filter(t=>t.faena===f.nombre).length}</td>
+      <td><button class="btn red small" onclick="eliminarDe('faenas','${f.id}','Faenas')">Eliminar</button></td>
+    </tr>
+  `).join("");
+
+  tablaDocumentos.innerHTML=documentos.map(d=>{
+    let e=estadoDoc(d.vencimiento);
+
+    return `<tr>
+      <td>${nombreTrab(d.trabajadorId)}</td>
+      <td>${d.tipo}</td>
+      <td>${d.archivo||"Sin archivo"}</td>
+      <td>${d.vencimiento}</td>
+      <td><span class="badge ${cls(e)}">${e}</span></td>
+      <td><button class="btn red small" onclick="eliminarDe('documentos','${d.id}','Documentos')">Eliminar</button></td>
+    </tr>`;
+  }).join("");
+
+  tablaTurnos.innerHTML=turnos.map(t=>`
+    <tr>
+      <td>${nombreTrab(t.trabajadorId)}</td>
+      <td>${t.fecha}</td>
+      <td>${t.sistema}</td>
+      <td>${t.tipo}</td>
+      <td>${t.horas}</td>
+      <td>${t.extras}</td>
+      <td>${Number(t.horas)+Number(t.extras)}</td>
+      <td><button class="btn red small" onclick="eliminarDe('turnos','${t.id}','Turnos')">Eliminar</button></td>
+    </tr>
+  `).join("");
+
+  tablaAccesos.innerHTML=accesos.map(a=>`
+    <tr>
+      <td>${nombreTrab(a.trabajadorId)}</td>
+      <td>${a.fecha}</td>
+      <td><span class="badge ${cls(a.estado)}">${a.estado}</span></td>
+      <td>${a.motivo}</td>
+      <td><button class="btn red small" onclick="eliminarDe('accesos','${a.id}','Acceso')">Eliminar</button></td>
+    </tr>
+  `).join("");
+
+  tablaSeguridad.innerHTML=seguridad.map(s=>`
+    <tr>
+      <td>${nombreTrab(s.trabajadorId)}</td>
+      <td>${s.fecha}</td>
+      <td>${s.tipo}</td>
+      <td><span class="badge ${cls(s.nivel)}">${s.nivel}</span></td>
+      <td>${s.descripcion}</td>
+      <td><button class="btn red small" onclick="eliminarDe('seguridad','${s.id}','Seguridad')">Eliminar</button></td>
+    </tr>
+  `).join("");
+
+  tablaEquipos.innerHTML=equipos.map(e=>`
+    <tr>
+      <td>${e.codigo}</td>
+      <td>${e.nombre}</td>
+      <td>${e.tipo}</td>
+      <td>${e.operadorId?nombreTrab(e.operadorId):"Sin operador"}</td>
+      <td><span class="badge ${cls(e.estado)}">${e.estado}</span></td>
+      <td><button class="btn red small" onclick="eliminarDe('equipos','${e.id}','Maquinaria')">Eliminar</button></td>
+    </tr>
+  `).join("");
+
+  tablaHistorial.innerHTML=historial.map(h=>`
+    <tr>
+      <td>${h.fecha}</td>
+      <td>${h.mod}</td>
+      <td>${h.acc}</td>
+      <td>${h.det}</td>
+    </tr>
+  `).join("");
+
   renderDesgloseFaenas();
+  renderResumenFaenas();
+
   let al=alertas();
+
   kpiTrabajadores.textContent=trabajadores.filter(t=>t.estado==="Activo").length;
   kpiContratistas.textContent=contratistas.length;
   kpiFaenas.textContent=faenas.length;
   kpiVencidos.textContent=documentos.filter(d=>estadoDoc(d.vencimiento)==="Vencido").length;
   kpiBloqueados.textContent=accesos.filter(a=>a.estado==="Bloqueado").length;
   kpiAlertas.textContent=al.length;
-  alertasDashboard.innerHTML=al.length?al.map(x=>`<div class="alert">${x}</div>`).join(""):`<div class="okbox">Operación sin alertas críticas.</div>`;
+
+  alertasDashboard.innerHTML=al.length
+    ? al.map(x=>`<div class="alert">${x}</div>`).join("")
+    : `<div class="okbox">Operación sin alertas críticas.</div>`;
 }
+
 function cargarDemo(){
-  contratistas=[{id:id(),nombre:"Codelco División Norte",rut:"61.704.000-K",contrato:"CD-2026-001",termino:"2026-12-31",estado:"Vigente"}];
-  faenas=[{id:id(),nombre:"Rajo Norte",area:"Extracción",supervisor:"Luis Fernández",ubicacion:"Sector Norte"}];
-  trabajadores=[{id:id(),nombre:"Dylan Mardones",rut:"21688546-5",cargo:"Gerente general",contratista:"Codelco División Norte",faena:"Rajo Norte",estado:"Activo"}];
-  documentos=[{id:id(),trabajadorId:trabajadores[0].id,tipo:"Inducción minera",vencimiento:"2026-12-30",archivo:"demo_induccion.pdf"}];
-  turnos=[];accesos=[];seguridad=[];equipos=[];historial=[];
-  log("Sistema","Carga demo","Datos empresariales cargados");guardar();render()
+  contratistas=[
+    {
+      id:id(),
+      nombre:"Codelco División Norte",
+      rut:"61.704.000-K",
+      contrato:"CD-2026-001",
+      termino:"2026-12-31",
+      estado:"Vigente"
+    },
+    {
+      id:id(),
+      nombre:"Mantención Andina SpA",
+      rut:"76.111.222-3",
+      contrato:"MA-2026-045",
+      termino:"2026-11-30",
+      estado:"Vigente"
+    }
+  ];
+
+  faenas=[
+    {
+      id:id(),
+      nombre:"Rajo Norte",
+      area:"Extracción",
+      supervisor:"Luis Fernández",
+      ubicacion:"Sector Norte"
+    },
+    {
+      id:id(),
+      nombre:"Planta Concentradora",
+      area:"Procesamiento",
+      supervisor:"Camila Herrera",
+      ubicacion:"Zona Planta"
+    }
+  ];
+
+  trabajadores=[
+    {
+      id:id(),
+      nombre:"Dylan Mardones",
+      rut:"21688546-5",
+      cargo:"Gerente general",
+      contratista:"Codelco División Norte",
+      faena:"Rajo Norte",
+      estado:"Activo"
+    },
+    {
+      id:id(),
+      nombre:"Carlos Rojas",
+      rut:"12.345.678-9",
+      cargo:"Operador CAEX",
+      contratista:"Codelco División Norte",
+      faena:"Rajo Norte",
+      estado:"Activo"
+    },
+    {
+      id:id(),
+      nombre:"María González",
+      rut:"18.456.321-2",
+      cargo:"Prevencionista",
+      contratista:"Mantención Andina SpA",
+      faena:"Planta Concentradora",
+      estado:"Activo"
+    }
+  ];
+
+  documentos=[
+    {
+      id:id(),
+      trabajadorId:trabajadores[0].id,
+      tipo:"Inducción minera",
+      vencimiento:"2026-12-30",
+      archivo:"demo_induccion.pdf"
+    },
+    {
+      id:id(),
+      trabajadorId:trabajadores[1].id,
+      tipo:"Licencia interna",
+      vencimiento:"2024-01-01",
+      archivo:"licencia_caex.pdf"
+    }
+  ];
+
+  turnos=[
+    {
+      id:id(),
+      trabajadorId:trabajadores[0].id,
+      fecha:"2026-05-05",
+      sistema:"5x2",
+      tipo:"Día",
+      horas:8,
+      extras:1
+    },
+    {
+      id:id(),
+      trabajadorId:trabajadores[1].id,
+      fecha:"2026-05-05",
+      sistema:"7x7",
+      tipo:"Día",
+      horas:10,
+      extras:3
+    }
+  ];
+
+  accesos=[
+    {
+      id:id(),
+      trabajadorId:trabajadores[0].id,
+      fecha:"2026-05-05",
+      estado:"Autorizado",
+      motivo:"Documentación vigente"
+    },
+    {
+      id:id(),
+      trabajadorId:trabajadores[1].id,
+      fecha:"2026-05-05",
+      estado:"Bloqueado",
+      motivo:"Licencia vencida"
+    }
+  ];
+
+  seguridad=[
+    {
+      id:id(),
+      trabajadorId:trabajadores[2].id,
+      fecha:"2026-05-05",
+      tipo:"Observación",
+      nivel:"Medio",
+      descripcion:"Falta señalización en zona de tránsito"
+    }
+  ];
+
+  equipos=[
+    {
+      id:id(),
+      codigo:"CAEX-204",
+      nombre:"Camión extracción 204",
+      tipo:"Camión CAEX",
+      operadorId:trabajadores[1].id,
+      estado:"Operativo"
+    }
+  ];
+
+  historial=[];
+
+  log("Sistema","Carga demo","Datos empresariales cargados");
+
+  guardar();
+  render();
 }
+
 function borrarTodo(){
   if(!confirm("¿Borrar todo?"))return;
-  trabajadores=[];contratistas=[];faenas=[];documentos=[];turnos=[];accesos=[];seguridad=[];equipos=[];historial=[];
-  guardar();render()
+
+  trabajadores=[];
+  contratistas=[];
+  faenas=[];
+  documentos=[];
+  turnos=[];
+  accesos=[];
+  seguridad=[];
+  equipos=[];
+  historial=[];
+
+  guardar();
+  render();
 }
+
+function prepararTrabajadoresExport(){
+  return trabajadores.map(t=>({
+    Nombre:t.nombre,
+    RUT:t.rut,
+    Cargo:t.cargo,
+    Contratista:t.contratista,
+    Faena:t.faena,
+    Estado:t.estado
+  }));
+}
+
+function prepararContratistasExport(){
+  return contratistas.map(c=>({
+    Empresa:c.nombre,
+    RUT:c.rut,
+    Contrato:c.contrato,
+    Termino:c.termino,
+    Estado:c.estado,
+    Trabajadores:trabajadores.filter(t=>t.contratista===c.nombre).length
+  }));
+}
+
+function prepararFaenasExport(){
+  return faenas.map(f=>({
+    Faena:f.nombre,
+    Area:f.area,
+    Supervisor:f.supervisor,
+    Ubicacion:f.ubicacion,
+    Trabajadores:trabajadores.filter(t=>t.faena===f.nombre).length
+  }));
+}
+
+function prepararDocumentosExport(){
+  return documentos.map(d=>({
+    Trabajador:nombreTrab(d.trabajadorId),
+    Documento:d.tipo,
+    Archivo:d.archivo||"Sin archivo",
+    Vencimiento:d.vencimiento,
+    Estado:estadoDoc(d.vencimiento)
+  }));
+}
+
+function prepararTurnosExport(){
+  return turnos.map(t=>({
+    Trabajador:nombreTrab(t.trabajadorId),
+    Fecha:t.fecha,
+    Sistema:t.sistema,
+    Tipo:t.tipo,
+    Horas:t.horas,
+    Extras:t.extras,
+    Total:Number(t.horas||0)+Number(t.extras||0)
+  }));
+}
+
+function prepararAccesosExport(){
+  return accesos.map(a=>({
+    Trabajador:nombreTrab(a.trabajadorId),
+    Fecha:a.fecha,
+    Estado:a.estado,
+    Motivo:a.motivo
+  }));
+}
+
+function prepararSeguridadExport(){
+  return seguridad.map(s=>({
+    Trabajador:nombreTrab(s.trabajadorId),
+    Fecha:s.fecha,
+    Tipo:s.tipo,
+    Nivel:s.nivel,
+    Descripcion:s.descripcion
+  }));
+}
+
+function prepararEquiposExport(){
+  return equipos.map(e=>({
+    Codigo:e.codigo,
+    Equipo:e.nombre,
+    Tipo:e.tipo,
+    Operador:e.operadorId?nombreTrab(e.operadorId):"Sin operador",
+    Estado:e.estado
+  }));
+}
+
+function prepararDesgloseFaenasExport(){
+  let rows=[];
+
+  faenas.forEach(f=>{
+    trabajadores.filter(t=>t.faena===f.nombre).forEach(t=>{
+      rows.push({
+        Faena:f.nombre,
+        Area:f.area,
+        Ubicacion:f.ubicacion,
+        Cargo:t.cargo,
+        Trabajador:t.nombre,
+        RUT:t.rut,
+        Contratista:t.contratista,
+        Estado:t.estado,
+        Documentos:documentos
+          .filter(d=>d.trabajadorId===t.id)
+          .map(d=>d.tipo+" ("+estadoDoc(d.vencimiento)+")")
+          .join(", ")||"Sin documentos"
+      });
+    });
+  });
+
+  return rows;
+}
+
+function prepararResumenExport(){
+  let al=alertas();
+
+  return [
+    {Indicador:"Trabajadores activos",Valor:trabajadores.filter(t=>t.estado==="Activo").length},
+    {Indicador:"Contratistas",Valor:contratistas.length},
+    {Indicador:"Faenas",Valor:faenas.length},
+    {Indicador:"Documentos vencidos",Valor:documentos.filter(d=>estadoDoc(d.vencimiento)==="Vencido").length},
+    {Indicador:"Accesos bloqueados",Valor:accesos.filter(a=>a.estado==="Bloqueado").length},
+    {Indicador:"Alertas críticas",Valor:al.length}
+  ];
+}
+
+function addSheet(wb,data,name){
+  let sheet=XLSX.utils.json_to_sheet(data.length?data:[{Info:"Sin datos"}]);
+  XLSX.utils.book_append_sheet(wb,sheet,name);
+}
+
 function exportarGeneral(){
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(trabajadores),"Trabajadores");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(contratistas),"Contratistas");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(faenas),"Faenas");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(documentos),"Documentos");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(turnos),"Turnos");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(accesos),"Accesos");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(seguridad),"Seguridad");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(equipos),"Maquinaria");
-  XLSX.writeFile(wb,"MinerControl_Reporte_General.xlsx");
+
+  addSheet(wb,prepararResumenExport(),"Resumen");
+  addSheet(wb,prepararTrabajadoresExport(),"Trabajadores");
+  addSheet(wb,prepararContratistasExport(),"Contratistas");
+  addSheet(wb,prepararFaenasExport(),"Faenas");
+  addSheet(wb,prepararDesgloseFaenasExport(),"Faenas por cargo");
+  addSheet(wb,prepararDocumentosExport(),"Documentos");
+  addSheet(wb,prepararTurnosExport(),"Turnos");
+  addSheet(wb,prepararAccesosExport(),"Accesos");
+  addSheet(wb,prepararSeguridadExport(),"Seguridad");
+  addSheet(wb,prepararEquiposExport(),"Maquinaria");
+  addSheet(wb,historial,"Historial");
+
+  XLSX.writeFile(wb,"MinerControl_Reporte_General_Profesional.xlsx");
+
+  log("Excel","Exportar","Reporte general profesional");
+
+  guardar();
+  render();
 }
-ordenarTodo();render();
+
+function exportarPlantilla(){
+  const wb=XLSX.utils.book_new();
+
+  addSheet(wb,[{
+    Nombre:"Ejemplo Trabajador",
+    RUT:"12.345.678-9",
+    Cargo:"Operador CAEX",
+    Contratista:"Empresa Minera",
+    Faena:"Rajo Norte",
+    Estado:"Activo",
+    Documento:"Inducción minera",
+    Vencimiento:"2026-12-31",
+    Fecha:"2026-05-05",
+    Sistema:"7x7",
+    Turno:"Día",
+    Horas:10,
+    Extras:2,
+    Acceso:"Autorizado",
+    Motivo:"Documentación vigente",
+    Seguridad:"Charla 5 minutos",
+    Nivel:"Bajo",
+    Descripción:"Charla preventiva registrada",
+    "Código equipo":"CAEX-204",
+    Equipo:"Camión extracción",
+    "Tipo equipo":"Camión CAEX",
+    "Estado equipo":"Operativo"
+  }],"Importacion masiva");
+
+  addSheet(wb,prepararTrabajadoresExport(),"Trabajadores");
+  addSheet(wb,prepararContratistasExport(),"Contratistas");
+  addSheet(wb,prepararFaenasExport(),"Faenas");
+  addSheet(wb,prepararDocumentosExport(),"Documentos");
+
+  XLSX.writeFile(wb,"Plantilla_MinerControl_Importacion.xlsx");
+}
+
+ordenarTodo();
+render();
 </script>
+
 </body>
 </html>
