@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MinerControl Enterprise</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --dark:#0f172a;
+  --blue:#2563eb;
+  --orange:#f97316;
+  --green:#16a34a;
+  --red:#dc2626;
+  --bg:#f1f5f9;
+}
+
+*{box-sizing:border-box;font-family:Inter,Arial,sans-serif}
+
+body{
+  margin:0;
+  background:
+    linear-gradient(rgba(15,23,42,.78),rgba(15,23,42,.78)),
+    url("mineriachilena.jpeg");
+  background-size:cover;
+  background-position:center;
+  background-attachment:fixed;
+  color:#0f172a;
+}
+
+.app{
+  display:grid;
+  grid-template-columns:260px 1fr;
+  min-height:100vh;
+}
+
+.sidebar{
+  background:rgba(15,23,42,.96);
+  color:white;
+  padding:22px;
+  position:sticky;
+  top:0;
+  height:100vh;
+}
+
+.logo{
+  font-size:25px;
+  font-weight:800;
+  margin-bottom:6px;
+}
+
+.subtitle{
+  color:#cbd5e1;
+  font-size:13px;
+  margin-bottom:25px;
+}
+
+.menu button{
+  width:100%;
+  margin-bottom:9px;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  background:rgba(255,255,255,.08);
+  color:white;
+  text-align:left;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.menu button:hover,.menu button.active{
+  background:linear-gradient(135deg,var(--blue),var(--orange));
+}
+
+.content{
+  padding:28px;
+  overflow-x:hidden;
+}
+
+.hero{
+  background:linear-gradient(135deg,rgba(37,99,235,.96),rgba(249,115,22,.92));
+  color:white;
+  border-radius:24px;
+  padding:28px;
+  margin-bottom:24px;
+  box-shadow:0 20px 40px rgba(0,0,0,.22);
+}
+
+.hero h1{margin:0;font-size:34px}
+.hero p{margin:8px 0 0;color:#e5e7eb}
+
+.section{display:none}
+.section.active{display:block}
+
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:16px;
+  margin-bottom:22px;
+}
+
+.card{
+  background:rgba(255,255,255,.95);
+  border-radius:20px;
+  padding:20px;
+  box-shadow:0 10px 25px rgba(15,23,42,.14);
+}
+
+.card h3{margin:0 0 8px;color:#475569;font-size:14px}
+.number{font-size:34px;font-weight:900;color:#0f172a}
+
+.panel{
+  background:rgba(255,255,255,.96);
+  border-radius:20px;
+  padding:20px;
+  margin-bottom:20px;
+  box-shadow:0 10px 25px rgba(15,23,42,.14);
+  overflow:hidden;
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:12px;
+  align-items:end;
+}
+
+input,select,textarea{
+  width:100%;
+  padding:12px;
+  border:1px solid #cbd5e1;
+  border-radius:12px;
+  font-size:14px;
+  background:white;
+}
+
+textarea{min-height:80px;resize:vertical}
+
+.btn{
+  border:none;
+  padding:12px 14px;
+  border-radius:12px;
+  background:var(--blue);
+  color:white;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.btn.green{background:var(--green)}
+.btn.red{background:var(--red)}
+.btn.dark{background:var(--dark)}
+.btn.orange{background:var(--orange)}
+
+.table-wrap{
+  width:100%;
+  overflow-x:auto;
+  border-radius:16px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:820px;
+  background:white;
+}
+
+th,td{
+  padding:13px;
+  border-bottom:1px solid #e2e8f0;
+  text-align:left;
+  font-size:14px;
+  white-space:nowrap;
+}
+
+th{
+  background:#0f172a;
+  color:white;
+}
+
+.badge{
+  display:inline-block;
+  padding:5px 9px;
+  border-radius:999px;
+  color:white;
+  font-size:12px;
+  font-weight:800;
+}
+
+.activo,.vigente,.autorizado,.operativo,.bajo{background:var(--green)}
+.inactivo,.vencido,.bloqueado,.critico,.fuera{background:var(--red)}
+.pendiente,.medio,.mantencion{background:var(--orange)}
+
+.small{
+  padding:7px 9px;
+  font-size:12px;
+}
+
+.alert{
+  background:#fee2e2;
+  border-left:5px solid var(--red);
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:8px;
+  color:#991b1b;
+  font-weight:700;
+}
+
+.okbox{
+  background:#dcfce7;
+  border-left:5px solid var(--green);
+  padding:12px;
+  border-radius:12px;
+  color:#166534;
+  font-weight:700;
+}
+
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:relative;height:auto}
+  .content{padding:16px}
+  .hero h1{font-size:26px}
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<aside class="sidebar">
+  <div class="logo">MinerControl</div>
+  <div class="subtitle">Enterprise Demo Minería</div>
+
+  <div class="menu">
+    <button class="active" onclick="showSection('dashboard',this)">Dashboard</button>
+    <button onclick="showSection('trabajadores',this)">Trabajadores</button>
+    <button onclick="showSection('contratistas',this)">Contratistas</button>
+    <button onclick="showSection('faenas',this)">Faenas</button>
+    <button onclick="showSection('documentos',this)">Documentos</button>
+    <button onclick="showSection('turnos',this)">Turnos</button>
+    <button onclick="showSection('accesos',this)">Acceso</button>
+    <button onclick="showSection('seguridad',this)">Seguridad</button>
+    <button onclick="showSection('equipos',this)">Maquinaria</button>
+    <button onclick="showSection('reportes',this)">Reportes</button>
+    <button onclick="showSection('historial',this)">Historial</button>
+  </div>
+</aside>
+
+<main class="content">
+
+<div class="hero">
+  <h1>MinerControl Enterprise</h1>
+  <p>Demo profesional para gestión de personas, contratistas, turnos, documentos, acceso y seguridad minera.</p>
+</div>
+
+<section id="dashboard" class="section active">
+  <div class="cards">
+    <div class="card"><h3>Trabajadores activos</h3><div class="number" id="kpiTrabajadores">0</div></div>
+    <div class="card"><h3>Contratistas</h3><div class="number" id="kpiContratistas">0</div></div>
+    <div class="card"><h3>Faenas</h3><div class="number" id="kpiFaenas">0</div></div>
+    <div class="card"><h3>Docs vencidos</h3><div class="number" id="kpiVencidos">0</div></div>
+    <div class="card"><h3>Accesos bloqueados</h3><div class="number" id="kpiBloqueados">0</div></div>
+    <div class="card"><h3>Alertas críticas</h3><div class="number" id="kpiAlertas">0</div></div>
+  </div>
+
+  <div class="panel">
+    <h3>Estado operacional</h3>
+    <div id="alertasDashboard"></div>
+  </div>
+</section>
+
+<section id="trabajadores" class="section">
+  <div class="panel">
+    <h2>Trabajadores</h2>
+    <div class="form-grid">
+      <input id="trabNombre" placeholder="Nombre completo">
+      <input id="trabRut" placeholder="RUT">
+      <input id="trabCargo" placeholder="Cargo">
+      <select id="trabContratista"></select>
+      <select id="trabFaena"></select>
+      <select id="trabEstado"><option>Activo</option><option>Inactivo</option></select>
+      <button class="btn green" onclick="agregarTrabajador()">Agregar trabajador</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Nombre</th><th>RUT</th><th>Cargo</th><th>Contratista</th><th>Faena</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaTrabajadores"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="contratistas" class="section">
+  <div class="panel">
+    <h2>Contratistas</h2>
+    <div class="form-grid">
+      <input id="contNombre" placeholder="Empresa contratista">
+      <input id="contRut" placeholder="RUT empresa">
+      <input id="contContrato" placeholder="N° contrato">
+      <input id="contTermino" type="date">
+      <select id="contEstado"><option>Vigente</option><option>Pendiente</option><option>Vencido</option></select>
+      <button class="btn green" onclick="agregarContratista()">Agregar contratista</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Empresa</th><th>RUT</th><th>Contrato</th><th>Término</th><th>Estado</th><th>Trabajadores</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaContratistas"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="faenas" class="section">
+  <div class="panel">
+    <h2>Faenas</h2>
+    <div class="form-grid">
+      <input id="faenaNombre" placeholder="Nombre faena">
+      <input id="faenaArea" placeholder="Área">
+      <input id="faenaSupervisor" placeholder="Supervisor">
+      <input id="faenaUbicacion" placeholder="Ubicación">
+      <button class="btn green" onclick="agregarFaena()">Agregar faena</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Faena</th><th>Área</th><th>Supervisor</th><th>Ubicación</th><th>Trabajadores</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaFaenas"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="documentos" class="section">
+  <div class="panel">
+    <h2>Documentos obligatorios</h2>
+    <div class="form-grid">
+      <select id="docTrabajador"></select>
+      <select id="docTipo">
+        <option>Inducción minera</option>
+        <option>Examen ocupacional</option>
+        <option>Licencia interna</option>
+        <option>Contrato</option>
+        <option>Seguro laboral</option>
+      </select>
+      <input id="docVencimiento" type="date">
+      <button class="btn green" onclick="agregarDocumento()">Agregar documento</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Trabajador</th><th>Documento</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaDocumentos"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="turnos" class="section">
+  <div class="panel">
+    <h2>Turnos laborales</h2>
+    <div class="form-grid">
+      <select id="turnoTrabajador"></select>
+      <input id="turnoFecha" type="date">
+      <select id="turnoSistema"><option>7x7</option><option>4x3</option><option>5x2</option></select>
+      <select id="turnoTipo"><option>Día</option><option>Noche</option></select>
+      <input id="turnoHoras" type="number" placeholder="Horas normales">
+      <input id="turnoExtras" type="number" placeholder="Horas extra">
+      <button class="btn green" onclick="agregarTurno()">Registrar turno</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Trabajador</th><th>Fecha</th><th>Sistema</th><th>Tipo</th><th>Horas</th><th>Extras</th><th>Total</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaTurnos"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="accesos" class="section">
+  <div class="panel">
+    <h2>Control de acceso</h2>
+    <div class="form-grid">
+      <select id="accesoTrabajador"></select>
+      <input id="accesoFecha" type="date">
+      <select id="accesoEstado"><option>Autorizado</option><option>Bloqueado</option><option>Pendiente</option></select>
+      <input id="accesoMotivo" placeholder="Motivo u observación">
+      <button class="btn green" onclick="agregarAcceso()">Registrar acceso</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Trabajador</th><th>Fecha</th><th>Estado</th><th>Motivo</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaAccesos"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="seguridad" class="section">
+  <div class="panel">
+    <h2>Seguridad minera</h2>
+    <div class="form-grid">
+      <select id="segTrabajador"></select>
+      <input id="segFecha" type="date">
+      <select id="segTipo"><option>Charla 5 minutos</option><option>Observación</option><option>Incidente</option><option>Accidente</option></select>
+      <select id="segNivel"><option>Bajo</option><option>Medio</option><option>Crítico</option></select>
+      <textarea id="segDescripcion" placeholder="Descripción"></textarea>
+      <button class="btn green" onclick="agregarSeguridad()">Registrar seguridad</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Trabajador</th><th>Fecha</th><th>Tipo</th><th>Nivel</th><th>Descripción</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaSeguridad"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="equipos" class="section">
+  <div class="panel">
+    <h2>Maquinaria y equipos</h2>
+    <div class="form-grid">
+      <input id="eqCodigo" placeholder="Código equipo">
+      <input id="eqNombre" placeholder="Nombre equipo">
+      <select id="eqTipo"><option>Camión CAEX</option><option>Camioneta</option><option>Excavadora</option><option>Perforadora</option></select>
+      <select id="eqOperador"></select>
+      <select id="eqEstado"><option>Operativo</option><option>Mantención</option><option>Fuera de servicio</option></select>
+      <button class="btn green" onclick="agregarEquipo()">Registrar equipo</button>
+    </div>
+  </div>
+
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Código</th><th>Equipo</th><th>Tipo</th><th>Operador</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody id="tablaEquipos"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="reportes" class="section">
+  <div class="panel">
+    <h2>Reportes</h2>
+    <button class="btn green" onclick="cargarDemo()">Cargar datos demo profesional</button>
+    <button class="btn dark" onclick="exportarGeneral()">Exportar Excel general</button>
+    <button class="btn red" onclick="borrarTodo()">Borrar todo</button>
+  </div>
+</section>
+
+<section id="historial" class="section">
+  <div class="panel table-wrap">
+    <h2>Historial de acciones</h2>
+    <table>
+      <thead><tr><th>Fecha</th><th>Módulo</th><th>Acción</th><th>Detalle</th></tr></thead>
+      <tbody id="tablaHistorial"></tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+let trabajadores = JSON.parse(localStorage.getItem("mc_trabajadores")) || [];
+let contratistas = JSON.parse(localStorage.getItem("mc_contratistas")) || [];
+let faenas = JSON.parse(localStorage.getItem("mc_faenas")) || [];
+let documentos = JSON.parse(localStorage.getItem("mc_documentos")) || [];
+let turnos = JSON.parse(localStorage.getItem("mc_turnos")) || [];
+let accesos = JSON.parse(localStorage.getItem("mc_accesos")) || [];
+let seguridad = JSON.parse(localStorage.getItem("mc_seguridad")) || [];
+let equipos = JSON.parse(localStorage.getItem("mc_equipos")) || [];
+let historial = JSON.parse(localStorage.getItem("mc_historial")) || [];
+
+function id(){return Date.now().toString()+Math.floor(Math.random()*9999)}
+
+function guardar(){
+  localStorage.setItem("mc_trabajadores",JSON.stringify(trabajadores));
+  localStorage.setItem("mc_contratistas",JSON.stringify(contratistas));
+  localStorage.setItem("mc_faenas",JSON.stringify(faenas));
+  localStorage.setItem("mc_documentos",JSON.stringify(documentos));
+  localStorage.setItem("mc_turnos",JSON.stringify(turnos));
+  localStorage.setItem("mc_accesos",JSON.stringify(accesos));
+  localStorage.setItem("mc_seguridad",JSON.stringify(seguridad));
+  localStorage.setItem("mc_equipos",JSON.stringify(equipos));
+  localStorage.setItem("mc_historial",JSON.stringify(historial));
+}
+
+function log(mod,acc,det){
+  historial.unshift({fecha:new Date().toLocaleString("es-CL"),mod,acc,det});
+  guardar();
+}
+
+function showSection(sec,btn){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(sec).classList.add("active");
+  document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+}
+
+function nombreTrab(idt){
+  let t=trabajadores.find(x=>x.id===idt);
+  return t?t.nombre:"Sin trabajador";
+}
+
+function dias(fecha){
+  return Math.ceil((new Date(fecha)-new Date())/(1000*60*60*24));
+}
+
+function estadoDoc(v){
+  if(!v)return"Pendiente";
+  if(dias(v)<0)return"Vencido";
+  if(dias(v)<=20)return"Pendiente";
+  return"Vigente";
+}
+
+function cls(x){
+  return String(x).toLowerCase().replaceAll(" ","").replace("crítico","critico").replace("fueradeservicio","fuera");
+}
+
+function opcionesTrab(){
+  let data=trabajadores.filter(t=>t.estado==="Activo");
+  return data.length ? data.map(t=>`<option value="${t.id}">${t.nombre} - ${t.cargo}</option>`).join("") : `<option value="">Sin trabajadores activos</option>`;
+}
+
+function renderSelects(){
+  trabContratista.innerHTML=contratistas.length?contratistas.map(c=>`<option>${c.nombre}</option>`).join(""):`<option>Sin contratista</option>`;
+  trabFaena.innerHTML=faenas.length?faenas.map(f=>`<option>${f.nombre}</option>`).join(""):`<option>Sin faena</option>`;
+  docTrabajador.innerHTML=opcionesTrab();
+  turnoTrabajador.innerHTML=opcionesTrab();
+  accesoTrabajador.innerHTML=opcionesTrab();
+  segTrabajador.innerHTML=opcionesTrab();
+  eqOperador.innerHTML=`<option value="">Sin operador</option>`+opcionesTrab();
+}
+
+function agregarTrabajador(){
+  if(!trabNombre.value||!trabRut.value||!trabCargo.value)return alert("Completa nombre, RUT y cargo.");
+  trabajadores.push({id:id(),nombre:trabNombre.value,rut:trabRut.value,cargo:trabCargo.value,contratista:trabContratista.value,faena:trabFaena.value,estado:trabEstado.value});
+  log("Trabajadores","Crear",trabNombre.value);
+  trabNombre.value=trabRut.value=trabCargo.value="";
+  guardar();render();
+}
+
+function agregarContratista(){
+  if(!contNombre.value||!contRut.value)return alert("Completa empresa y RUT.");
+  contratistas.push({id:id(),nombre:contNombre.value,rut:contRut.value,contrato:contContrato.value,termino:contTermino.value,estado:contEstado.value});
+  log("Contratistas","Crear",contNombre.value);
+  contNombre.value=contRut.value=contContrato.value=contTermino.value="";
+  guardar();render();
+}
+
+function agregarFaena(){
+  if(!faenaNombre.value||!faenaArea.value)return alert("Completa faena y área.");
+  faenas.push({id:id(),nombre:faenaNombre.value,area:faenaArea.value,supervisor:faenaSupervisor.value,ubicacion:faenaUbicacion.value});
+  log("Faenas","Crear",faenaNombre.value);
+  faenaNombre.value=faenaArea.value=faenaSupervisor.value=faenaUbicacion.value="";
+  guardar();render();
+}
+
+function agregarDocumento(){
+  if(!docTrabajador.value||!docVencimiento.value)return alert("Selecciona trabajador y vencimiento.");
+  documentos.push({id:id(),trabajadorId:docTrabajador.value,tipo:docTipo.value,vencimiento:docVencimiento.value});
+  log("Documentos","Crear",docTipo.value);
+  guardar();render();
+}
+
+function agregarTurno(){
+  let h=Number(turnoHoras.value||0), e=Number(turnoExtras.value||0);
+  if(!turnoTrabajador.value||!turnoFecha.value||h<=0)return alert("Completa trabajador, fecha y horas.");
+  if(h+e>24)return alert("No puede superar 24 horas.");
+  turnos.push({id:id(),trabajadorId:turnoTrabajador.value,fecha:turnoFecha.value,sistema:turnoSistema.value,tipo:turnoTipo.value,horas:h,extras:e});
+  log("Turnos","Crear",nombreTrab(turnoTrabajador.value));
+  turnoHoras.value=turnoExtras.value="";
+  guardar();render();
+}
+
+function agregarAcceso(){
+  if(!accesoTrabajador.value||!accesoFecha.value)return alert("Completa trabajador y fecha.");
+  accesos.push({id:id(),trabajadorId:accesoTrabajador.value,fecha:accesoFecha.value,estado:accesoEstado.value,motivo:accesoMotivo.value});
+  log("Acceso","Crear",nombreTrab(accesoTrabajador.value));
+  accesoMotivo.value="";
+  guardar();render();
+}
+
+function agregarSeguridad(){
+  if(!segTrabajador.value||!segFecha.value||!segDescripcion.value)return alert("Completa los datos.");
+  seguridad.push({id:id(),trabajadorId:segTrabajador.value,fecha:segFecha.value,tipo:segTipo.value,nivel:segNivel.value,descripcion:segDescripcion.value});
+  log("Seguridad","Crear",segTipo.value);
+  segDescripcion.value="";
+  guardar();render();
+}
+
+function agregarEquipo(){
+  if(!eqCodigo.value||!eqNombre.value)return alert("Completa código y equipo.");
+  equipos.push({id:id(),codigo:eqCodigo.value,nombre:eqNombre.value,tipo:eqTipo.value,operadorId:eqOperador.value,estado:eqEstado.value});
+  log("Maquinaria","Crear",eqCodigo.value);
+  eqCodigo.value=eqNombre.value="";
+  guardar();render();
+}
+
+function del(arr,idv,mod){
+  if(!confirm("¿Eliminar registro?"))return;
+  window[arr]=window[arr].filter(x=>x.id!==idv);
+  trabajadores=window.trabajadores;
+  contratistas=window.contratistas;
+  faenas=window.faenas;
+  documentos=window.documentos;
+  turnos=window.turnos;
+  accesos=window.accesos;
+  seguridad=window.seguridad;
+  equipos=window.equipos;
+  log(mod,"Eliminar",idv);
+  guardar();render();
+}
+
+function alertas(){
+  let a=[];
+  documentos.forEach(d=>{
+    let e=estadoDoc(d.vencimiento);
+    if(e==="Vencido")a.push("Documento vencido: "+d.tipo+" - "+nombreTrab(d.trabajadorId));
+    if(e==="Pendiente")a.push("Documento por vencer: "+d.tipo+" - "+nombreTrab(d.trabajadorId));
+  });
+  turnos.forEach(t=>{if(t.horas+t.extras>12)a.push("Jornada extensa: "+nombreTrab(t.trabajadorId));});
+  accesos.forEach(x=>{if(x.estado==="Bloqueado")a.push("Acceso bloqueado: "+nombreTrab(x.trabajadorId));});
+  seguridad.forEach(s=>{if(s.nivel==="Crítico")a.push("Evento crítico de seguridad: "+nombreTrab(s.trabajadorId));});
+  equipos.forEach(e=>{if(e.estado==="Fuera de servicio")a.push("Equipo fuera de servicio: "+e.codigo);});
+  return a;
+}
+
+function render(){
+  renderSelects();
+
+  tablaTrabajadores.innerHTML=trabajadores.map(t=>`<tr><td>${t.nombre}</td><td>${t.rut}</td><td>${t.cargo}</td><td>${t.contratista}</td><td>${t.faena}</td><td><span class="badge ${cls(t.estado)}">${t.estado}</span></td><td><button class="btn red small" onclick="del('trabajadores','${t.id}','Trabajadores')">Eliminar</button></td></tr>`).join("");
+
+  tablaContratistas.innerHTML=contratistas.map(c=>`<tr><td>${c.nombre}</td><td>${c.rut}</td><td>${c.contrato}</td><td>${c.termino}</td><td><span class="badge ${cls(c.estado)}">${c.estado}</span></td><td>${trabajadores.filter(t=>t.contratista===c.nombre).length}</td><td><button class="btn red small" onclick="del('contratistas','${c.id}','Contratistas')">Eliminar</button></td></tr>`).join("");
+
+  tablaFaenas.innerHTML=faenas.map(f=>`<tr><td>${f.nombre}</td><td>${f.area}</td><td>${f.supervisor}</td><td>${f.ubicacion}</td><td>${trabajadores.filter(t=>t.faena===f.nombre).length}</td><td><button class="btn red small" onclick="del('faenas','${f.id}','Faenas')">Eliminar</button></td></tr>`).join("");
+
+  tablaDocumentos.innerHTML=documentos.map(d=>{let e=estadoDoc(d.vencimiento);return`<tr><td>${nombreTrab(d.trabajadorId)}</td><td>${d.tipo}</td><td>${d.vencimiento}</td><td><span class="badge ${cls(e)}">${e}</span></td><td><button class="btn red small" onclick="del('documentos','${d.id}','Documentos')">Eliminar</button></td></tr>`}).join("");
+
+  tablaTurnos.innerHTML=turnos.map(t=>`<tr><td>${nombreTrab(t.trabajadorId)}</td><td>${t.fecha}</td><td>${t.sistema}</td><td>${t.tipo}</td><td>${t.horas}</td><td>${t.extras}</td><td>${t.horas+t.extras}</td><td><button class="btn red small" onclick="del('turnos','${t.id}','Turnos')">Eliminar</button></td></tr>`).join("");
+
+  tablaAccesos.innerHTML=accesos.map(a=>`<tr><td>${nombreTrab(a.trabajadorId)}</td><td>${a.fecha}</td><td><span class="badge ${cls(a.estado)}">${a.estado}</span></td><td>${a.motivo}</td><td><button class="btn red small" onclick="del('accesos','${a.id}','Acceso')">Eliminar</button></td></tr>`).join("");
+
+  tablaSeguridad.innerHTML=seguridad.map(s=>`<tr><td>${nombreTrab(s.trabajadorId)}</td><td>${s.fecha}</td><td>${s.tipo}</td><td><span class="badge ${cls(s.nivel)}">${s.nivel}</span></td><td>${s.descripcion}</td><td><button class="btn red small" onclick="del('seguridad','${s.id}','Seguridad')">Eliminar</button></td></tr>`).join("");
+
+  tablaEquipos.innerHTML=equipos.map(e=>`<tr><td>${e.codigo}</td><td>${e.nombre}</td><td>${e.tipo}</td><td>${e.operadorId?nombreTrab(e.operadorId):"Sin operador"}</td><td><span class="badge ${cls(e.estado)}">${e.estado}</span></td><td><button class="btn red small" onclick="del('equipos','${e.id}','Maquinaria')">Eliminar</button></td></tr>`).join("");
+
+  tablaHistorial.innerHTML=historial.map(h=>`<tr><td>${h.fecha}</td><td>${h.mod}</td><td>${h.acc}</td><td>${h.det}</td></tr>`).join("");
+
+  let al=alertas();
+  kpiTrabajadores.textContent=trabajadores.filter(t=>t.estado==="Activo").length;
+  kpiContratistas.textContent=contratistas.length;
+  kpiFaenas.textContent=faenas.length;
+  kpiVencidos.textContent=documentos.filter(d=>estadoDoc(d.vencimiento)==="Vencido").length;
+  kpiBloqueados.textContent=accesos.filter(a=>a.estado==="Bloqueado").length;
+  kpiAlertas.textContent=al.length;
+  alertasDashboard.innerHTML=al.length?al.map(x=>`<div class="alert">${x}</div>`).join(""):`<div class="okbox">Operación sin alertas críticas.</div>`;
+}
+
+function cargarDemo(){
+  contratistas=[
+    {id:id(),nombre:"Codelco División Norte",rut:"61.704.000-K",contrato:"CD-2026-001",termino:"2026-12-31",estado:"Vigente"},
+    {id:id(),nombre:"Mantención Andina SpA",rut:"76.111.222-3",contrato:"MA-2026-045",termino:"2026-11-30",estado:"Vigente"}
+  ];
+  faenas=[
+    {id:id(),nombre:"Rajo Norte",area:"Extracción",supervisor:"Luis Fernández",ubicacion:"Sector Norte"},
+    {id:id(),nombre:"Planta Concentradora",area:"Procesamiento",supervisor:"Camila Herrera",ubicacion:"Zona Planta"}
+  ];
+  trabajadores=[
+    {id:id(),nombre:"Dylan Mardones",rut:"21688546-5",cargo:"Gerente general",contratista:"Codelco División Norte",faena:"Rajo Norte",estado:"Activo"},
+    {id:id(),nombre:"Carlos Rojas",rut:"12.345.678-9",cargo:"Operador CAEX",contratista:"Codelco División Norte",faena:"Rajo Norte",estado:"Activo"},
+    {id:id(),nombre:"María González",rut:"18.456.321-2",cargo:"Prevencionista",contratista:"Mantención Andina SpA",faena:"Planta Concentradora",estado:"Activo"}
+  ];
+  documentos=[
+    {id:id(),trabajadorId:trabajadores[0].id,tipo:"Inducción minera",vencimiento:"2026-12-30"},
+    {id:id(),trabajadorId:trabajadores[1].id,tipo:"Licencia interna",vencimiento:"2024-01-01"}
+  ];
+  turnos=[
+    {id:id(),trabajadorId:trabajadores[0].id,fecha:"2026-05-05",sistema:"5x2",tipo:"Día",horas:8,extras:1},
+    {id:id(),trabajadorId:trabajadores[1].id,fecha:"2026-05-05",sistema:"7x7",tipo:"Día",horas:10,extras:3}
+  ];
+  accesos=[
+    {id:id(),trabajadorId:trabajadores[0].id,fecha:"2026-05-05",estado:"Autorizado",motivo:"Documentación vigente"},
+    {id:id(),trabajadorId:trabajadores[1].id,fecha:"2026-05-05",estado:"Bloqueado",motivo:"Licencia vencida"}
+  ];
+  seguridad=[
+    {id:id(),trabajadorId:trabajadores[2].id,fecha:"2026-05-05",tipo:"Observación",nivel:"Medio",descripcion:"Falta señalización en zona de tránsito"}
+  ];
+  equipos=[
+    {id:id(),codigo:"CAEX-204",nombre:"Camión extracción 204",tipo:"Camión CAEX",operadorId:trabajadores[1].id,estado:"Operativo"}
+  ];
+  historial=[];
+  log("Sistema","Carga demo","Datos empresariales cargados");
+  guardar();render();
+}
+
+function borrarTodo(){
+  if(!confirm("¿Borrar toda la demo?"))return;
+  trabajadores=[];contratistas=[];faenas=[];documentos=[];turnos=[];accesos=[];seguridad=[];equipos=[];historial=[];
+  guardar();render();
+}
+
+function exportarGeneral(){
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(trabajadores),"Trabajadores");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(contratistas),"Contratistas");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(faenas),"Faenas");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(documentos),"Documentos");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(turnos),"Turnos");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(accesos),"Accesos");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(seguridad),"Seguridad");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(equipos),"Maquinaria");
+  XLSX.writeFile(wb,"MinerControl_Reporte_General.xlsx");
+}
+
+render();
+</script>
+
+</body>
+</html>
