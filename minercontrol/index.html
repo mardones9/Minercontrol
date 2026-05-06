@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MinerControl Enterprise</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
 :root{
@@ -344,15 +346,23 @@ th{
         <option>Licencia interna</option>
         <option>Contrato</option>
         <option>Seguro laboral</option>
+        <option>Licencia médica</option>
+        <option>Licencia de conducir</option>
+        <option>Cédula de identidad</option>
+        <option>Certificado</option>
+        <option>Documento general</option>
       </select>
       <input id="docVencimiento" type="date">
+      <input id="docArchivo" type="file" accept=".pdf,image/*,.txt">
+      <button class="btn orange" onclick="leerDocumento()">Leer documento</button>
       <button class="btn green" onclick="agregarDocumento()">Agregar documento</button>
     </div>
+    <div id="resultadoDocumento" class="okbox" style="display:none;margin-top:15px"></div>
   </div>
 
   <div class="panel table-wrap">
     <table>
-      <thead><tr><th>Trabajador</th><th>Documento</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <thead><tr><th>Trabajador</th><th>Documento</th><th>Archivo</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead>
       <tbody id="tablaDocumentos"></tbody>
     </table>
   </div>
@@ -563,9 +573,74 @@ function agregarFaena(){
 
 function agregarDocumento(){
   if(!docTrabajador.value||!docVencimiento.value)return alert("Selecciona trabajador y vencimiento.");
-  documentos.push({id:id(),trabajadorId:docTrabajador.value,tipo:docTipo.value,vencimiento:docVencimiento.value});
+  let archivo=document.getElementById("docArchivo").files[0];
+  documentos.push({id:id(),trabajadorId:docTrabajador.value,tipo:docTipo.value,vencimiento:docVencimiento.value,archivo:archivo?archivo.name:"Sin archivo"});
   log("Documentos","Crear",docTipo.value);
+  document.getElementById("docArchivo").value="";
+  document.getElementById("resultadoDocumento").style.display="none";
   guardar();render();
+}
+
+function normalizarTexto(txt){
+  return String(txt||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+}
+
+function detectarTipoDocumento(texto,nombreArchivo){
+  let t=normalizarTexto((texto||"")+" "+(nombreArchivo||""));
+  if(t.includes("licencia medica")||t.includes("reposo")||t.includes("diagnostico")||t.includes("medico tratante"))return "Licencia médica";
+  if(t.includes("licencia de conducir")||t.includes("clase b")||t.includes("clase a")||t.includes("conducir")||t.includes("conductor"))return "Licencia de conducir";
+  if(t.includes("cedula")||t.includes("carnet")||t.includes("documento nacional")||t.includes("run")||t.includes("rut"))return "Cédula de identidad";
+  if(t.includes("contrato")||t.includes("empleador")||t.includes("trabajador")&&t.includes("remuneracion"))return "Contrato";
+  if(t.includes("induccion")||t.includes("obligacion de informar")||t.includes("odi")||t.includes("charla de induccion"))return "Inducción minera";
+  if(t.includes("seguro laboral")||t.includes("mutual")||t.includes("achs")||t.includes("ist")||t.includes("ley 16744"))return "Seguro laboral";
+  if(t.includes("examen ocupacional")||t.includes("preocupacional")||t.includes("salud ocupacional")||t.includes("altura geografica"))return "Examen ocupacional";
+  if(t.includes("certificado"))return "Certificado";
+  return "Documento general";
+}
+
+async function extraerTextoPDF(archivo){
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  const buffer=await archivo.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buffer}).promise;
+  let texto="";
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    texto+=content.items.map(item=>item.str).join(" ")+" ";
+  }
+  return texto;
+}
+
+async function extraerTextoImagen(archivo){
+  const resultado=await Tesseract.recognize(archivo,"spa+eng");
+  return resultado.data.text||"";
+}
+
+async function leerDocumento(){
+  let archivo=document.getElementById("docArchivo").files[0];
+  if(!archivo)return alert("Selecciona un documento primero.");
+  let box=document.getElementById("resultadoDocumento");
+  box.style.display="block";
+  box.innerHTML="Leyendo documento...";
+  try{
+    let texto="";
+    if(archivo.type.includes("pdf")){
+      texto=await extraerTextoPDF(archivo);
+    }else if(archivo.type.includes("image")){
+      texto=await extraerTextoImagen(archivo);
+    }else if(archivo.type.includes("text")||archivo.name.toLowerCase().endsWith(".txt")){
+      texto=await archivo.text();
+    }
+    let detectado=detectarTipoDocumento(texto,archivo.name);
+    docTipo.value=detectado;
+    box.innerHTML=`Documento detectado automáticamente: <b>${detectado}</b><br>Archivo: ${archivo.name}`;
+  }catch(error){
+    let detectado=detectarTipoDocumento("",archivo.name);
+    docTipo.value=detectado;
+    box.innerHTML=`No pude leer todo el contenido, pero detecté por el nombre: <b>${detectado}</b><br>Archivo: ${archivo.name}`;
+  }
 }
 
 function agregarTurno(){
@@ -640,7 +715,7 @@ function render(){
 
   tablaFaenas.innerHTML=faenas.map(f=>`<tr><td>${f.nombre}</td><td>${f.area}</td><td>${f.supervisor}</td><td>${f.ubicacion}</td><td>${trabajadores.filter(t=>t.faena===f.nombre).length}</td><td><button class="btn red small" onclick="del('faenas','${f.id}','Faenas')">Eliminar</button></td></tr>`).join("");
 
-  tablaDocumentos.innerHTML=documentos.map(d=>{let e=estadoDoc(d.vencimiento);return`<tr><td>${nombreTrab(d.trabajadorId)}</td><td>${d.tipo}</td><td>${d.vencimiento}</td><td><span class="badge ${cls(e)}">${e}</span></td><td><button class="btn red small" onclick="del('documentos','${d.id}','Documentos')">Eliminar</button></td></tr>`}).join("");
+  tablaDocumentos.innerHTML=documentos.map(d=>{let e=estadoDoc(d.vencimiento);return`<tr><td>${nombreTrab(d.trabajadorId)}</td><td>${d.tipo}</td><td>${d.archivo||"Sin archivo"}</td><td>${d.vencimiento}</td><td><span class="badge ${cls(e)}">${e}</span></td><td><button class="btn red small" onclick="del('documentos','${d.id}','Documentos')">Eliminar</button></td></tr>`}).join("");
 
   tablaTurnos.innerHTML=turnos.map(t=>`<tr><td>${nombreTrab(t.trabajadorId)}</td><td>${t.fecha}</td><td>${t.sistema}</td><td>${t.tipo}</td><td>${t.horas}</td><td>${t.extras}</td><td>${t.horas+t.extras}</td><td><button class="btn red small" onclick="del('turnos','${t.id}','Turnos')">Eliminar</button></td></tr>`).join("");
 
@@ -677,8 +752,8 @@ function cargarDemo(){
     {id:id(),nombre:"María González",rut:"18.456.321-2",cargo:"Prevencionista",contratista:"Mantención Andina SpA",faena:"Planta Concentradora",estado:"Activo"}
   ];
   documentos=[
-    {id:id(),trabajadorId:trabajadores[0].id,tipo:"Inducción minera",vencimiento:"2026-12-30"},
-    {id:id(),trabajadorId:trabajadores[1].id,tipo:"Licencia interna",vencimiento:"2024-01-01"}
+    {id:id(),trabajadorId:trabajadores[0].id,tipo:"Inducción minera",vencimiento:"2026-12-30",archivo:"induccion_mineria.pdf"},
+    {id:id(),trabajadorId:trabajadores[1].id,tipo:"Licencia interna",vencimiento:"2024-01-01",archivo:"licencia_interna.pdf"}
   ];
   turnos=[
     {id:id(),trabajadorId:trabajadores[0].id,fecha:"2026-05-05",sistema:"5x2",tipo:"Día",horas:8,extras:1},
