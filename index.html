@@ -1687,27 +1687,6 @@ if(session){
 
 
 
-    if(!trabajadores.length) return;
-
-    const payload=trabajadores.map(t=>({
-        trabajador:t.trabajador || "",
-        rut:t.rut || "",
-        contratista:t.contratista || "",
-        faena:t.faena || "",
-        cargo:t.cargo || ""
-    }));
-
-    const { error } = await supabaseClient
-    .from("trabajadores")
-    .insert(payload);
-
-    if(error){
-        console.error("Error guardando trabajadores:", error);
-    }else{
-        console.log("Trabajadores guardados en Supabase");
-    }
-}
-console.log("Supabase conectado correctamente");
-</script>
+    
 </body>
 </html>
