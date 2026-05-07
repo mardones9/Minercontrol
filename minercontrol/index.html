@@ -3,306 +3,424 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerControl Enterprise PRO</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<title>MinerControl Enterprise</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
 :root{
-  --dark:#0f172a;
-  --dark2:#111827;
+  --bg:#07111f;
+  --panel:#0f1f35;
+  --panel2:#132946;
+  --line:#29415f;
+  --text:#eef6ff;
+  --muted:#9fb4d0;
+  --orange:#ff7a1a;
+  --green:#22c55e;
+  --red:#ef4444;
   --blue:#2563eb;
-  --orange:#f97316;
-  --green:#16a34a;
-  --red:#dc2626;
-  --yellow:#f59e0b;
-  --white:#ffffff;
+  --yellow:#facc15;
 }
 
 *{
-  box-sizing:border-box;
-  font-family:Inter,Arial,sans-serif;
-}
-
-body{
   margin:0;
-  background:
-    linear-gradient(rgba(15,23,42,.80),rgba(15,23,42,.82)),
-    url("mineriachilena.jpeg");
-  background-size:cover;
-  background-position:center;
-  background-attachment:fixed;
-  color:#0f172a;
+  padding:0;
+  box-sizing:border-box;
+  font-family:Arial,Helvetica,sans-serif;
 }
 
-.app{
-  display:grid;
-  grid-template-columns:270px 1fr;
-  min-height:100vh;
-}
-
-.sidebar{
-  background:rgba(15,23,42,.97);
-  color:white;
-  padding:22px;
-  position:sticky;
-  top:0;
-  height:100vh;
-  overflow-y:auto;
-}
-
-.logo{
-  font-size:26px;
-  font-weight:900;
-}
-
-.subtitle{
-  color:#cbd5e1;
-  font-size:13px;
-  margin:6px 0 25px;
-}
-
-.menu button{
+html,body{
   width:100%;
-  margin-bottom:9px;
-  padding:13px;
-  border:0;
-  border-radius:14px;
-  background:rgba(255,255,255,.08);
-  color:white;
-  text-align:left;
-  cursor:pointer;
-  font-weight:800;
-}
-
-.menu button.active,
-.menu button:hover{
-  background:linear-gradient(135deg,var(--blue),var(--orange));
-}
-
-.content{
-  padding:28px;
+  min-height:100%;
   overflow-x:hidden;
 }
 
-.hero{
-  background:linear-gradient(135deg,rgba(37,99,235,.96),rgba(249,115,22,.92));
-  color:white;
-  border-radius:26px;
-  padding:30px;
-  margin-bottom:24px;
-  box-shadow:0 20px 45px rgba(0,0,0,.25);
+body{
+  color:var(--text);
+  background:
+    linear-gradient(90deg,rgba(5,12,24,.97),rgba(5,12,24,.90)),
+    url("https://images.unsplash.com/photo-1513828583688-c52646db42da?auto=format&fit=crop&w=1800&q=80");
+  background-size:cover;
+  background-position:center;
+  background-attachment:fixed;
 }
 
-.hero h1{
-  margin:0;
-  font-size:36px;
+button,input,select,textarea{
+  font-family:inherit;
 }
 
-.hero p{
-  margin:8px 0 0;
-  color:#e5e7eb;
-  font-size:16px;
-}
-
-.section{
-  display:none;
-}
-
-.section.active{
-  display:block;
-}
-
-.cards{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
-  gap:16px;
-  margin-bottom:22px;
-}
-
-.card,.panel{
-  background:rgba(255,255,255,.96);
-  border-radius:22px;
-  padding:22px;
-  box-shadow:0 12px 28px rgba(15,23,42,.18);
-  margin-bottom:22px;
-}
-
-.card h3{
-  margin:0 0 8px;
-  color:#475569;
-  font-size:14px;
-}
-
-.number{
-  font-size:35px;
+button{
+  border:none;
+  border-radius:14px;
+  padding:13px 16px;
   font-weight:900;
-}
-
-.form-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-  gap:12px;
-  align-items:end;
+  cursor:pointer;
 }
 
 input,select,textarea{
   width:100%;
-  padding:13px;
-  border:1px solid #cbd5e1;
-  border-radius:14px;
-  font-size:14px;
-  background:white;
-}
-
-textarea{
-  min-height:80px;
-  resize:vertical;
-}
-
-.btn{
-  border:0;
-  padding:13px 15px;
-  border-radius:14px;
-  background:var(--blue);
+  background:#07111f;
   color:white;
-  font-weight:900;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:13px;
+  outline:none;
+}
+
+input:focus,select:focus,textarea:focus{
+  border-color:var(--orange);
+}
+
+.btn-orange{background:var(--orange);color:#111827;}
+.btn-green{background:var(--green);color:white;}
+.btn-red{background:var(--red);color:white;}
+.btn-blue{background:var(--blue);color:white;}
+.btn-dark{background:#172a46;color:white;}
+.btn-yellow{background:var(--yellow);color:#111827;}
+
+#loginView{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+
+.login-card{
+  width:100%;
+  max-width:430px;
+  background:rgba(15,31,53,.96);
+  border:1px solid var(--line);
+  border-radius:28px;
+  padding:34px;
+  box-shadow:0 30px 90px rgba(0,0,0,.5);
+}
+
+.logo-login{
+  font-size:36px;
+  line-height:1;
+  font-weight:950;
+  margin-bottom:10px;
+}
+
+.logo-login span{
+  color:var(--orange);
+}
+
+.login-card p{
+  color:var(--muted);
+  margin-bottom:22px;
+}
+
+.login-card input{
+  margin-bottom:14px;
+}
+
+#appView{
+  display:none;
+  width:100%;
+  min-height:100vh;
+}
+
+.sidebar{
+  position:fixed;
+  top:0;
+  left:0;
+  bottom:0;
+  width:270px;
+  background:rgba(7,17,31,.98);
+  border-right:1px solid var(--line);
+  padding:18px;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+
+.sidebar-logo{
+  font-size:26px;
+  font-weight:950;
+  line-height:1.05;
+  margin-bottom:18px;
   cursor:pointer;
 }
 
-.btn:hover{
-  filter:brightness(.93);
+.sidebar-logo span{
+  color:var(--orange);
 }
 
-.btn.green{background:var(--green)}
-.btn.red{background:var(--red)}
-.btn.dark{background:var(--dark)}
-.btn.orange{background:var(--orange)}
-.btn.yellow{background:var(--yellow)}
+.userbox{
+  background:#10243d;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px;
+  margin-bottom:16px;
+}
+
+.userbox b{
+  display:block;
+  font-size:15px;
+}
+
+.userbox small{
+  color:var(--muted);
+}
+
+.nav{
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+}
+
+.nav button{
+  width:100%;
+  background:#132946;
+  color:white;
+  text-align:left;
+  white-space:nowrap;
+}
+
+.nav button:hover,
+.nav button.active{
+  background:linear-gradient(90deg,var(--orange),#ffad66);
+  color:#111827;
+}
+
+.main{
+  margin-left:270px;
+  width:calc(100% - 270px);
+  padding:24px;
+}
+
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  margin-bottom:22px;
+}
+
+.topbar h1{
+  font-size:30px;
+  font-weight:950;
+}
+
+.top-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.module{
+  display:none;
+}
+
+.module.active{
+  display:block;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.card,.section{
+  background:rgba(15,31,53,.95);
+  border:1px solid var(--line);
+  border-radius:24px;
+  box-shadow:0 22px 55px rgba(0,0,0,.28);
+}
+
+.card{
+  padding:20px;
+}
+
+.card small{
+  color:var(--muted);
+  font-weight:900;
+}
+
+.card h2{
+  margin-top:8px;
+  font-size:34px;
+}
+
+.card p{
+  margin-top:7px;
+  color:var(--muted);
+  font-weight:800;
+}
+
+.section{
+  padding:22px;
+  margin-bottom:18px;
+}
+
+.section-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  margin-bottom:16px;
+}
+
+.section-title h2{
+  font-size:23px;
+}
+
+.import-box{
+  border:2px dashed #41688e;
+  background:linear-gradient(135deg,#0b1b31,#122945);
+  border-radius:22px;
+  padding:24px;
+  text-align:center;
+  margin-bottom:16px;
+}
+
+.import-box h3{
+  font-size:22px;
+  margin-bottom:8px;
+}
+
+.import-box p{
+  color:var(--muted);
+  margin-bottom:14px;
+}
+
+.actions{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.filters{
+  display:grid;
+  grid-template-columns:1.3fr 1fr 1fr 1fr 1fr;
+  gap:12px;
+  margin-bottom:14px;
+}
 
 .table-wrap{
-  overflow-x:auto;
+  width:100%;
+  overflow:auto;
+  border:1px solid var(--line);
   border-radius:18px;
 }
 
 table{
   width:100%;
+  min-width:1050px;
   border-collapse:collapse;
-  min-width:900px;
-  background:white;
-}
-
-th,td{
-  padding:13px;
-  border-bottom:1px solid #e2e8f0;
-  text-align:left;
-  font-size:14px;
-  white-space:nowrap;
 }
 
 th{
-  background:#0f172a;
-  color:white;
+  background:#07111f;
+  color:#cbd5e1;
+  padding:13px;
+  text-align:left;
+  font-size:12px;
+  text-transform:uppercase;
 }
 
-tr:hover td{
-  background:#f8fafc;
+td{
+  padding:12px 13px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+  color:#e2e8f0;
+}
+
+tr:hover{
+  background:#132946;
 }
 
 .badge{
   display:inline-block;
-  padding:5px 10px;
+  padding:6px 10px;
   border-radius:999px;
-  color:white;
-  font-size:12px;
+  font-size:11px;
   font-weight:900;
 }
 
-.activo,.vigente,.autorizado,.operativo,.bajo{
-  background:var(--green);
+.ok{background:#052e16;color:#86efac;}
+.warn{background:#422006;color:#fde68a;}
+.bad{background:#450a0a;color:#fecaca;}
+.info{background:#082f49;color:#7dd3fc;}
+.pending{background:#3b2f08;color:#fde68a;}
+
+.group-title{
+  font-size:20px;
+  margin:22px 0 12px;
+  border-left:5px solid var(--orange);
+  padding-left:10px;
 }
 
-.inactivo,.vencido,.bloqueado,.critico,.fuera{
-  background:var(--red);
+.empty{
+  color:var(--muted);
+  font-weight:800;
+  padding:14px;
 }
 
-.pendiente,.medio,.mantencion{
-  background:var(--orange);
-}
-
-.small{
-  padding:7px 9px;
+.preview{
+  margin-top:12px;
+  padding:12px;
+  background:#07111f;
+  border:1px solid var(--line);
+  border-radius:14px;
+  color:var(--muted);
+  text-align:left;
+  max-height:170px;
+  overflow:auto;
   font-size:12px;
 }
 
-.alert{
-  background:#fee2e2;
-  border-left:5px solid var(--red);
-  padding:12px;
-  border-radius:12px;
-  margin-bottom:8px;
-  color:#991b1b;
-  font-weight:800;
+.lote-box{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
 }
 
-.okbox{
-  background:#dcfce7;
-  border-left:5px solid var(--green);
-  padding:12px;
-  border-radius:12px;
-  color:#166534;
-  font-weight:800;
-}
-
-.info{
-  background:#dbeafe;
-  border-left:5px solid var(--blue);
-  padding:12px;
-  border-radius:12px;
-  color:#1e3a8a;
-  font-weight:800;
-}
-
-.faena-card{
-  border:1px solid #dbeafe;
+.lote-card{
+  background:#0b1b31;
+  border:1px solid var(--line);
   border-radius:18px;
-  padding:18px;
-  margin-bottom:16px;
-  background:#f8fafc;
+  padding:16px;
 }
 
-.faena-card h3{
-  margin:0 0 8px;
-  color:#0f172a;
+.lote-card h3{
+  margin-bottom:8px;
 }
 
-.cargo-title{
-  margin:14px 0 8px;
-  color:#2563eb;
-  font-weight:900;
+.lote-card p{
+  color:var(--muted);
+  font-size:13px;
+  margin-bottom:5px;
 }
 
-.top-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-}
-
-@media(max-width:900px){
-  .app{
-    grid-template-columns:1fr;
-  }
-
+@media(max-width:1050px){
   .sidebar{
     position:relative;
+    width:100%;
     height:auto;
   }
 
-  .content{
-    padding:16px;
+  .main{
+    margin-left:0;
+    width:100%;
+    padding:14px;
   }
 
-  .hero h1{
-    font-size:27px;
+  .grid,.actions,.filters,.lote-box{
+    grid-template-columns:1fr;
+  }
+
+  .topbar{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  table{
+    min-width:900px;
   }
 }
 </style>
@@ -310,686 +428,420 @@ tr:hover td{
 
 <body>
 
-<div class="app">
+<div id="loginView">
+  <div class="login-card">
+    <div class="logo-login">MinerControl<br><span>Enterprise</span></div>
+    <p>Software minero local, multiusuario y corporativo.</p>
 
-<aside class="sidebar">
-  <div class="logo">MinerControl</div>
-  <div class="subtitle">Enterprise Demo Minería</div>
+    <input id="loginUser" placeholder="Usuario">
+    <input id="loginPass" type="password" placeholder="Contraseña">
 
-  <div class="menu">
-    <button class="active" onclick="showSection('dashboard',this)">Dashboard</button>
-    <button onclick="showSection('trabajadores',this)">Trabajadores</button>
-    <button onclick="showSection('contratistas',this)">Contratistas</button>
-    <button onclick="showSection('faenas',this)">Faenas</button>
-    <button onclick="showSection('documentos',this)">Documentos</button>
-    <button onclick="showSection('turnos',this)">Turnos</button>
-    <button onclick="showSection('accesos',this)">Acceso</button>
-    <button onclick="showSection('seguridad',this)">Seguridad</button>
-    <button onclick="showSection('equipos',this)">Maquinaria</button>
-    <button onclick="showSection('reportes',this)">Reportes</button>
-    <button onclick="showSection('historial',this)">Historial</button>
-  </div>
-</aside>
+    <button class="btn-orange" style="width:100%;" onclick="iniciarSesion()">Ingresar</button>
 
-<main class="content">
-
-<div class="hero">
-  <h1>MinerControl Enterprise</h1>
-  <p>Sistema demo profesional para importar Excel, ordenar datos, gestionar trabajadores, faenas, documentos y exportar reportes empresariales.</p>
-</div>
-
-<section id="dashboard" class="section active">
-  <div class="cards">
-    <div class="card"><h3>Trabajadores activos</h3><div class="number" id="kpiTrabajadores">0</div></div>
-    <div class="card"><h3>Contratistas</h3><div class="number" id="kpiContratistas">0</div></div>
-    <div class="card"><h3>Faenas</h3><div class="number" id="kpiFaenas">0</div></div>
-    <div class="card"><h3>Docs vencidos</h3><div class="number" id="kpiVencidos">0</div></div>
-    <div class="card"><h3>Accesos bloqueados</h3><div class="number" id="kpiBloqueados">0</div></div>
-    <div class="card"><h3>Alertas críticas</h3><div class="number" id="kpiAlertas">0</div></div>
-  </div>
-
-  <div class="panel">
-    <h2>Estado operacional</h2>
-    <div id="alertasDashboard"></div>
-  </div>
-
-  <div class="panel table-wrap">
-    <h2>Resumen por faena</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Faena</th>
-          <th>Área</th>
-          <th>Trabajadores</th>
-          <th>Documentos vencidos</th>
-          <th>Accesos bloqueados</th>
-        </tr>
-      </thead>
-      <tbody id="tablaResumenFaenas"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="trabajadores" class="section">
-  <div class="panel">
-    <h2>Trabajadores</h2>
-    <div class="form-grid">
-      <input id="trabNombre" placeholder="Nombre completo">
-      <input id="trabRut" placeholder="RUT">
-      <input id="trabCargo" placeholder="Cargo">
-      <select id="trabContratista"></select>
-      <select id="trabFaena"></select>
-      <select id="trabEstado">
-        <option>Activo</option>
-        <option>Inactivo</option>
-      </select>
-      <button class="btn green" onclick="agregarTrabajador()">Agregar trabajador</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <input id="buscarTrabajador" placeholder="Buscar trabajador, RUT, cargo, faena o contratista..." oninput="render()">
-  </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>RUT</th>
-          <th>Cargo</th>
-          <th>Contratista</th>
-          <th>Faena</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaTrabajadores"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="contratistas" class="section">
-  <div class="panel">
-    <h2>Contratistas</h2>
-    <div class="form-grid">
-      <input id="contNombre" placeholder="Empresa contratista">
-      <input id="contRut" placeholder="RUT empresa">
-      <input id="contContrato" placeholder="N° contrato">
-      <input id="contTermino" type="date">
-      <select id="contEstado">
-        <option>Vigente</option>
-        <option>Pendiente</option>
-        <option>Vencido</option>
-      </select>
-      <button class="btn green" onclick="agregarContratista()">Agregar contratista</button>
-    </div>
-  </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Empresa</th>
-          <th>RUT</th>
-          <th>Contrato</th>
-          <th>Término</th>
-          <th>Estado</th>
-          <th>Trabajadores</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaContratistas"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="faenas" class="section">
-  <div class="panel">
-    <h2>Faenas</h2>
-    <div class="form-grid">
-      <input id="faenaNombre" placeholder="Nombre faena">
-      <input id="faenaArea" placeholder="Área">
-      <input id="faenaSupervisor" placeholder="Supervisor">
-      <input id="faenaUbicacion" placeholder="Ubicación">
-      <button class="btn green" onclick="agregarFaena()">Agregar faena</button>
-    </div>
-  </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Faena</th>
-          <th>Área</th>
-          <th>Supervisor</th>
-          <th>Ubicación</th>
-          <th>Trabajadores</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaFaenas"></tbody>
-    </table>
-  </div>
-
-  <div class="panel">
-    <h2>Desglose profesional por faena y cargo</h2>
-    <div id="desgloseFaenas"></div>
-  </div>
-</section>
-
-<section id="documentos" class="section">
-  <div class="panel">
-    <h2>Agregar documento individual</h2>
-    <div class="form-grid">
-      <select id="docTrabajador"></select>
-      <select id="docTipo">
-        <option>Inducción minera</option>
-        <option>Examen ocupacional</option>
-        <option>Licencia interna</option>
-        <option>Contrato</option>
-        <option>Seguro laboral</option>
-        <option>Licencia médica</option>
-        <option>Licencia de conducir</option>
-        <option>Cédula de identidad</option>
-        <option>Documento general</option>
-      </select>
-      <input id="docVencimiento" type="date">
-      <input type="file" id="docArchivo" accept=".pdf,.xlsx,.xls,image/*">
-      <button class="btn orange" onclick="leerDocumento()">Leer documento</button>
-      <button class="btn green" onclick="agregarDocumento()">Agregar documento</button>
-    </div>
-    <div id="resultadoDocumento" class="okbox" style="display:none;margin-top:15px"></div>
-  </div>
-
-  <div class="panel">
-    <h2>Importar Excel masivo inteligente</h2>
-    <p style="margin-top:0;color:#475569;font-weight:700">
-      Puedes subir un Excel con columnas como: Nombre, Trabajador, RUT, Cargo, Contratista, Empresa, Faena, Mina, Estado, Documento, Vencimiento, Turno, Horas, Extras, Acceso, Seguridad, Equipo.
+    <p style="font-size:12px;margin-top:18px;">
+      admin / admin123<br>
+      tio / tio123
     </p>
-    <div class="form-grid">
-      <input type="file" id="excelTrabajadores" accept=".xlsx,.xls">
-      <button class="btn dark" onclick="importarExcelTrabajadores()">Importar Excel</button>
-      <button class="btn orange" onclick="exportarPlantilla()">Descargar plantilla Excel</button>
-    </div>
-    <div id="resultadoImportacion" class="okbox" style="display:none;margin-top:15px"></div>
   </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Trabajador</th>
-          <th>Documento</th>
-          <th>Archivo</th>
-          <th>Vencimiento</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaDocumentos"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="turnos" class="section">
-  <div class="panel">
-    <h2>Turnos laborales</h2>
-    <div class="form-grid">
-      <select id="turnoTrabajador"></select>
-      <input id="turnoFecha" type="date">
-      <select id="turnoSistema">
-        <option>7x7</option>
-        <option>4x3</option>
-        <option>5x2</option>
-        <option>10x10</option>
-        <option>Especial</option>
-      </select>
-      <select id="turnoTipo">
-        <option>Día</option>
-        <option>Noche</option>
-      </select>
-      <input id="turnoHoras" type="number" placeholder="Horas normales">
-      <input id="turnoExtras" type="number" placeholder="Horas extra">
-      <button class="btn green" onclick="agregarTurno()">Registrar turno</button>
-    </div>
-  </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Trabajador</th>
-          <th>Fecha</th>
-          <th>Sistema</th>
-          <th>Tipo</th>
-          <th>Horas</th>
-          <th>Extras</th>
-          <th>Total</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaTurnos"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="accesos" class="section">
-  <div class="panel">
-    <h2>Control de acceso</h2>
-    <div class="form-grid">
-      <select id="accesoTrabajador"></select>
-      <input id="accesoFecha" type="date">
-      <select id="accesoEstado">
-        <option>Autorizado</option>
-        <option>Bloqueado</option>
-        <option>Pendiente</option>
-      </select>
-      <input id="accesoMotivo" placeholder="Motivo u observación">
-      <button class="btn green" onclick="agregarAcceso()">Registrar acceso</button>
-    </div>
-  </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Trabajador</th>
-          <th>Fecha</th>
-          <th>Estado</th>
-          <th>Motivo</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaAccesos"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="seguridad" class="section">
-  <div class="panel">
-    <h2>Seguridad minera</h2>
-    <div class="form-grid">
-      <select id="segTrabajador"></select>
-      <input id="segFecha" type="date">
-      <select id="segTipo">
-        <option>Charla 5 minutos</option>
-        <option>Observación</option>
-        <option>Incidente</option>
-        <option>Accidente</option>
-        <option>Entrega EPP</option>
-      </select>
-      <select id="segNivel">
-        <option>Bajo</option>
-        <option>Medio</option>
-        <option>Crítico</option>
-      </select>
-      <textarea id="segDescripcion" placeholder="Descripción"></textarea>
-      <button class="btn green" onclick="agregarSeguridad()">Registrar seguridad</button>
-    </div>
-  </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Trabajador</th>
-          <th>Fecha</th>
-          <th>Tipo</th>
-          <th>Nivel</th>
-          <th>Descripción</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaSeguridad"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="equipos" class="section">
-  <div class="panel">
-    <h2>Maquinaria y equipos</h2>
-    <div class="form-grid">
-      <input id="eqCodigo" placeholder="Código equipo">
-      <input id="eqNombre" placeholder="Nombre equipo">
-      <select id="eqTipo">
-        <option>Camión CAEX</option>
-        <option>Camioneta</option>
-        <option>Excavadora</option>
-        <option>Perforadora</option>
-        <option>Equipo auxiliar</option>
-      </select>
-      <select id="eqOperador"></select>
-      <select id="eqEstado">
-        <option>Operativo</option>
-        <option>Mantención</option>
-        <option>Fuera de servicio</option>
-      </select>
-      <button class="btn green" onclick="agregarEquipo()">Registrar equipo</button>
-    </div>
-  </div>
-
-  <div class="panel table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Código</th>
-          <th>Equipo</th>
-          <th>Tipo</th>
-          <th>Operador</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tablaEquipos"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="reportes" class="section">
-  <div class="panel">
-    <h2>Reportes profesionales</h2>
-    <div class="top-actions">
-      <button class="btn green" onclick="cargarDemo()">Cargar datos demo profesional</button>
-      <button class="btn dark" onclick="exportarGeneral()">Exportar Excel general</button>
-      <button class="btn orange" onclick="exportarPlantilla()">Descargar plantilla Excel</button>
-      <button class="btn red" onclick="borrarTodo()">Borrar todo</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Qué hace el sistema</h2>
-    <div class="info">
-      Importa Excel → separa datos por módulos → muestra trabajadores, faenas, contratistas, documentos, turnos, accesos, seguridad y maquinaria → exporta un Excel final con hojas profesionales.
-    </div>
-  </div>
-</section>
-
-<section id="historial" class="section">
-  <div class="panel table-wrap">
-    <h2>Historial de acciones</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Módulo</th>
-          <th>Acción</th>
-          <th>Detalle</th>
-        </tr>
-      </thead>
-      <tbody id="tablaHistorial"></tbody>
-    </table>
-  </div>
-</section>
-
-</main>
 </div>
+
+<div id="appView">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo" onclick="mostrarModulo('dashboard')">
+      MinerControl<br><span>Enterprise</span>
+    </div>
+
+    <div class="userbox">
+      <b id="userName">Administrador</b>
+      <small id="userRole">Admin</small>
+    </div>
+
+    <div class="nav">
+      <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Dashboard</button>
+      <button onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
+      <button onclick="mostrarModulo('pendientes',this)">⚠️ Pendientes PRO</button>
+      <button onclick="mostrarModulo('contratistas',this)">🏢 Contratistas</button>
+      <button onclick="mostrarModulo('faenas',this)">⛏️ Faenas</button>
+      <button onclick="mostrarModulo('documentos',this)">📁 Documentos</button>
+      <button onclick="mostrarModulo('lotes',this)">📦 Lotes</button>
+      <button onclick="mostrarModulo('turnos',this)">🕒 Turnos</button>
+      <button onclick="mostrarModulo('acceso',this)">🚪 Acceso</button>
+      <button onclick="mostrarModulo('seguridad',this)">🛡️ Seguridad</button>
+      <button onclick="mostrarModulo('maquinaria',this)">🚜 Maquinaria</button>
+      <button onclick="mostrarModulo('reportes',this)">📑 Reportes</button>
+      <button onclick="mostrarModulo('historial',this)">🧾 Historial</button>
+      <button onclick="mostrarModulo('acreditacion',this)">✅ Acreditación</button>
+      <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+      <h1 id="tituloModulo">Dashboard Operacional</h1>
+      <div class="top-actions">
+        <button class="btn-green" onclick="exportarExcel()">Exportar Excel</button>
+        <button class="btn-blue" onclick="cargarDemo()">Cargar demo</button>
+        <button class="btn-yellow" onclick="limpiarDuplicadosManual()">Limpiar duplicados</button>
+        <button class="btn-red" onclick="borrarTodo()">Borrar todo</button>
+      </div>
+    </div>
+
+    <section id="dashboard" class="module active">
+      <div class="grid">
+        <div class="card"><small>Trabajadores válidos</small><h2 id="kTrabajadores">0</h2></div>
+        <div class="card"><small>Pendientes</small><h2 id="kPendientes">0</h2></div>
+        <div class="card"><small>Contratistas</small><h2 id="kContratistas">0</h2></div>
+        <div class="card"><small>Faenas</small><h2 id="kFaenas">0</h2></div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><small>Documentos</small><h2 id="kDocumentos">0</h2></div>
+        <div class="card"><small>Lotes</small><h2 id="kLotes">0</h2></div>
+        <div class="card"><small>Alertas reales</small><h2 id="kCriticas">0</h2></div>
+        <div class="card"><small>Cumplimiento</small><h2 id="kCumplimiento">0%</h2></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><h2>Alertas críticas reales</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Trabajador</th>
+                <th>RUT</th>
+                <th>Documento</th>
+                <th>Contratista</th>
+                <th>Faena</th>
+                <th>Vencimiento</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="alertasBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="documentos" class="module">
+      <div class="section">
+        <div class="section-title"><h2>Importador PRO por lotes</h2></div>
+
+        <div class="import-box">
+          <h3>Subir uno o varios Excel</h3>
+          <p>Cada archivo se guarda como lote independiente. Los registros incompletos pasan a Pendientes PRO.</p>
+          <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="importarExcelPorLotes(event)">
+          <div class="preview" id="previewImport">Esperando archivos Excel...</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn-orange" onclick="exportarExcel()">Exportar Excel</button>
+          <button class="btn-blue" onclick="cargarDemo()">Cargar demo</button>
+          <button class="btn-green" onclick="guardar()">Guardar</button>
+          <button class="btn-red" onclick="borrarTodo()">Borrar todo</button>
+        </div>
+
+        <div class="filters">
+          <input id="buscarDocs" placeholder="Buscar trabajador, RUT, empresa, faena..." oninput="renderizar()">
+
+          <select id="filtroLote" onchange="renderizar()">
+            <option value="">Todos los lotes</option>
+          </select>
+
+          <select id="filtroFaena" onchange="renderizar()">
+            <option value="">Todas las faenas</option>
+          </select>
+
+          <select id="filtroDocumento" onchange="renderizar()">
+            <option value="">Todos los documentos</option>
+          </select>
+
+          <select id="filtroEstado" onchange="renderizar()">
+            <option value="">Todos los estados</option>
+            <option>Vigente</option>
+            <option>Por vencer</option>
+            <option>Vencido</option>
+            <option>Pendiente sin fecha</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Trabajador</th>
+                <th>RUT</th>
+                <th>Documento</th>
+                <th>Contratista</th>
+                <th>Faena</th>
+                <th>Cargo</th>
+                <th>Vencimiento</th>
+                <th>Estado</th>
+                <th>Lote</th>
+                <th>Archivo</th>
+              </tr>
+            </thead>
+            <tbody id="documentosBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="pendientes" class="module">
+      <div class="section">
+        <div class="section-title"><h2>Pendientes PRO</h2></div>
+        <p class="empty">Aquí quedan registros sin nombre, sin empresa, sin faena, sin cargo o sin fecha. No se mezclan con trabajadores válidos.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Motivo</th>
+                <th>Trabajador</th>
+                <th>RUT</th>
+                <th>Documento</th>
+                <th>Contratista</th>
+                <th>Faena</th>
+                <th>Cargo</th>
+                <th>Lote</th>
+                <th>Archivo</th>
+              </tr>
+            </thead>
+            <tbody id="pendientesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="lotes" class="module">
+      <div class="section">
+        <div class="section-title"><h2>Lotes de importación</h2></div>
+        <div id="lotesBody" class="lote-box"></div>
+      </div>
+    </section>
+
+    <section id="trabajadores" class="module">
+      <div class="section">
+        <div class="section-title"><h2>Trabajadores válidos ordenados alfabéticamente</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Trabajador</th>
+                <th>RUT</th>
+                <th>Contratista</th>
+                <th>Faena principal</th>
+                <th>Cargo</th>
+                <th>Documentos</th>
+                <th>Alertas reales</th>
+              </tr>
+            </thead>
+            <tbody id="trabajadoresBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="contratistas" class="module"></section>
+    <section id="faenas" class="module"></section>
+    <section id="turnos" class="module"></section>
+    <section id="acceso" class="module"></section>
+    <section id="seguridad" class="module"></section>
+    <section id="maquinaria" class="module"></section>
+    <section id="reportes" class="module"></section>
+    <section id="historial" class="module"></section>
+
+    <section id="acreditacion" class="module">
+      <div class="section">
+        <div class="section-title"><h2>Acreditación Documental</h2></div>
+
+        <div class="grid">
+          <div class="card"><small>Requisitos</small><h2 id="acTotal">0</h2></div>
+          <div class="card"><small>Migrados</small><h2 id="acMigrados">0</h2></div>
+          <div class="card"><small>Vencidos</small><h2 id="acVencidos">0</h2></div>
+          <div class="card"><small>Cumplimiento</small><h2 id="acCumplimiento">0%</h2></div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Contrato</th>
+                <th>Requisito</th>
+                <th>Emisión</th>
+                <th>Vencimiento</th>
+                <th>Estado</th>
+                <th>Migrado</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody id="acreditacionBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <script>
-let trabajadores=JSON.parse(localStorage.getItem("mc_trabajadores"))||[];
-let contratistas=JSON.parse(localStorage.getItem("mc_contratistas"))||[];
-let faenas=JSON.parse(localStorage.getItem("mc_faenas"))||[];
-let documentos=JSON.parse(localStorage.getItem("mc_documentos"))||[];
-let turnos=JSON.parse(localStorage.getItem("mc_turnos"))||[];
-let accesos=JSON.parse(localStorage.getItem("mc_accesos"))||[];
-let seguridad=JSON.parse(localStorage.getItem("mc_seguridad"))||[];
-let equipos=JSON.parse(localStorage.getItem("mc_equipos"))||[];
-let historial=JSON.parse(localStorage.getItem("mc_historial"))||[];
+const SUPABASE_URL = "https://zpuvwdkugphdeqdnobiq.supabase.co";
 
-function id(){
-  return Date.now().toString()+Math.floor(Math.random()*9999);
-}
+const SUPABASE_ANON_KEY = "sb_publishable_FRDg7FtQBHCT86bgSJ6fvw_OGdMlrIt";
 
-function guardar(){
-  localStorage.setItem("mc_trabajadores",JSON.stringify(trabajadores));
-  localStorage.setItem("mc_contratistas",JSON.stringify(contratistas));
-  localStorage.setItem("mc_faenas",JSON.stringify(faenas));
-  localStorage.setItem("mc_documentos",JSON.stringify(documentos));
-  localStorage.setItem("mc_turnos",JSON.stringify(turnos));
-  localStorage.setItem("mc_accesos",JSON.stringify(accesos));
-  localStorage.setItem("mc_seguridad",JSON.stringify(seguridad));
-  localStorage.setItem("mc_equipos",JSON.stringify(equipos));
-  localStorage.setItem("mc_historial",JSON.stringify(historial));
-}
+var supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
-function log(mod,acc,det){
-  historial.unshift({
-    fecha:new Date().toLocaleString("es-CL"),
-    mod,
-    acc,
-    det
-  });
-  guardar();
-}
+console.log("Supabase conectado correctamente");
+const USUARIOS={
+  admin:{pass:"admin123",nombre:"Administrador",rol:"Admin"},
+  tio:{pass:"tio123",nombre:"Usuario Tío",rol:"Cliente"}
+};
 
-function showSection(sec,btn){
-  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-  document.getElementById(sec).classList.add("active");
-  document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
-  btn.classList.add("active");
-  render();
-}
+let usuarioActual=null;
+let docs=[];
+let acreditaciones=[];
+let lotesImportacion=[];
+let contadorLotes=0;
 
-function limpiarTexto(x){
-  return String(x||"").trim();
-}
+let trabajadores=[];
+let contratistas=[];
+let faenas=[];
+let pendientes=[];
+let acceso=[];
+let seguridad=[];
+let reportes=[];
+let historial=[];
 
-function normalizarClave(x){
-  return String(x||"")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g,"")
-    .replace(/[^a-z0-9]/g,"");
-}
+function iniciarSesion(){
+  const u=document.getElementById("loginUser").value.trim();
+  const p=document.getElementById("loginPass").value.trim();
 
-function nombreTrab(idt){
-  let t=trabajadores.find(x=>x.id===idt);
-  return t?t.nombre:"Sin trabajador";
-}
-
-function obtenerTrabajador(idt){
-  return trabajadores.find(x=>x.id===idt);
-}
-
-function dias(fecha){
-  if(!fecha)return 99999;
-  return Math.ceil((new Date(fecha)-new Date())/(1000*60*60*24));
-}
-
-function estadoDoc(v){
-  if(!v)return"Pendiente";
-  if(dias(v)<0)return"Vencido";
-  if(dias(v)<=20)return"Pendiente";
-  return"Vigente";
-}
-
-function cls(x){
-  return String(x)
-    .toLowerCase()
-    .replaceAll(" ","")
-    .replace("crítico","critico")
-    .replace("fueradeservicio","fuera");
-}
-
-function opcionesTrab(){
-  let data=[...trabajadores]
-    .filter(t=>t.estado==="Activo")
-    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
-
-  return data.length
-    ? data.map(t=>`<option value="${t.id}">${t.nombre} - ${t.cargo}</option>`).join("")
-    : `<option value="">Sin trabajadores activos</option>`;
-}
-
-function renderSelects(){
-  trabContratista.innerHTML=contratistas.length
-    ? contratistas.map(c=>`<option>${c.nombre}</option>`).join("")
-    : `<option>Sin contratista</option>`;
-
-  trabFaena.innerHTML=faenas.length
-    ? faenas.map(f=>`<option>${f.nombre}</option>`).join("")
-    : `<option>Sin faena</option>`;
-
-  docTrabajador.innerHTML=`<option value="">Seleccionar trabajador</option>`+opcionesTrab();
-  turnoTrabajador.innerHTML=opcionesTrab();
-  accesoTrabajador.innerHTML=opcionesTrab();
-  segTrabajador.innerHTML=opcionesTrab();
-  eqOperador.innerHTML=`<option value="">Sin operador</option>`+opcionesTrab();
-}
-
-function ordenarTodo(){
-  trabajadores.sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  contratistas.sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  faenas.sort((a,b)=>a.nombre.localeCompare(b.nombre));
-}
-
-function agregarTrabajador(){
-  if(!trabNombre.value||!trabRut.value||!trabCargo.value){
-    alert("Completa nombre, RUT y cargo.");
+  if(!USUARIOS[u] || USUARIOS[u].pass!==p){
+    alert("Usuario o contraseña incorrectos");
     return;
   }
 
-  trabajadores.push({
-    id:id(),
-    nombre:trabNombre.value,
-    rut:trabRut.value,
-    cargo:trabCargo.value,
-    contratista:trabContratista.value,
-    faena:trabFaena.value,
-    estado:trabEstado.value
-  });
-
-  ordenarTodo();
-  log("Trabajadores","Crear",trabNombre.value);
-
-  trabNombre.value="";
-  trabRut.value="";
-  trabCargo.value="";
-
-  guardar();
-  render();
+  usuarioActual={id:u,...USUARIOS[u]};
+  localStorage.setItem("miner_session",JSON.stringify(usuarioActual));
+  iniciarApp();
 }
 
-function agregarContratista(){
-  if(!contNombre.value||!contRut.value){
-    alert("Completa empresa y RUT.");
+function cerrarSesion(){
+  localStorage.removeItem("miner_session");
+  location.reload();
+}
+
+function iniciarApp(){
+  document.getElementById("loginView").style.display="none";
+  document.getElementById("appView").style.display="block";
+  document.getElementById("userName").innerText=usuarioActual.nombre;
+  document.getElementById("userRole").innerText=usuarioActual.rol;
+  cargar();
+  renderizar();
+}
+
+function claveDatos(){
+  return "miner_docs_"+usuarioActual.id;
+}
+
+async function guardar(){
+
+  const { error } = await supabaseClient
+    .from('documentos')
+    .insert([
+      {
+        documento: JSON.stringify(docs),
+        estado: "activo",
+        archivo: "sistema",
+        lote: "general"
+      }
+    ]);
+
+  if(error){
+    console.error(error);
+    alert("Error guardando en Supabase");
     return;
   }
 
-  contratistas.push({
-    id:id(),
-    nombre:contNombre.value,
-    rut:contRut.value,
-    contrato:contContrato.value,
-    termino:contTermino.value,
-    estado:contEstado.value
+  console.log("Datos guardados en Supabase");
+  renderizar();
+}
+
+function cargar(){
+  const raw=localStorage.getItem(claveDatos());
+
+  if(raw){
+    const data=JSON.parse(raw);
+    docs=(data.docs||[]).map(limpiarDoc).filter(docUtil);
+    acreditaciones=data.acreditaciones||[];
+    lotesImportacion=data.lotesImportacion||[];
+    contadorLotes=data.contadorLotes||lotesImportacion.length||0;
+  }
+}
+
+function mostrarModulo(id,btn){
+  document.querySelectorAll(".module").forEach(m=>m.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+
+  const titulos={
+    dashboard:"Dashboard Operacional",
+    trabajadores:"Trabajadores",
+    pendientes:"Pendientes PRO",
+    contratistas:"Contratistas",
+    faenas:"Faenas",
+    documentos:"Documentos",
+    lotes:"Lotes de importación",
+    turnos:"Turnos",
+    acceso:"Acceso",
+    seguridad:"Seguridad",
+    maquinaria:"Maquinaria",
+    reportes:"Reportes",
+    historial:"Historial",
+    acreditacion:"Acreditación Documental"
+  };
+
+  document.getElementById("tituloModulo").innerText=titulos[id]||"MinerControl Enterprise";
+  renderizar();
+}
+
+function norm(v){
+  return String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+}
+
+function key(v){
+  return norm(v).replace(/[^a-z0-9]/g,"");
+}
+
+function safe(v,def){
+  if(v===undefined || v===null) return def;
+  const s=String(v).trim();
+  if(!s || s.toLowerCase()==="undefined" || s.toLowerCase()==="null") return def;
+  return s;
+}
+
+function valor(row,nombres){
+  const mapa={};
+
+  Object.keys(row).forEach(k=>{
+    mapa[key(k)]=row[k];
   });
 
-  ordenarTodo();
-  log("Contratistas","Crear",contNombre.value);
+  for(const n of nombres){
+    const buscado=key(n);
 
-  contNombre.value="";
-  contRut.value="";
-  contContrato.value="";
-  contTermino.value="";
-
-  guardar();
-  render();
-}
-
-function agregarFaena(){
-  if(!faenaNombre.value||!faenaArea.value){
-    alert("Completa faena y área.");
-    return;
-  }
-
-  faenas.push({
-    id:id(),
-    nombre:faenaNombre.value,
-    area:faenaArea.value,
-    supervisor:faenaSupervisor.value,
-    ubicacion:faenaUbicacion.value
-  });
-
-  ordenarTodo();
-  log("Faenas","Crear",faenaNombre.value);
-
-  faenaNombre.value="";
-  faenaArea.value="";
-  faenaSupervisor.value="";
-  faenaUbicacion.value="";
-
-  guardar();
-  render();
-}
-
-function agregarDocumento(){
-  if(!docTrabajador.value||!docVencimiento.value){
-    alert("Selecciona trabajador y vencimiento.");
-    return;
-  }
-
-  let archivo=document.getElementById("docArchivo").files[0];
-
-  documentos.push({
-    id:id(),
-    trabajadorId:docTrabajador.value,
-    tipo:docTipo.value,
-    vencimiento:docVencimiento.value,
-    archivo:archivo?archivo.name:"Sin archivo"
-  });
-
-  log("Documentos","Crear",docTipo.value);
-
-  resultadoDocumento.style.display="none";
-  docArchivo.value="";
-  docVencimiento.value="";
-
-  guardar();
-  render();
-}
-
-function leerDocumento(){
-  let archivo=docArchivo.files[0];
-
-  if(!archivo){
-    alert("Selecciona un documento primero.");
-    return;
-  }
-
-  let n=archivo.name.toLowerCase();
-  let d="Documento general";
-
-  if(n.includes("licencia")&&n.includes("med"))d="Licencia médica";
-  else if(n.includes("licencia")||n.includes("conducir"))d="Licencia de conducir";
-  else if(n.includes("contrato"))d="Contrato";
-  else if(n.includes("cedula")||n.includes("dni")||n.includes("rut"))d="Cédula de identidad";
-  else if(n.includes("induccion")||n.includes("inducción"))d="Inducción minera";
-  else if(n.includes("seguro"))d="Seguro laboral";
-  else if(n.includes("ocupacional")||n.includes("examen"))d="Examen ocupacional";
-
-  docTipo.value=d;
-  resultadoDocumento.style.display="block";
-  resultadoDocumento.innerHTML=`Documento detectado automáticamente: <b>${d}</b><br>Archivo: ${archivo.name}`;
-}
-
-function obtenerValor(obj,nombres){
-  for(let n of nombres){
-    if(obj[n]!==undefined&&obj[n]!==null&&String(obj[n]).trim()!==""){
-      return String(obj[n]).trim();
-    }
-  }
-
-  let keys=Object.keys(obj);
-
-  for(let k of keys){
-    let low=normalizarClave(k);
-
-    for(let n of nombres){
-      let nn=normalizarClave(n);
-
-      if(low.includes(nn)){
-        return String(obj[k]).trim();
+    for(const k in mapa){
+      if(k===buscado || k.includes(buscado) || buscado.includes(k)){
+        const v=safe(mapa[k],"");
+        if(v) return v;
       }
     }
   }
@@ -997,982 +849,848 @@ function obtenerValor(obj,nombres){
   return "";
 }
 
-function excelDate(v){
-  if(!v)return"";
+function detectarEncabezado(matriz){
+  const palabras=["nombre","trabajador","rut","empresa","contratista","faena","cargo","documento","vencimiento"];
+  let mejor=0;
+  let score=-1;
 
-  if(typeof v==="number"){
-    let d=XLSX.SSF.parse_date_code(v);
+  for(let i=0;i<Math.min(matriz.length,30);i++){
+    const fila=matriz[i]||[];
+    let s=0;
 
-    if(d){
-      return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
-    }
-  }
-
-  let s=String(v).trim();
-
-  if(s.includes("/")){
-    let p=s.split("/");
-
-    if(p.length===3){
-      return `${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;
-    }
-  }
-
-  return s;
-}
-
-function buscarOCrearTrabajador(nombre,rut,cargo,contratista,faena,estado){
-  let existe=trabajadores.find(t=>
-    (t.rut&&rut&&t.rut===rut)||
-    t.nombre.toLowerCase()===nombre.toLowerCase()
-  );
-
-  if(existe){
-    return {id:existe.id,creado:false};
-  }
-
-  let nuevo={
-    id:id(),
-    nombre:nombre,
-    rut:rut,
-    cargo:cargo||"Sin cargo",
-    contratista:contratista||"Sin contratista",
-    faena:faena||"Sin faena",
-    estado:estado||"Activo"
-  };
-
-  trabajadores.push(nuevo);
-
-  return {id:nuevo.id,creado:true};
-}
-
-function buscarOCrearContratista(nombre){
-  if(!nombre)nombre="Sin contratista";
-
-  let existe=contratistas.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase());
-
-  if(existe)return false;
-
-  contratistas.push({
-    id:id(),
-    nombre:nombre,
-    rut:"",
-    contrato:"Importado Excel",
-    termino:"",
-    estado:"Vigente"
-  });
-
-  return true;
-}
-
-function buscarOCrearFaena(nombre,area,ubicacion){
-  if(!nombre)nombre="Sin faena";
-
-  let existe=faenas.find(f=>f.nombre.toLowerCase()===nombre.toLowerCase());
-
-  if(existe)return false;
-
-  faenas.push({
-    id:id(),
-    nombre:nombre,
-    area:area||"Importado Excel",
-    supervisor:"",
-    ubicacion:ubicacion||area||""
-  });
-
-  return true;
-}
-
-function importarExcelTrabajadores(){
-  let archivo=excelTrabajadores.files[0];
-
-  if(!archivo){
-    alert("Selecciona un Excel primero.");
-    return;
-  }
-
-  let lector=new FileReader();
-
-  lector.onload=function(e){
-    try{
-      let wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
-      let totalTrab=0;
-      let totalDocs=0;
-      let totalTurnos=0;
-      let totalAccesos=0;
-      let totalSeguridad=0;
-      let totalEquipos=0;
-      let totalFaenas=0;
-      let totalContratistas=0;
-      let duplicados=0;
-
-      wb.SheetNames.forEach(nombreHoja=>{
-        let hoja=wb.Sheets[nombreHoja];
-        let filas=XLSX.utils.sheet_to_json(hoja,{defval:""});
-
-        filas.forEach(r=>{
-          let nombre=obtenerValor(r,["Nombre","Trabajador","Nombre completo","Empleado"]);
-          let rut=obtenerValor(r,["RUT","Rut","Documento identidad"]);
-          let cargo=obtenerValor(r,["Cargo","Puesto","Rol"]);
-          let contratista=obtenerValor(r,["Contratista","Empresa","Empresa contratista"])||"Sin contratista";
-          let faena=obtenerValor(r,["Faena","Mina","Proyecto","Centro"]);
-          let area=obtenerValor(r,["Área","Area","Gerencia"]);
-          let ubicacion=obtenerValor(r,["Ubicación","Ubicacion","Región","Region"]);
-          let estado=obtenerValor(r,["Estado","Estatus"])||"Activo";
-
-          let documento=obtenerValor(r,["Documento","Tipo documento","Certificado"]);
-          let vencimiento=excelDate(obtenerValor(r,["Vencimiento","Fecha vencimiento","Vence"]));
-
-          let fechaTurno=excelDate(obtenerValor(r,["Fecha turno","Fecha","Día","Dia"]));
-          let sistema=obtenerValor(r,["Sistema","Turno sistema","Jornada"])||"Especial";
-          let tipoTurno=obtenerValor(r,["Tipo turno","Turno","Día/Noche","Dia/Noche"]);
-          let horas=Number(obtenerValor(r,["Horas","Horas normales","Hrs"])||0);
-          let extras=Number(obtenerValor(r,["Extras","Horas extra","Horas extras"])||0);
-
-          let accesoEstado=obtenerValor(r,["Acceso","Estado acceso","Control acceso"]);
-          let accesoMotivo=obtenerValor(r,["Motivo","Observación acceso","Observacion acceso"]);
-
-          let segTipo=obtenerValor(r,["Seguridad","Evento seguridad","Tipo seguridad"]);
-          let segNivel=obtenerValor(r,["Nivel","Nivel seguridad","Criticidad"]);
-          let segDescripcion=obtenerValor(r,["Descripción","Descripcion","Detalle"]);
-
-          let eqCodigo=obtenerValor(r,["Código equipo","Codigo equipo","Equipo código"]);
-          let eqNombre=obtenerValor(r,["Equipo","Nombre equipo","Maquinaria"]);
-          let eqTipo=obtenerValor(r,["Tipo equipo","Tipo maquinaria"]);
-          let eqEstado=obtenerValor(r,["Estado equipo","Estado maquinaria"]);
-
-          let trabajadorId="";
-
-          if(nombre){
-            let res=buscarOCrearTrabajador(nombre,rut,cargo,contratista,faena||"Sin faena",estado);
-            trabajadorId=res.id;
-
-            if(res.creado)totalTrab++;
-            else duplicados++;
-
-            if(buscarOCrearContratista(contratista))totalContratistas++;
-            if(buscarOCrearFaena(faena||"Sin faena",area,ubicacion))totalFaenas++;
-          }
-
-          if(trabajadorId&&(documento||vencimiento)){
-            documentos.push({
-              id:id(),
-              trabajadorId:trabajadorId,
-              tipo:documento||"Documento general",
-              vencimiento:vencimiento,
-              archivo:archivo.name
-            });
-            totalDocs++;
-          }
-
-          if(trabajadorId&&(fechaTurno||horas>0||extras>0)){
-            turnos.push({
-              id:id(),
-              trabajadorId:trabajadorId,
-              fecha:fechaTurno||new Date().toISOString().slice(0,10),
-              sistema:sistema,
-              tipo:tipoTurno||"Día",
-              horas:horas,
-              extras:extras
-            });
-            totalTurnos++;
-          }
-
-          if(trabajadorId&&accesoEstado){
-            accesos.push({
-              id:id(),
-              trabajadorId:trabajadorId,
-              fecha:fechaTurno||new Date().toISOString().slice(0,10),
-              estado:accesoEstado,
-              motivo:accesoMotivo
-            });
-            totalAccesos++;
-          }
-
-          if(trabajadorId&&segTipo){
-            seguridad.push({
-              id:id(),
-              trabajadorId:trabajadorId,
-              fecha:fechaTurno||new Date().toISOString().slice(0,10),
-              tipo:segTipo,
-              nivel:segNivel||"Bajo",
-              descripcion:segDescripcion||"Importado desde Excel"
-            });
-            totalSeguridad++;
-          }
-
-          if(eqCodigo||eqNombre){
-            equipos.push({
-              id:id(),
-              codigo:eqCodigo||"SIN-CODIGO",
-              nombre:eqNombre||"Equipo importado",
-              tipo:eqTipo||"Equipo auxiliar",
-              operadorId:trabajadorId,
-              estado:eqEstado||"Operativo"
-            });
-            totalEquipos++;
-          }
-        });
+    fila.forEach(c=>{
+      const t=norm(c);
+      palabras.forEach(p=>{
+        if(t.includes(p)) s++;
       });
-
-      ordenarTodo();
-      log("Excel","Importar",archivo.name);
-      guardar();
-      render();
-
-      resultadoImportacion.style.display="block";
-      resultadoImportacion.innerHTML=`
-        Importación exitosa desde <b>${archivo.name}</b><br>
-        Trabajadores creados: <b>${totalTrab}</b><br>
-        Contratistas creados: <b>${totalContratistas}</b><br>
-        Faenas creadas: <b>${totalFaenas}</b><br>
-        Documentos creados: <b>${totalDocs}</b><br>
-        Turnos creados: <b>${totalTurnos}</b><br>
-        Accesos creados: <b>${totalAccesos}</b><br>
-        Seguridad creada: <b>${totalSeguridad}</b><br>
-        Equipos creados: <b>${totalEquipos}</b><br>
-        Duplicados detectados: <b>${duplicados}</b>
-      `;
-    }catch(err){
-      console.error(err);
-      alert("No se pudo leer el Excel. Revisa que sea .xlsx o .xls.");
-    }
-  };
-
-  lector.readAsArrayBuffer(archivo);
-}
-
-function agregarTurno(){
-  let h=Number(turnoHoras.value||0);
-  let e=Number(turnoExtras.value||0);
-
-  if(!turnoTrabajador.value||!turnoFecha.value||h<=0){
-    alert("Completa trabajador, fecha y horas.");
-    return;
-  }
-
-  if(h+e>24){
-    alert("No puede superar 24 horas.");
-    return;
-  }
-
-  turnos.push({
-    id:id(),
-    trabajadorId:turnoTrabajador.value,
-    fecha:turnoFecha.value,
-    sistema:turnoSistema.value,
-    tipo:turnoTipo.value,
-    horas:h,
-    extras:e
-  });
-
-  log("Turnos","Crear",nombreTrab(turnoTrabajador.value));
-
-  turnoHoras.value="";
-  turnoExtras.value="";
-
-  guardar();
-  render();
-}
-
-function agregarAcceso(){
-  if(!accesoTrabajador.value||!accesoFecha.value){
-    alert("Completa trabajador y fecha.");
-    return;
-  }
-
-  accesos.push({
-    id:id(),
-    trabajadorId:accesoTrabajador.value,
-    fecha:accesoFecha.value,
-    estado:accesoEstado.value,
-    motivo:accesoMotivo.value
-  });
-
-  log("Acceso","Crear",nombreTrab(accesoTrabajador.value));
-
-  accesoMotivo.value="";
-
-  guardar();
-  render();
-}
-
-function agregarSeguridad(){
-  if(!segTrabajador.value||!segFecha.value||!segDescripcion.value){
-    alert("Completa los datos.");
-    return;
-  }
-
-  seguridad.push({
-    id:id(),
-    trabajadorId:segTrabajador.value,
-    fecha:segFecha.value,
-    tipo:segTipo.value,
-    nivel:segNivel.value,
-    descripcion:segDescripcion.value
-  });
-
-  log("Seguridad","Crear",segTipo.value);
-
-  segDescripcion.value="";
-
-  guardar();
-  render();
-}
-
-function agregarEquipo(){
-  if(!eqCodigo.value||!eqNombre.value){
-    alert("Completa código y equipo.");
-    return;
-  }
-
-  equipos.push({
-    id:id(),
-    codigo:eqCodigo.value,
-    nombre:eqNombre.value,
-    tipo:eqTipo.value,
-    operadorId:eqOperador.value,
-    estado:eqEstado.value
-  });
-
-  log("Maquinaria","Crear",eqCodigo.value);
-
-  eqCodigo.value="";
-  eqNombre.value="";
-
-  guardar();
-  render();
-}
-
-function eliminarDe(arreglo,idv,mod){
-  if(!confirm("¿Eliminar registro?"))return;
-
-  if(arreglo==="trabajadores")trabajadores=trabajadores.filter(x=>x.id!==idv);
-  if(arreglo==="contratistas")contratistas=contratistas.filter(x=>x.id!==idv);
-  if(arreglo==="faenas")faenas=faenas.filter(x=>x.id!==idv);
-  if(arreglo==="documentos")documentos=documentos.filter(x=>x.id!==idv);
-  if(arreglo==="turnos")turnos=turnos.filter(x=>x.id!==idv);
-  if(arreglo==="accesos")accesos=accesos.filter(x=>x.id!==idv);
-  if(arreglo==="seguridad")seguridad=seguridad.filter(x=>x.id!==idv);
-  if(arreglo==="equipos")equipos=equipos.filter(x=>x.id!==idv);
-
-  log(mod,"Eliminar",idv);
-  guardar();
-  render();
-}
-
-function alertas(){
-  let a=[];
-
-  documentos.forEach(d=>{
-    let e=estadoDoc(d.vencimiento);
-
-    if(e==="Vencido"){
-      a.push("Documento vencido: "+d.tipo+" - "+nombreTrab(d.trabajadorId));
-    }
-
-    if(e==="Pendiente"){
-      a.push("Documento por vencer: "+d.tipo+" - "+nombreTrab(d.trabajadorId));
-    }
-  });
-
-  turnos.forEach(t=>{
-    if(Number(t.horas)+Number(t.extras)>12){
-      a.push("Jornada extensa: "+nombreTrab(t.trabajadorId));
-    }
-  });
-
-  accesos.forEach(x=>{
-    if(x.estado==="Bloqueado"){
-      a.push("Acceso bloqueado: "+nombreTrab(x.trabajadorId));
-    }
-  });
-
-  seguridad.forEach(s=>{
-    if(s.nivel==="Crítico"){
-      a.push("Evento crítico de seguridad: "+nombreTrab(s.trabajadorId));
-    }
-  });
-
-  equipos.forEach(e=>{
-    if(e.estado==="Fuera de servicio"){
-      a.push("Equipo fuera de servicio: "+e.codigo);
-    }
-  });
-
-  return a;
-}
-
-function renderDesgloseFaenas(){
-  if(!faenas.length){
-    desgloseFaenas.innerHTML=`<div class="okbox">Aún no hay faenas importadas.</div>`;
-    return;
-  }
-
-  desgloseFaenas.innerHTML=faenas.map(f=>{
-    let trab=trabajadores
-      .filter(t=>t.faena===f.nombre)
-      .sort((a,b)=>a.cargo.localeCompare(b.cargo)||a.nombre.localeCompare(b.nombre));
-
-    let cargos=[...new Set(trab.map(t=>t.cargo||"Sin cargo"))].sort();
-
-    let html=`<div class="faena-card">
-      <h3>${f.nombre}</h3>
-      <p><b>Ubicación:</b> ${f.ubicacion||"Sin ubicación"} | <b>Total trabajadores:</b> ${trab.length}</p>`;
-
-    cargos.forEach(c=>{
-      let lista=trab.filter(t=>(t.cargo||"Sin cargo")===c);
-
-      html+=`<div class="cargo-title">${c} (${lista.length})</div>
-      <div class="table-wrap">
-      <table>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>RUT</th>
-          <th>Contratista</th>
-          <th>Estado</th>
-          <th>Documentos</th>
-        </tr>
-      </thead>
-      <tbody>`;
-
-      lista.forEach(t=>{
-        let docs=documentos
-          .filter(d=>d.trabajadorId===t.id)
-          .map(d=>d.tipo)
-          .join(", ")||"Sin documentos";
-
-        html+=`<tr>
-          <td>${t.nombre}</td>
-          <td>${t.rut}</td>
-          <td>${t.contratista}</td>
-          <td><span class="badge ${cls(t.estado)}">${t.estado}</span></td>
-          <td>${docs}</td>
-        </tr>`;
-      });
-
-      html+=`</tbody></table></div>`;
     });
 
-    html+=`</div>`;
+    if(s>score){
+      score=s;
+      mejor=i;
+    }
+  }
 
-    return html;
-  }).join("");
+  return mejor;
 }
 
-function renderResumenFaenas(){
-  tablaResumenFaenas.innerHTML=faenas.map(f=>{
-    let trab=trabajadores.filter(t=>t.faena===f.nombre);
-    let ids=trab.map(t=>t.id);
+function filasDesdeHoja(sheet){
+  const matriz=XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false});
+  const headerIndex=detectarEncabezado(matriz);
+  const headers=(matriz[headerIndex]||[]).map((h,i)=>safe(h,"COL_"+i));
 
-    let vencidos=documentos.filter(d=>
-      ids.includes(d.trabajadorId)&&estadoDoc(d.vencimiento)==="Vencido"
-    ).length;
+  const filas=matriz.slice(headerIndex+1).filter(r=>r.some(c=>safe(c,"")));
 
-    let bloqueados=accesos.filter(a=>
-      ids.includes(a.trabajadorId)&&a.estado==="Bloqueado"
-    ).length;
-
-    return `<tr>
-      <td>${f.nombre}</td>
-      <td>${f.area}</td>
-      <td>${trab.length}</td>
-      <td>${vencidos}</td>
-      <td>${bloqueados}</td>
-    </tr>`;
-  }).join("");
+  return filas.map(f=>{
+    const obj={};
+    headers.forEach((h,i)=>{
+      obj[h]=f[i]||"";
+    });
+    return obj;
+  });
 }
 
-function render(){
-  renderSelects();
+function fecha(v){
+  if(!v) return "";
 
-  let q=(buscarTrabajador?.value||"").toLowerCase();
+  if(typeof v==="number"){
+    const d=XLSX.SSF.parse_date_code(v);
+    if(!d) return "";
+    return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
+  }
 
-  let trabajadoresFiltrados=trabajadores.filter(t=>
-    t.nombre.toLowerCase().includes(q)||
-    t.rut.toLowerCase().includes(q)||
-    t.cargo.toLowerCase().includes(q)||
-    t.contratista.toLowerCase().includes(q)||
-    t.faena.toLowerCase().includes(q)
+  const t=String(v).trim();
+
+  if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+
+  const p=t.split(/[\/\-.]/);
+
+  if(p.length===3){
+    let d=p[0],m=p[1],y=p[2];
+
+    if(y.length===2) y="20"+y;
+
+    if(d.length===4){
+      return `${d}-${String(m).padStart(2,"0")}-${String(y).padStart(2,"0")}`;
+    }
+
+    return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  }
+
+  return "";
+}
+
+function importarExcelPorLotes(e){
+  const archivos=[...e.target.files];
+
+  if(!archivos.length){
+    alert("Selecciona uno o más archivos Excel.");
+    return;
+  }
+
+  let totalImportados=0;
+  let resumen=[];
+  let promesas=[];
+
+  archivos.forEach(file=>{
+    contadorLotes++;
+
+    const loteId="LOTE-"+Date.now()+"-"+contadorLotes;
+
+    const lote={
+      id:loteId,
+      nombre:"Lote "+contadorLotes,
+      archivo:file.name,
+      fecha:new Date().toLocaleString(),
+      registros:0
+    };
+
+    lotesImportacion.push(lote);
+
+    const promesa=new Promise(resolve=>{
+      const reader=new FileReader();
+
+      reader.onload=ev=>{
+        const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+
+        wb.SheetNames.forEach(nombreHoja=>{
+          const filas=filasDesdeHoja(wb.Sheets[nombreHoja]);
+
+          filas.forEach(row=>{
+            const texto=JSON.stringify(row);
+
+            const trabajador=
+              valor(row,["Trabajador","Nombre","Nombre trabajador","Nombre completo","Empleado","Personal","Funcionario","Colaborador"]) ||
+              "Sin nombre";
+
+            const rut=
+              valor(row,["RUT","Rut","RUN","DNI","Cédula","Cedula","Documento identidad","Identificación"]) ||
+              detectarRut(texto) ||
+              "Sin RUT";
+
+            const contratista=
+              valor(row,["Contratista","Empresa","Empresa contratista","Razón social","Razon social","Proveedor","Subcontratista"]) ||
+              "Sin empresa";
+
+            const faena=
+              valor(row,["Faena","Obra","Proyecto","Centro de costo","Sucursal","Mina","Instalación","Instalacion"]) ||
+              "Sin faena";
+
+            const cargo=
+              valor(row,["Cargo","Puesto","Rol","Función","Funcion","Especialidad","Ocupación","Ocupacion"]) ||
+              "Sin cargo";
+
+            const documento=detectarDocumento(
+              valor(row,["Documento","Tipo documento","Nombre documento","Requisito","Archivo","Tipo"])+" "+texto
+            );
+
+            const emision=fecha(valor(row,["Emisión","Emision","Fecha emisión","Fecha emision","Inicio vigencia","Desde"]));
+
+            const vencimiento=fecha(valor(row,["Vencimiento","Fecha vencimiento","Fecha término","Fecha termino","Hasta","Vigencia hasta","Expiración","Expiracion"]));
+
+            const item=limpiarDoc({
+              trabajador,
+              rut,
+              contratista,
+              faena,
+              cargo,
+              documento,
+              emision,
+              vencimiento,
+              observaciones:valor(row,["Observaciones","Comentario","Comentarios"]),
+              modulo:moduloDocumento(documento),
+              loteId,
+              loteNombre:lote.nombre,
+              archivoOrigen:file.name,
+              hojaOrigen:nombreHoja,
+              fechaImportacion:lote.fecha
+            });
+
+            if(docUtil(item)){
+              docs.push(item);
+              lote.registros++;
+              totalImportados++;
+
+              if(item.modulo==="Acreditación Documental"){
+                acreditaciones.push({
+                  contrato:item.contratista+" / "+item.faena,
+                  requisito:item.documento,
+                  emision:item.emision,
+                  vencimiento:item.vencimiento,
+                  estado:estadoFecha(item.vencimiento),
+                  migrado:"Sí",
+                  observaciones:item.observaciones,
+                  loteId:item.loteId,
+                  archivoOrigen:item.archivoOrigen
+                });
+              }
+            }
+          });
+        });
+
+        resumen.push(`${lote.nombre}: ${file.name} — ${lote.registros} registros`);
+        resolve();
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    promesas.push(promesa);
+  });
+
+  Promise.all(promesas).then(()=>{
+    completarNombresPorRut();
+    limpiarDuplicados();
+
+    docs.sort((a,b)=>a.trabajador.localeCompare(b.trabajador,"es"));
+
+    document.getElementById("previewImport").innerHTML=
+      "Importación por lotes completada:<br>"+resumen.join("<br>");
+
+    guardar();
+    e.target.value="";
+
+    alert("Importación completada. Registros útiles: "+totalImportados);
+  });
+}
+
+function limpiarDoc(d){
+  return{
+    trabajador:safe(d.trabajador,"Sin nombre"),
+    rut:safe(d.rut,"Sin RUT"),
+    contratista:safe(d.contratista,"Sin empresa"),
+    faena:safe(d.faena,"Sin faena"),
+    cargo:safe(d.cargo,"Sin cargo"),
+    documento:safe(d.documento,"Documento general"),
+    emision:safe(d.emision,""),
+    vencimiento:safe(d.vencimiento,""),
+    observaciones:safe(d.observaciones,""),
+    modulo:safe(d.modulo,"Documentos"),
+    loteId:safe(d.loteId,"SIN-LOTE"),
+    loteNombre:safe(d.loteNombre,"Sin lote"),
+    archivoOrigen:safe(d.archivoOrigen,"Sin archivo"),
+    hojaOrigen:safe(d.hojaOrigen,""),
+    fechaImportacion:safe(d.fechaImportacion,"")
+  };
+}
+
+function docUtil(d){
+  return !(d.trabajador==="Sin nombre" && d.rut==="Sin RUT" && d.contratista==="Sin empresa" && d.faena==="Sin faena" && d.cargo==="Sin cargo" && d.documento==="Documento general");
+}
+
+function esPendiente(d){
+  return (
+    d.trabajador==="Sin nombre" ||
+    d.contratista==="Sin empresa" ||
+    d.faena==="Sin faena" ||
+    d.cargo==="Sin cargo" ||
+    estadoFecha(d.vencimiento)==="Pendiente sin fecha"
   );
-
-  tablaTrabajadores.innerHTML=trabajadoresFiltrados.map(t=>`
-    <tr>
-      <td>${t.nombre}</td>
-      <td>${t.rut}</td>
-      <td>${t.cargo}</td>
-      <td>${t.contratista}</td>
-      <td>${t.faena}</td>
-      <td><span class="badge ${cls(t.estado)}">${t.estado}</span></td>
-      <td><button class="btn red small" onclick="eliminarDe('trabajadores','${t.id}','Trabajadores')">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  tablaContratistas.innerHTML=contratistas.map(c=>`
-    <tr>
-      <td>${c.nombre}</td>
-      <td>${c.rut}</td>
-      <td>${c.contrato}</td>
-      <td>${c.termino}</td>
-      <td><span class="badge ${cls(c.estado)}">${c.estado}</span></td>
-      <td>${trabajadores.filter(t=>t.contratista===c.nombre).length}</td>
-      <td><button class="btn red small" onclick="eliminarDe('contratistas','${c.id}','Contratistas')">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  tablaFaenas.innerHTML=faenas.map(f=>`
-    <tr>
-      <td>${f.nombre}</td>
-      <td>${f.area}</td>
-      <td>${f.supervisor}</td>
-      <td>${f.ubicacion}</td>
-      <td>${trabajadores.filter(t=>t.faena===f.nombre).length}</td>
-      <td><button class="btn red small" onclick="eliminarDe('faenas','${f.id}','Faenas')">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  tablaDocumentos.innerHTML=documentos.map(d=>{
-    let e=estadoDoc(d.vencimiento);
-
-    return `<tr>
-      <td>${nombreTrab(d.trabajadorId)}</td>
-      <td>${d.tipo}</td>
-      <td>${d.archivo||"Sin archivo"}</td>
-      <td>${d.vencimiento}</td>
-      <td><span class="badge ${cls(e)}">${e}</span></td>
-      <td><button class="btn red small" onclick="eliminarDe('documentos','${d.id}','Documentos')">Eliminar</button></td>
-    </tr>`;
-  }).join("");
-
-  tablaTurnos.innerHTML=turnos.map(t=>`
-    <tr>
-      <td>${nombreTrab(t.trabajadorId)}</td>
-      <td>${t.fecha}</td>
-      <td>${t.sistema}</td>
-      <td>${t.tipo}</td>
-      <td>${t.horas}</td>
-      <td>${t.extras}</td>
-      <td>${Number(t.horas)+Number(t.extras)}</td>
-      <td><button class="btn red small" onclick="eliminarDe('turnos','${t.id}','Turnos')">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  tablaAccesos.innerHTML=accesos.map(a=>`
-    <tr>
-      <td>${nombreTrab(a.trabajadorId)}</td>
-      <td>${a.fecha}</td>
-      <td><span class="badge ${cls(a.estado)}">${a.estado}</span></td>
-      <td>${a.motivo}</td>
-      <td><button class="btn red small" onclick="eliminarDe('accesos','${a.id}','Acceso')">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  tablaSeguridad.innerHTML=seguridad.map(s=>`
-    <tr>
-      <td>${nombreTrab(s.trabajadorId)}</td>
-      <td>${s.fecha}</td>
-      <td>${s.tipo}</td>
-      <td><span class="badge ${cls(s.nivel)}">${s.nivel}</span></td>
-      <td>${s.descripcion}</td>
-      <td><button class="btn red small" onclick="eliminarDe('seguridad','${s.id}','Seguridad')">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  tablaEquipos.innerHTML=equipos.map(e=>`
-    <tr>
-      <td>${e.codigo}</td>
-      <td>${e.nombre}</td>
-      <td>${e.tipo}</td>
-      <td>${e.operadorId?nombreTrab(e.operadorId):"Sin operador"}</td>
-      <td><span class="badge ${cls(e.estado)}">${e.estado}</span></td>
-      <td><button class="btn red small" onclick="eliminarDe('equipos','${e.id}','Maquinaria')">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  tablaHistorial.innerHTML=historial.map(h=>`
-    <tr>
-      <td>${h.fecha}</td>
-      <td>${h.mod}</td>
-      <td>${h.acc}</td>
-      <td>${h.det}</td>
-    </tr>
-  `).join("");
-
-  renderDesgloseFaenas();
-  renderResumenFaenas();
-
-  let al=alertas();
-
-  kpiTrabajadores.textContent=trabajadores.filter(t=>t.estado==="Activo").length;
-  kpiContratistas.textContent=contratistas.length;
-  kpiFaenas.textContent=faenas.length;
-  kpiVencidos.textContent=documentos.filter(d=>estadoDoc(d.vencimiento)==="Vencido").length;
-  kpiBloqueados.textContent=accesos.filter(a=>a.estado==="Bloqueado").length;
-  kpiAlertas.textContent=al.length;
-
-  alertasDashboard.innerHTML=al.length
-    ? al.map(x=>`<div class="alert">${x}</div>`).join("")
-    : `<div class="okbox">Operación sin alertas críticas.</div>`;
 }
 
-function cargarDemo(){
-  contratistas=[
-    {
-      id:id(),
-      nombre:"Codelco División Norte",
-      rut:"61.704.000-K",
-      contrato:"CD-2026-001",
-      termino:"2026-12-31",
-      estado:"Vigente"
-    },
-    {
-      id:id(),
-      nombre:"Mantención Andina SpA",
-      rut:"76.111.222-3",
-      contrato:"MA-2026-045",
-      termino:"2026-11-30",
-      estado:"Vigente"
+function motivoPendiente(d){
+  let motivos=[];
+
+  if(d.trabajador==="Sin nombre") motivos.push("Sin nombre");
+  if(d.contratista==="Sin empresa") motivos.push("Sin empresa");
+  if(d.faena==="Sin faena") motivos.push("Sin faena");
+  if(d.cargo==="Sin cargo") motivos.push("Sin cargo");
+  if(estadoFecha(d.vencimiento)==="Pendiente sin fecha") motivos.push("Sin fecha");
+
+  return motivos.join(", ");
+}
+
+function completarNombresPorRut(){
+  const mapa={};
+
+  docs.forEach(d=>{
+    if(d.rut!=="Sin RUT" && d.trabajador!=="Sin nombre"){
+      mapa[d.rut]=d.trabajador;
     }
-  ];
+  });
 
-  faenas=[
-    {
-      id:id(),
-      nombre:"Rajo Norte",
-      area:"Extracción",
-      supervisor:"Luis Fernández",
-      ubicacion:"Sector Norte"
-    },
-    {
-      id:id(),
-      nombre:"Planta Concentradora",
-      area:"Procesamiento",
-      supervisor:"Camila Herrera",
-      ubicacion:"Zona Planta"
+  docs.forEach(d=>{
+    if(d.trabajador==="Sin nombre" && mapa[d.rut]){
+      d.trabajador=mapa[d.rut];
     }
-  ];
+  });
+}
 
-  trabajadores=[
-    {
-      id:id(),
-      nombre:"Dylan Mardones",
-      rut:"21688546-5",
-      cargo:"Gerente general",
-      contratista:"Codelco División Norte",
-      faena:"Rajo Norte",
-      estado:"Activo"
-    },
-    {
-      id:id(),
-      nombre:"Carlos Rojas",
-      rut:"12.345.678-9",
-      cargo:"Operador CAEX",
-      contratista:"Codelco División Norte",
-      faena:"Rajo Norte",
-      estado:"Activo"
-    },
-    {
-      id:id(),
-      nombre:"María González",
-      rut:"18.456.321-2",
-      cargo:"Prevencionista",
-      contratista:"Mantención Andina SpA",
-      faena:"Planta Concentradora",
-      estado:"Activo"
-    }
-  ];
+function limpiarDuplicados(){
+  const vistos=new Set();
 
-  documentos=[
-    {
-      id:id(),
-      trabajadorId:trabajadores[0].id,
-      tipo:"Inducción minera",
-      vencimiento:"2026-12-30",
-      archivo:"demo_induccion.pdf"
-    },
-    {
-      id:id(),
-      trabajadorId:trabajadores[1].id,
-      tipo:"Licencia interna",
-      vencimiento:"2024-01-01",
-      archivo:"licencia_caex.pdf"
-    }
-  ];
+  docs=docs.filter(d=>{
+    const clave=[
+      d.rut,
+      d.trabajador,
+      d.documento,
+      d.archivoOrigen,
+      d.vencimiento
+    ].join("|");
 
-  turnos=[
-    {
-      id:id(),
-      trabajadorId:trabajadores[0].id,
-      fecha:"2026-05-05",
-      sistema:"5x2",
-      tipo:"Día",
-      horas:8,
-      extras:1
-    },
-    {
-      id:id(),
-      trabajadorId:trabajadores[1].id,
-      fecha:"2026-05-05",
-      sistema:"7x7",
-      tipo:"Día",
-      horas:10,
-      extras:3
-    }
-  ];
+    if(vistos.has(clave)) return false;
 
-  accesos=[
-    {
-      id:id(),
-      trabajadorId:trabajadores[0].id,
-      fecha:"2026-05-05",
-      estado:"Autorizado",
-      motivo:"Documentación vigente"
-    },
-    {
-      id:id(),
-      trabajadorId:trabajadores[1].id,
-      fecha:"2026-05-05",
-      estado:"Bloqueado",
-      motivo:"Licencia vencida"
-    }
-  ];
+    vistos.add(clave);
+    return true;
+  });
+}
 
-  seguridad=[
-    {
-      id:id(),
-      trabajadorId:trabajadores[2].id,
-      fecha:"2026-05-05",
-      tipo:"Observación",
-      nivel:"Medio",
-      descripcion:"Falta señalización en zona de tránsito"
-    }
-  ];
-
-  equipos=[
-    {
-      id:id(),
-      codigo:"CAEX-204",
-      nombre:"Camión extracción 204",
-      tipo:"Camión CAEX",
-      operadorId:trabajadores[1].id,
-      estado:"Operativo"
-    }
-  ];
-
-  historial=[];
-
-  log("Sistema","Carga demo","Datos empresariales cargados");
-
+function limpiarDuplicadosManual(){
+  limpiarDuplicados();
   guardar();
-  render();
+  alert("Duplicados eliminados.");
 }
 
-function borrarTodo(){
-  if(!confirm("¿Borrar todo?"))return;
+function detectarRut(t){
+  const m=String(t).match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]/);
+  return m?m[0].toUpperCase():"";
+}
 
+function detectarDocumento(t){
+  t=norm(t);
+
+  if(t.includes("licencia medica")) return "Licencia médica";
+  if(t.includes("contrato") || t.includes("anexo")) return "Contrato";
+  if(t.includes("seguro") || t.includes("mutual") || t.includes("achs") || t.includes("ist")) return "Seguro laboral";
+  if(t.includes("examen") || t.includes("ocupacional") || t.includes("preocupacional")) return "Examen ocupacional";
+  if(t.includes("licencia interna") || t.includes("credencial") || t.includes("pase interno")) return "Licencia interna";
+  if(t.includes("cedula") || t.includes("carnet")) return "Cédula";
+  if(t.includes("induccion") || t.includes("curso") || t.includes("charla")) return "Inducción minera";
+
+  return "Documento general";
+}
+
+function moduloDocumento(doc){
+  if(doc==="Licencia médica") return "Reportes";
+  if(doc==="Licencia interna") return "Acceso";
+  if(doc==="Inducción minera") return "Seguridad";
+  if(doc==="Cédula") return "Trabajadores";
+  if(["Contrato","Seguro laboral","Examen ocupacional"].includes(doc)) return "Acreditación Documental";
+  return "Documentos";
+}
+
+function estadoFecha(f){
+  if(!f) return "Pendiente sin fecha";
+
+  const fecha=new Date(f);
+  if(isNaN(fecha)) return "Pendiente sin fecha";
+
+  const dias=Math.ceil((fecha-new Date())/86400000);
+
+  if(dias<0) return "Vencido";
+  if(dias<=30) return "Por vencer";
+  return "Vigente";
+}
+
+function esAlertaReal(d){
+  const e=estadoFecha(d.vencimiento);
+  return e==="Vencido" || e==="Por vencer";
+}
+
+function badge(e){
+  if(e==="Vigente") return '<span class="badge ok">Vigente</span>';
+  if(e==="Por vencer") return '<span class="badge warn">Por vencer</span>';
+  if(e==="Vencido") return '<span class="badge bad">Vencido</span>';
+  return '<span class="badge pending">Pendiente sin fecha</span>';
+}
+async function guardarTrabajadoresSupabase(){
+
+    if(!trabajadores.length) return;
+
+    const payload=trabajadores.map(t=>({
+        trabajador:t.trabajador || "",
+        rut:t.rut || "",
+        contratista:t.contratista || "",
+        faena:t.faena || "",
+        cargo:t.cargo || ""
+    }));
+
+    const { error } = await supabaseClient
+    .from("trabajadores")
+    .insert(payload);
+
+    if(error){
+        console.error("Error guardando trabajador:", error);
+    }else{
+        console.log("Trabajadores guardados en Supabase");
+    }
+}
+function separar(){
   trabajadores=[];
   contratistas=[];
   faenas=[];
-  documentos=[];
-  turnos=[];
-  accesos=[];
+  pendientes=[];
+  acceso=[];
   seguridad=[];
-  equipos=[];
+  reportes=[];
   historial=[];
 
-  guardar();
-  render();
-}
+  const tm={};
+  const cm={};
+  const fm={};
 
-function prepararTrabajadoresExport(){
-  return trabajadores.map(t=>({
-    Nombre:t.nombre,
-    RUT:t.rut,
-    Cargo:t.cargo,
-    Contratista:t.contratista,
-    Faena:t.faena,
-    Estado:t.estado
-  }));
-}
+  docs.forEach(d=>{
+    if(esPendiente(d)){
+      pendientes.push(d);
+    }
 
-function prepararContratistasExport(){
-  return contratistas.map(c=>({
-    Empresa:c.nombre,
-    RUT:c.rut,
-    Contrato:c.contrato,
-    Termino:c.termino,
-    Estado:c.estado,
-    Trabajadores:trabajadores.filter(t=>t.contratista===c.nombre).length
-  }));
-}
+    if(d.trabajador!=="Sin nombre"){
+      const keyTrab=d.rut!=="Sin RUT"?d.rut:d.trabajador;
 
-function prepararFaenasExport(){
-  return faenas.map(f=>({
-    Faena:f.nombre,
-    Area:f.area,
-    Supervisor:f.supervisor,
-    Ubicacion:f.ubicacion,
-    Trabajadores:trabajadores.filter(t=>t.faena===f.nombre).length
-  }));
-}
+      if(!tm[keyTrab]){
+        tm[keyTrab]={...d,total:0,alertas:0};
+      }
 
-function prepararDocumentosExport(){
-  return documentos.map(d=>({
-    Trabajador:nombreTrab(d.trabajadorId),
-    Documento:d.tipo,
-    Archivo:d.archivo||"Sin archivo",
-    Vencimiento:d.vencimiento,
-    Estado:estadoDoc(d.vencimiento)
-  }));
-}
+      tm[keyTrab].total++;
 
-function prepararTurnosExport(){
-  return turnos.map(t=>({
-    Trabajador:nombreTrab(t.trabajadorId),
-    Fecha:t.fecha,
-    Sistema:t.sistema,
-    Tipo:t.tipo,
-    Horas:t.horas,
-    Extras:t.extras,
-    Total:Number(t.horas||0)+Number(t.extras||0)
-  }));
-}
+      if(esAlertaReal(d)){
+        tm[keyTrab].alertas++;
+      }
+    }
 
-function prepararAccesosExport(){
-  return accesos.map(a=>({
-    Trabajador:nombreTrab(a.trabajadorId),
-    Fecha:a.fecha,
-    Estado:a.estado,
-    Motivo:a.motivo
-  }));
-}
+    if(d.contratista!=="Sin empresa"){
+      if(!cm[d.contratista]){
+        cm[d.contratista]={nombre:d.contratista,total:0,trabajadores:new Set(),items:[]};
+      }
 
-function prepararSeguridadExport(){
-  return seguridad.map(s=>({
-    Trabajador:nombreTrab(s.trabajadorId),
-    Fecha:s.fecha,
-    Tipo:s.tipo,
-    Nivel:s.nivel,
-    Descripcion:s.descripcion
-  }));
-}
+      cm[d.contratista].total++;
+      cm[d.contratista].trabajadores.add(d.rut!=="Sin RUT"?d.rut:d.trabajador);
+      cm[d.contratista].items.push(d);
+    }
 
-function prepararEquiposExport(){
-  return equipos.map(e=>({
-    Codigo:e.codigo,
-    Equipo:e.nombre,
-    Tipo:e.tipo,
-    Operador:e.operadorId?nombreTrab(e.operadorId):"Sin operador",
-    Estado:e.estado
-  }));
-}
+    if(d.faena!=="Sin faena"){
+      if(!fm[d.faena]){
+        fm[d.faena]={nombre:d.faena,total:0,trabajadores:new Set(),items:[]};
+      }
 
-function prepararDesgloseFaenasExport(){
-  let rows=[];
+      fm[d.faena].total++;
+      fm[d.faena].trabajadores.add(d.rut!=="Sin RUT"?d.rut:d.trabajador);
+      fm[d.faena].items.push(d);
+    }
 
-  faenas.forEach(f=>{
-    trabajadores.filter(t=>t.faena===f.nombre).forEach(t=>{
-      rows.push({
-        Faena:f.nombre,
-        Area:f.area,
-        Ubicacion:f.ubicacion,
-        Cargo:t.cargo,
-        Trabajador:t.nombre,
-        RUT:t.rut,
-        Contratista:t.contratista,
-        Estado:t.estado,
-        Documentos:documentos
-          .filter(d=>d.trabajadorId===t.id)
-          .map(d=>d.tipo+" ("+estadoDoc(d.vencimiento)+")")
-          .join(", ")||"Sin documentos"
-      });
+    if(d.modulo==="Acceso") acceso.push(d);
+    if(d.modulo==="Seguridad") seguridad.push(d);
+    if(d.modulo==="Reportes") reportes.push(d);
+
+    historial.push({
+      fecha:d.fechaImportacion || new Date().toLocaleDateString(),
+      accion:"Documento importado",
+      detalle:d.trabajador+" - "+d.documento,
+      modulo:d.modulo
     });
   });
 
-  return rows;
+  trabajadores=Object.values(tm).sort((a,b)=>a.trabajador.localeCompare(b.trabajador,"es"));
+guardarTrabajadoresSupabase();
+  contratistas=Object.values(cm).map(c=>({
+    ...c,
+    trabajadores:c.trabajadores.size,
+    items:c.items.sort((a,b)=>a.trabajador.localeCompare(b.trabajador,"es"))
+  })).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
+
+  faenas=Object.values(fm).map(f=>({
+    ...f,
+    trabajadores:f.trabajadores.size,
+    items:f.items.sort((a,b)=>a.trabajador.localeCompare(b.trabajador,"es"))
+  })).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
+
+  pendientes=pendientes.sort((a,b)=>a.trabajador.localeCompare(b.trabajador,"es"));
 }
 
-function prepararResumenExport(){
-  let al=alertas();
-
-  return [
-    {Indicador:"Trabajadores activos",Valor:trabajadores.filter(t=>t.estado==="Activo").length},
-    {Indicador:"Contratistas",Valor:contratistas.length},
-    {Indicador:"Faenas",Valor:faenas.length},
-    {Indicador:"Documentos vencidos",Valor:documentos.filter(d=>estadoDoc(d.vencimiento)==="Vencido").length},
-    {Indicador:"Accesos bloqueados",Valor:accesos.filter(a=>a.estado==="Bloqueado").length},
-    {Indicador:"Alertas críticas",Valor:al.length}
-  ];
+function renderizar(){
+  separar();
+  renderDashboard();
+  renderDocumentos();
+  renderTrabajadores();
+  renderPendientes();
+  renderContratistas();
+  renderFaenas();
+  renderLotes();
+  renderModuloSimple("turnos","Turnos",[]);
+  renderModuloSimple("acceso","Control de Acceso",acceso);
+  renderModuloSimple("seguridad","Seguridad",seguridad);
+  renderModuloSimple("maquinaria","Maquinaria",[]);
+  renderModuloSimple("reportes","Reportes",reportes);
+  renderHistorial();
+  renderAcreditacion();
+  renderFiltros();
 }
 
-function addSheet(wb,data,name){
-  let sheet=XLSX.utils.json_to_sheet(data.length?data:[{Info:"Sin datos"}]);
-  XLSX.utils.book_append_sheet(wb,sheet,name);
+function renderDashboard(){
+  const criticas=docs.filter(esAlertaReal).length;
+  const vigentes=docs.filter(d=>estadoFecha(d.vencimiento)==="Vigente").length;
+  const cumplimiento=docs.length?Math.round((vigentes/docs.length)*100):0;
+
+  kTrabajadores.innerText=trabajadores.length;
+  kPendientes.innerText=pendientes.length;
+  kContratistas.innerText=contratistas.length;
+  kFaenas.innerText=faenas.length;
+  kDocumentos.innerText=docs.length;
+  kLotes.innerText=lotesImportacion.length;
+  kCriticas.innerText=criticas;
+  kCumplimiento.innerText=cumplimiento+"%";
+
+  const alertas=docs.filter(esAlertaReal);
+
+  alertasBody.innerHTML=alertas.length?alertas.map(d=>`
+    <tr>
+      <td>${d.trabajador}</td>
+      <td>${d.rut}</td>
+      <td>${d.documento}</td>
+      <td>${d.contratista}</td>
+      <td>${d.faena}</td>
+      <td>${d.vencimiento||"-"}</td>
+      <td>${badge(estadoFecha(d.vencimiento))}</td>
+    </tr>
+  `).join(""):`<tr><td colspan="7" class="empty">Sin alertas críticas reales.</td></tr>`;
 }
 
-function exportarGeneral(){
-  const wb=XLSX.utils.book_new();
+function docsFiltrados(){
+  const q=(buscarDocs?.value||"").toLowerCase();
+  const lote=filtroLote?.value||"";
+  const faena=filtroFaena?.value||"";
+  const documento=filtroDocumento?.value||"";
+  const estado=filtroEstado?.value||"";
 
-  addSheet(wb,prepararResumenExport(),"Resumen");
-  addSheet(wb,prepararTrabajadoresExport(),"Trabajadores");
-  addSheet(wb,prepararContratistasExport(),"Contratistas");
-  addSheet(wb,prepararFaenasExport(),"Faenas");
-  addSheet(wb,prepararDesgloseFaenasExport(),"Faenas por cargo");
-  addSheet(wb,prepararDocumentosExport(),"Documentos");
-  addSheet(wb,prepararTurnosExport(),"Turnos");
-  addSheet(wb,prepararAccesosExport(),"Accesos");
-  addSheet(wb,prepararSeguridadExport(),"Seguridad");
-  addSheet(wb,prepararEquiposExport(),"Maquinaria");
-  addSheet(wb,historial,"Historial");
+  return docs.filter(d=>{
+    return JSON.stringify(d).toLowerCase().includes(q)
+      && (!lote || d.loteId===lote)
+      && (!faena || d.faena===faena)
+      && (!documento || d.documento===documento)
+      && (!estado || estadoFecha(d.vencimiento)===estado);
+  }).sort((a,b)=>a.trabajador.localeCompare(b.trabajador,"es"));
+}
 
-  XLSX.writeFile(wb,"MinerControl_Reporte_General_Profesional.xlsx");
+function renderDocumentos(){
+  const arr=docsFiltrados();
 
-  log("Excel","Exportar","Reporte general profesional");
+  documentosBody.innerHTML=arr.length?arr.map(d=>`
+    <tr>
+      <td>${d.trabajador}</td>
+      <td>${d.rut}</td>
+      <td>${d.documento}</td>
+      <td>${d.contratista}</td>
+      <td>${d.faena}</td>
+      <td>${d.cargo}</td>
+      <td>${d.vencimiento||"-"}</td>
+      <td>${badge(estadoFecha(d.vencimiento))}</td>
+      <td>${d.loteNombre}</td>
+      <td>${d.archivoOrigen}</td>
+    </tr>
+  `).join(""):`<tr><td colspan="10" class="empty">Sin documentos importados.</td></tr>`;
+}
+
+function renderTrabajadores(){
+  trabajadoresBody.innerHTML=trabajadores.length?trabajadores.map(t=>`
+    <tr>
+      <td>${t.trabajador}</td>
+      <td>${t.rut}</td>
+      <td>${t.contratista}</td>
+      <td>${t.faena}</td>
+      <td>${t.cargo}</td>
+      <td>${t.total}</td>
+      <td>${t.alertas}</td>
+    </tr>
+  `).join(""):`<tr><td colspan="7" class="empty">Sin trabajadores válidos.</td></tr>`;
+}
+
+function renderPendientes(){
+  pendientesBody.innerHTML=pendientes.length?pendientes.map(d=>`
+    <tr>
+      <td>${motivoPendiente(d)}</td>
+      <td>${d.trabajador}</td>
+      <td>${d.rut}</td>
+      <td>${d.documento}</td>
+      <td>${d.contratista}</td>
+      <td>${d.faena}</td>
+      <td>${d.cargo}</td>
+      <td>${d.loteNombre}</td>
+      <td>${d.archivoOrigen}</td>
+    </tr>
+  `).join(""):`<tr><td colspan="9" class="empty">No hay pendientes.</td></tr>`;
+}
+
+function renderContratistas(){
+  document.getElementById("contratistas").innerHTML=`
+    <div class="section">
+      <div class="section-title"><h2>Contratistas</h2></div>
+      ${contratistas.length?contratistas.map(c=>`
+        <div class="group-title">${c.nombre} · ${c.trabajadores} trabajadores · ${c.total} documentos</div>
+        ${tablaBasica(c.items)}
+      `).join(""):`<p class="empty">Sin contratistas importados.</p>`}
+    </div>
+  `;
+}
+
+function renderFaenas(){
+  document.getElementById("faenas").innerHTML=`
+    <div class="section">
+      <div class="section-title"><h2>Faenas separadas automáticamente</h2></div>
+      ${faenas.length?faenas.map(f=>`
+        <div class="group-title">${f.nombre} · ${f.trabajadores} trabajadores · ${f.total} documentos</div>
+        ${tablaBasica(f.items)}
+      `).join(""):`<p class="empty">Sin faenas importadas.</p>`}
+    </div>
+  `;
+}
+
+function renderLotes(){
+  const box=document.getElementById("lotesBody");
+
+  box.innerHTML=lotesImportacion.length?lotesImportacion.map(l=>`
+    <div class="lote-card">
+      <h3>${l.nombre}</h3>
+      <p><b>Archivo:</b> ${l.archivo}</p>
+      <p><b>Fecha:</b> ${l.fecha}</p>
+      <p><b>Registros:</b> ${docs.filter(d=>d.loteId===l.id).length}</p>
+      <button class="btn-blue" onclick="verLote('${l.id}')">Ver lote</button>
+      <button class="btn-red" onclick="borrarLote('${l.id}')" style="margin-top:8px;">Borrar lote</button>
+    </div>
+  `).join(""):`<p class="empty">Aún no hay lotes importados.</p>`;
+}
+
+function verLote(id){
+  mostrarModulo("documentos");
+  document.getElementById("filtroLote").value=id;
+  renderizar();
+}
+
+function borrarLote(id){
+  if(!confirm("¿Seguro que quieres borrar este lote completo?")) return;
+
+  docs=docs.filter(d=>d.loteId!==id);
+  acreditaciones=acreditaciones.filter(a=>a.loteId!==id);
+  lotesImportacion=lotesImportacion.filter(l=>l.id!==id);
 
   guardar();
-  render();
 }
 
-function exportarPlantilla(){
+function tablaBasica(arr){
+  return`
+    <div class="table-wrap" style="margin-bottom:18px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Trabajador</th>
+            <th>RUT</th>
+            <th>Documento</th>
+            <th>Contratista</th>
+            <th>Faena</th>
+            <th>Vencimiento</th>
+            <th>Estado</th>
+            <th>Lote</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${arr.map(d=>`
+            <tr>
+              <td>${d.trabajador}</td>
+              <td>${d.rut}</td>
+              <td>${d.documento}</td>
+              <td>${d.contratista}</td>
+              <td>${d.faena}</td>
+              <td>${d.vencimiento||"-"}</td>
+              <td>${badge(estadoFecha(d.vencimiento))}</td>
+              <td>${d.loteNombre}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderModuloSimple(id,titulo,arr){
+  document.getElementById(id).innerHTML=`
+    <div class="section">
+      <div class="section-title"><h2>${titulo}</h2></div>
+      <div class="grid">
+        <div class="card"><small>Registros</small><h2>${arr.length}</h2></div>
+        <div class="card"><small>Vencidos</small><h2>${arr.filter(d=>estadoFecha(d.vencimiento)==="Vencido").length}</h2></div>
+        <div class="card"><small>Por vencer</small><h2>${arr.filter(d=>estadoFecha(d.vencimiento)==="Por vencer").length}</h2></div>
+        <div class="card"><small>Vigentes</small><h2>${arr.filter(d=>estadoFecha(d.vencimiento)==="Vigente").length}</h2></div>
+      </div>
+      ${arr.length?tablaBasica(arr):`<p class="empty">Sin datos específicos para este módulo.</p>`}
+    </div>
+  `;
+}
+
+function renderHistorial(){
+  document.getElementById("historial").innerHTML=`
+    <div class="section">
+      <div class="section-title"><h2>Historial</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Acción</th>
+              <th>Detalle</th>
+              <th>Módulo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historial.length?historial.map(h=>`
+              <tr>
+                <td>${h.fecha}</td>
+                <td>${h.accion}</td>
+                <td>${h.detalle}</td>
+                <td>${h.modulo}</td>
+              </tr>
+            `).join(""):`<tr><td colspan="4" class="empty">Sin historial.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderAcreditacion(){
+  acTotal.innerText=acreditaciones.length;
+  acMigrados.innerText=acreditaciones.filter(a=>a.migrado==="Sí").length;
+  acVencidos.innerText=acreditaciones.filter(a=>estadoFecha(a.vencimiento)==="Vencido").length;
+
+  const cumplimiento=acreditaciones.length?
+    Math.round((acreditaciones.filter(a=>a.migrado==="Sí").length/acreditaciones.length)*100):0;
+
+  acCumplimiento.innerText=cumplimiento+"%";
+
+  acreditacionBody.innerHTML=acreditaciones.length?acreditaciones.map(a=>`
+    <tr>
+      <td>${a.contrato}</td>
+      <td>${a.requisito}</td>
+      <td>${a.emision||"-"}</td>
+      <td>${a.vencimiento||"-"}</td>
+      <td>${badge(estadoFecha(a.vencimiento))}</td>
+      <td>${a.migrado}</td>
+      <td>${a.observaciones||"-"}</td>
+    </tr>
+  `).join(""):`<tr><td colspan="7" class="empty">Sin acreditaciones.</td></tr>`;
+}
+
+function renderFiltros(){
+  llenarSelect("filtroLote",lotesImportacion.map(l=>({value:l.id,text:l.nombre+" · "+l.archivo})));
+  llenarSelectSimple("filtroFaena",[...new Set(docs.map(d=>d.faena))]);
+  llenarSelectSimple("filtroDocumento",[...new Set(docs.map(d=>d.documento))]);
+}
+
+function llenarSelect(id,datos){
+  const el=document.getElementById(id);
+  if(!el) return;
+
+  const actual=el.value;
+  const primero=el.options[0].outerHTML;
+
+  el.innerHTML=primero+datos
+    .map(v=>`<option value="${v.value}">${v.text}</option>`)
+    .join("");
+
+  el.value=actual;
+}
+
+function llenarSelectSimple(id,datos){
+  const el=document.getElementById(id);
+  if(!el) return;
+
+  const actual=el.value;
+  const primero=el.options[0].outerHTML;
+
+  el.innerHTML=primero+datos
+    .filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b,"es"))
+    .map(v=>`<option value="${v}">${v}</option>`)
+    .join("");
+
+  el.value=actual;
+}
+
+function cargarDemo(){
+  contadorLotes++;
+  const loteId="DEMO-"+Date.now();
+
+  lotesImportacion=[
+    {
+      id:loteId,
+      nombre:"Lote Demo",
+      archivo:"demo_minero.xlsx",
+      fecha:new Date().toLocaleString(),
+      registros:6
+    }
+  ];
+
+  docs=[
+    {trabajador:"Camila Rojas",rut:"20.111.333-5",contratista:"Andes Mining",faena:"Spence",cargo:"Supervisora",documento:"Examen ocupacional",emision:"2025-05-01",vencimiento:"2026-05-10",observaciones:"Revisar",modulo:"Acreditación Documental",loteId,loteNombre:"Lote Demo",archivoOrigen:"demo_minero.xlsx",fechaImportacion:new Date().toLocaleString()},
+    {trabajador:"Juan Pérez",rut:"12.345.678-9",contratista:"Mardones Servicios",faena:"Collahuasi",cargo:"Operador",documento:"Contrato",emision:"2026-01-01",vencimiento:"2026-12-31",observaciones:"OK",modulo:"Acreditación Documental",loteId,loteNombre:"Lote Demo",archivoOrigen:"demo_minero.xlsx",fechaImportacion:new Date().toLocaleString()},
+    {trabajador:"Luis Araya",rut:"16.555.444-2",contratista:"Norte Seguridad",faena:"Centinela",cargo:"Guardia",documento:"Inducción minera",emision:"2026-02-01",vencimiento:"2026-11-01",observaciones:"OK",modulo:"Seguridad",loteId,loteNombre:"Lote Demo",archivoOrigen:"demo_minero.xlsx",fechaImportacion:new Date().toLocaleString()},
+    {trabajador:"Mario Díaz",rut:"17.888.222-1",contratista:"Transportes Norte",faena:"Antucoya",cargo:"Conductor",documento:"Licencia interna",emision:"2026-01-10",vencimiento:"2026-09-10",observaciones:"OK",modulo:"Acceso",loteId,loteNombre:"Lote Demo",archivoOrigen:"demo_minero.xlsx",fechaImportacion:new Date().toLocaleString()},
+    {trabajador:"Pedro Soto",rut:"18.222.111-3",contratista:"Mardones Servicios",faena:"Escondida",cargo:"Conductor",documento:"Licencia médica",emision:"2026-04-01",vencimiento:"2026-05-20",observaciones:"Reposo",modulo:"Reportes",loteId,loteNombre:"Lote Demo",archivoOrigen:"demo_minero.xlsx",fechaImportacion:new Date().toLocaleString()},
+    {trabajador:"Sin nombre",rut:"95.000.383-0",contratista:"Sin empresa",faena:"Sin faena",cargo:"Sin cargo",documento:"Contrato",emision:"",vencimiento:"",observaciones:"Pendiente de revisión",modulo:"Acreditación Documental",loteId,loteNombre:"Lote Demo",archivoOrigen:"demo_minero.xlsx",fechaImportacion:new Date().toLocaleString()}
+  ].map(limpiarDoc);
+
+  acreditaciones=[
+    {contrato:"Mardones Servicios / Collahuasi",requisito:"Contrato",emision:"2026-01-01",vencimiento:"2026-12-31",migrado:"Sí",observaciones:"Correcto",loteId,archivoOrigen:"demo_minero.xlsx"},
+    {contrato:"Andes Mining / Spence",requisito:"Examen ocupacional",emision:"2025-05-01",vencimiento:"2026-05-10",migrado:"No",observaciones:"Revisar",loteId,archivoOrigen:"demo_minero.xlsx"}
+  ];
+
+  guardar();
+}
+
+function exportarExcel(){
   const wb=XLSX.utils.book_new();
 
-  addSheet(wb,[{
-    Nombre:"Ejemplo Trabajador",
-    RUT:"12.345.678-9",
-    Cargo:"Operador CAEX",
-    Contratista:"Empresa Minera",
-    Faena:"Rajo Norte",
-    Estado:"Activo",
-    Documento:"Inducción minera",
-    Vencimiento:"2026-12-31",
-    Fecha:"2026-05-05",
-    Sistema:"7x7",
-    Turno:"Día",
-    Horas:10,
-    Extras:2,
-    Acceso:"Autorizado",
-    Motivo:"Documentación vigente",
-    Seguridad:"Charla 5 minutos",
-    Nivel:"Bajo",
-    Descripción:"Charla preventiva registrada",
-    "Código equipo":"CAEX-204",
-    Equipo:"Camión extracción",
-    "Tipo equipo":"Camión CAEX",
-    "Estado equipo":"Operativo"
-  }],"Importacion masiva");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(docs),"Documentos");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(trabajadores),"Trabajadores");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pendientes),"Pendientes");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(contratistas.map(({items,...x})=>x)),"Contratistas");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(faenas.map(({items,...x})=>x)),"Faenas");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lotesImportacion),"Lotes");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(acreditaciones),"Acreditacion");
 
-  addSheet(wb,prepararTrabajadoresExport(),"Trabajadores");
-  addSheet(wb,prepararContratistasExport(),"Contratistas");
-  addSheet(wb,prepararFaenasExport(),"Faenas");
-  addSheet(wb,prepararDocumentosExport(),"Documentos");
-
-  XLSX.writeFile(wb,"Plantilla_MinerControl_Importacion.xlsx");
+  XLSX.writeFile(wb,"MinerControl_Enterprise_Pendientes_PRO.xlsx");
 }
 
-ordenarTodo();
-render();
+function borrarTodo(){
+  if(confirm("¿Seguro que quieres borrar todo?")){
+    docs=[];
+    acreditaciones=[];
+    lotesImportacion=[];
+    contadorLotes=0;
+    localStorage.removeItem(claveDatos());
+    renderizar();
+  }
+}
+
+const session=localStorage.getItem("miner_session");
+
+if(session){
+  usuarioActual=JSON.parse(session);
+  iniciarApp();
+}
 </script>
 
+
+
+    if(!trabajadores.length) return;
+
+    const payload=trabajadores.map(t=>({
+        trabajador:t.trabajador || "",
+        rut:t.rut || "",
+        contratista:t.contratista || "",
+        faena:t.faena || "",
+        cargo:t.cargo || ""
+    }));
+
+    const { error } = await supabaseClient
+    .from("trabajadores")
+    .insert(payload);
+
+    if(error){
+        console.error("Error guardando trabajadores:", error);
+    }else{
+        console.log("Trabajadores guardados en Supabase");
+    }
+}
+console.log("Supabase conectado correctamente");
+</script>
 </body>
 </html>
