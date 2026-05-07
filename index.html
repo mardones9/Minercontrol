@@ -774,16 +774,33 @@ async function guardar(){
 }
 
 function cargar(){
-  const raw=localStorage.getItem(claveDatos());
+      const { data, error } = await supabaseClient
+    .from("documentos")
+    .select("*")
+    .order("id",{ascending:false});
 
-  if(raw){
-    const data=JSON.parse(raw);
-    docs=(data.docs||[]).map(limpiarDoc).filter(docUtil);
-    acreditaciones=data.acreditaciones||[];
-    lotesImportacion=data.lotesImportacion||[];
-    contadorLotes=data.contadorLotes||lotesImportacion.length||0;
-  }
-}
+    if(error){
+        console.error(error);
+        return;
+    }
+
+    if(data && data.length > 0){
+
+        const ultimo=data[0];
+
+        try{
+
+            const parsed=JSON.parse(ultimo.documento);
+
+            docs=(parsed || []).map(limpiarDoc).filter(docUtil);
+
+        }catch(e){
+
+            console.error(e);
+
+        }
+
+    }
 
 function mostrarModulo(id,btn){
   document.querySelectorAll(".module").forEach(m=>m.classList.remove("active"));
