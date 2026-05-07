@@ -685,7 +685,19 @@ tr:hover{
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
 <script>
+const SUPABASE_URL = "https://zpuvwdkugphdeqdnobiq.supabase.co";
+
+const SUPABASE_ANON_KEY = "sb_publishable_FRDg7FtQBHCT86bgSJ6fvw_OGdMlrIt";
+
+var supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+console.log("Supabase conectado correctamente");
 const USUARIOS={
   admin:{pass:"admin123",nombre:"Administrador",rol:"Admin"},
   tio:{pass:"tio123",nombre:"Usuario Tío",rol:"Cliente"}
@@ -738,13 +750,26 @@ function claveDatos(){
   return "miner_docs_"+usuarioActual.id;
 }
 
-function guardar(){
-  localStorage.setItem(claveDatos(),JSON.stringify({
-    docs,
-    acreditaciones,
-    lotesImportacion,
-    contadorLotes
-  }));
+async function guardar(){
+
+  const { error } = await supabaseClient
+    .from('documentos')
+    .insert([
+      {
+        documento: JSON.stringify(docs),
+        estado: "activo",
+        archivo: "sistema",
+        lote: "general"
+      }
+    ]);
+
+  if(error){
+    console.error(error);
+    alert("Error guardando en Supabase");
+    return;
+  }
+
+  console.log("Datos guardados en Supabase");
   renderizar();
 }
 
@@ -1168,7 +1193,28 @@ function badge(e){
   if(e==="Vencido") return '<span class="badge bad">Vencido</span>';
   return '<span class="badge pending">Pendiente sin fecha</span>';
 }
+async function guardarTrabajadoresSupabase(){
 
+    if(!trabajadores.length) return;
+
+    const payload=trabajadores.map(t=>({
+        trabajador:t.trabajador || "",
+        rut:t.rut || "",
+        contratista:t.contratista || "",
+        faena:t.faena || "",
+        cargo:t.cargo || ""
+    }));
+
+    const { error } = await supabaseClient
+    .from("trabajadores")
+    .insert(payload);
+
+    if(error){
+        console.error("Error guardando trabajador:", error);
+    }else{
+        console.log("Trabajadores guardados en Supabase");
+    }
+}
 function separar(){
   trabajadores=[];
   contratistas=[];
@@ -1235,7 +1281,7 @@ function separar(){
   });
 
   trabajadores=Object.values(tm).sort((a,b)=>a.trabajador.localeCompare(b.trabajador,"es"));
-
+guardarTrabajadoresSupabase();
   contratistas=Object.values(cm).map(c=>({
     ...c,
     trabajadores:c.trabajadores.size,
@@ -1622,5 +1668,29 @@ if(session){
 }
 </script>
 
+
+
+    if(!trabajadores.length) return;
+
+    const payload=trabajadores.map(t=>({
+        trabajador:t.trabajador || "",
+        rut:t.rut || "",
+        contratista:t.contratista || "",
+        faena:t.faena || "",
+        cargo:t.cargo || ""
+    }));
+
+    const { error } = await supabaseClient
+    .from("trabajadores")
+    .insert(payload);
+
+    if(error){
+        console.error("Error guardando trabajadores:", error);
+    }else{
+        console.log("Trabajadores guardados en Supabase");
+    }
+}
+console.log("Supabase conectado correctamente");
+</script>
 </body>
 </html>
