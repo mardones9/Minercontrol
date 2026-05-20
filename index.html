@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerControl Enterprise</title>
+<title>MinerControl Enterprise Pro</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -123,6 +123,121 @@ canvas{width:100%!important;max-height:320px!important}
 .folder-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
 
+
+/* Mejoras UI v2 - MinerControl */
+.status-strip{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin:-8px 0 22px;
+}
+.status-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  background:#081726;
+  border:1px solid var(--line);
+  color:#dbeafe;
+  padding:10px 13px;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:900;
+}
+.status-pill.ok{border-color:#1f7a3d;color:#86efac;background:#071f14}
+.status-pill.warn{border-color:#b7791f;color:#fde68a;background:#241b05}
+.status-pill.bad{border-color:#8b1d1d;color:#fecaca;background:#260909}
+.table-wrap tbody tr:hover{background:rgba(255,123,26,.08)}
+input:focus,select:focus,textarea:focus{
+  outline:2px solid rgba(255,123,26,.35);
+  border-color:var(--orange)!important;
+}
+button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+button{transition:.15s ease}
+.main::-webkit-scrollbar{width:10px}
+.main::-webkit-scrollbar-thumb{background:#28496c;border-radius:999px}
+.main::-webkit-scrollbar-track{background:#06111f}
+.toast{
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  background:#10233c;
+  color:white;
+  border:1px solid #36597e;
+  border-left:6px solid var(--orange);
+  border-radius:18px;
+  padding:14px 16px;
+  min-width:260px;
+  max-width:420px;
+  box-shadow:0 18px 45px rgba(0,0,0,.35);
+  z-index:9999;
+  display:none;
+  font-weight:800;
+}
+.toast.show{display:block;animation:toastIn .2s ease}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.help-box{
+  background:#081726;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px;
+  color:#dbeafe;
+  line-height:1.55;
+}
+.help-box b{color:white}
+
+.nav-card{
+  cursor:pointer;
+  transition:.18s ease;
+  position:relative;
+}
+.nav-card:hover{
+  transform:translateY(-3px);
+  border-color:var(--orange);
+  box-shadow:0 14px 35px rgba(0,0,0,.25);
+}
+.nav-card:active{transform:translateY(0)}
+.nav-card small:after{
+  content:"  ↗";
+  color:var(--orange);
+  font-weight:900;
+}
+.click-help{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:1px solid var(--line);
+  background:#081726;
+  color:#dbeafe;
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:13px;
+  font-weight:900;
+}
+.filter-banner{
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  background:#081726;
+  border:1px solid var(--orange);
+  border-radius:16px;
+  padding:12px 14px;
+  margin:0 0 14px;
+  color:#dbeafe;
+  font-weight:900;
+}
+.filter-banner.active{display:flex}
+.filter-banner button{padding:8px 12px;border-radius:12px;background:var(--orange);color:white}
+
+.upload-zone-excel{margin-top:0}
+.export-mini{
+  display:inline-flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
 @media(max-width:900px){
 .sidebar{width:95px;padding:14px}.logo{font-size:16px}.nav button{font-size:12px;padding:10px}
 .hero{align-items:flex-start;flex-direction:column}.hero h1{font-size:32px}
@@ -165,7 +280,7 @@ textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1
 
 <div class="hero">
   <div>
-    <h1>Bienvenido 👋</h1>
+    <h1>Bienvenido Dylan 👋</h1>
     <p>Importador Inteligente Pro activo.</p>
   </div>
   <div>
@@ -179,22 +294,30 @@ textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1
   <button class="blue" onclick="cargarDemo()">Cargar demo</button>
   <button class="purple" onclick="guardarLocal()">Guardar vista</button>
   <button class="yellow" onclick="cargarLocal()">Cargar guardado</button>
+  <button class="blue" onclick="diagnosticarSistema()">Diagnóstico</button>
   <button class="red" onclick="borrarVista()">Borrar vista</button>
+</div>
+
+<div class="status-strip">
+  <span class="status-pill ok">🟢 Sistema local activo</span>
+  <span class="status-pill" id="estadoGuardado">💾 Esperando datos</span>
+  <span class="status-pill" id="ultimaSubida">📁 Sin archivos subidos</span>
+  <span class="status-pill warn" id="estadoCritico">⚠️ Sin revisión todavía</span>
 </div>
 
 <section id="dashboard" class="module active">
   <div class="grid">
-    <div class="card kpi-pro"><small>Trabajadores</small><h2 id="kTrabajadores">0</h2></div>
-    <div class="card kpi-pro"><small>Archivos</small><h2 id="kArchivos">0</h2></div>
-    <div class="card kpi-pro"><small>Faenas</small><h2 id="kFaenas">0</h2></div>
-    <div class="card kpi-pro kpi-ok"><small>Acreditados</small><h2 id="kAcreditados">0</h2></div>
+    <div class="card kpi-pro nav-card" onclick="irModuloRapido('trabajadores')" title="Abrir módulo Trabajadores"><small>Trabajadores</small><h2 id="kTrabajadores">0</h2></div>
+    <div class="card kpi-pro nav-card" onclick="irModuloRapido('documentos')" title="Abrir módulo Documentos / Archivos"><small>Archivos</small><h2 id="kArchivos">0</h2></div>
+    <div class="card kpi-pro nav-card" onclick="irModuloRapido('faenas')" title="Abrir módulo Faenas"><small>Faenas</small><h2 id="kFaenas">0</h2></div>
+    <div class="card kpi-pro kpi-ok nav-card" onclick="irAcreditacionFiltro('Acreditado')" title="Ver documentos acreditados"><small>Acreditados</small><h2 id="kAcreditados">0</h2></div>
   </div>
 
   <div class="grid">
-    <div class="card kpi-pro kpi-ok"><small>Cumplimiento documental</small><h2 id="kCumplimiento">0%</h2><div class="progress"><span id="barCumplimiento"></span></div></div>
-    <div class="card kpi-pro kpi-bad"><small>Vencidos / críticos</small><h2 id="kVencidos">0</h2></div>
-    <div class="card kpi-pro kpi-warn"><small>Por vencer</small><h2 id="kPorVencer">0</h2></div>
-    <div class="card kpi-pro"><small>Trabajadores bloqueados</small><h2 id="kBloqueados">0</h2></div>
+    <div class="card kpi-pro kpi-ok nav-card" onclick="irModuloRapido('acreditacion')" title="Abrir acreditación documental"><small>Cumplimiento documental</small><h2 id="kCumplimiento">0%</h2><div class="progress"><span id="barCumplimiento"></span></div></div>
+    <div class="card kpi-pro kpi-bad nav-card" onclick="irAcreditacionFiltro('criticos')" title="Ver vencidos y críticos"><small>Vencidos / críticos</small><h2 id="kVencidos">0</h2></div>
+    <div class="card kpi-pro kpi-warn nav-card" onclick="irAcreditacionFiltro('Por vencer')" title="Ver documentos por vencer"><small>Por vencer</small><h2 id="kPorVencer">0</h2></div>
+    <div class="card kpi-pro nav-card" onclick="irTrabajadoresBloqueados()" title="Ver trabajadores bloqueados/críticos"><small>Trabajadores bloqueados</small><h2 id="kBloqueados">0</h2></div>
   </div>
 
   <div class="section">
@@ -211,8 +334,11 @@ textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1
     </div>
   </div>
 
-  <div class="section">
-    <h2 style="margin-bottom:18px">Actividad Operacional</h2>
+  <div class="section" id="actividadOperacional">
+    <div class="head" style="margin-bottom:14px">
+      <h2>Actividad Operacional</h2>
+      <span class="click-help">👆 Haz clic en una barra para ver el detalle</span>
+    </div>
     <canvas id="grafico"></canvas>
   </div>
 
@@ -251,7 +377,14 @@ textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1
       <input class="search" id="buscarArchivo" placeholder="Buscar archivo, trabajador, RUT, faena..." oninput="renderizarDocumentos()">
     </div>
 
-    <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="importarExcelPro(event)">
+    <div class="upload-zone upload-zone-excel">
+      <label for="inputExcelPro">📊 Subir Excel / CSV de trabajadores y documentos</label>
+      <p style="color:#9eb3cb;margin-top:8px">Puedes subir uno o varios archivos. El sistema intenta detectar trabajador, RUT, faena, contratista, documento, estado y vencimiento.</p>
+      <input id="inputExcelPro" type="file" multiple accept=".xlsx,.xls,.csv" onchange="importarExcelPro(event)">
+    </div>
+    <div class="help-box">
+      <b>Tip:</b> si un Excel queda mal separado, aprieta <b>Columnas</b> para ver qué encabezados detectó. Si no detecta nombre, RUT o faena, el sistema lo manda a alertas críticas.
+    </div>
     <div id="resumenImportacion"></div>
     <div id="fileGrid" class="file-grid"></div>
 
@@ -345,8 +478,9 @@ textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1
   <div class="section">
     <div class="head">
       <h2>Acreditación Documental</h2>
-      <input class="search" id="buscarAcreditacion" placeholder="Buscar acreditación..." oninput="renderizarAcreditacion()">
+      <input class="search" id="buscarAcreditacion" placeholder="Buscar acreditación..." oninput="filtroEstadoAcreditacion='todos';renderizarAcreditacion()">
     </div>
+    <div id="filtroAcreditacionActivo" class="filter-banner"></div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -507,6 +641,8 @@ textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1
 </div>
 </div>
 
+<div id="toastMiner" class="toast"></div>
+
 <script> 
 
 const SUPABASE_URL =
@@ -529,6 +665,75 @@ let chart=null;
 let carpetasTrabajadores=[];
 let requisitosFaena=requisitosDefault();
 let historialOperacional=[];
+let filtroEstadoAcreditacion="todos";
+
+function mostrarToast(mensaje,tipo="info"){
+  const t=document.getElementById("toastMiner");
+  if(!t){
+    if(tipo==="error")alert(mensaje);
+    return;
+  }
+  t.innerHTML=mensaje;
+  t.className="toast show";
+  if(tipo==="ok")t.style.borderLeftColor="var(--green)";
+  else if(tipo==="error")t.style.borderLeftColor="var(--red)";
+  else if(tipo==="warn")t.style.borderLeftColor="var(--yellow)";
+  else t.style.borderLeftColor="var(--orange)";
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer=setTimeout(()=>t.classList.remove("show"),3500);
+}
+
+function actualizarEstadoSistema(){
+  const eg=document.getElementById("estadoGuardado");
+  const us=document.getElementById("ultimaSubida");
+  const ec=document.getElementById("estadoCritico");
+  if(eg){
+    const raw=localStorage.getItem("minercontrol_data");
+    eg.innerText=raw ? "💾 Guardado local disponible" : "💾 Sin guardado local";
+    eg.className=raw ? "status-pill ok" : "status-pill";
+  }
+  if(us){
+    const ultimo=archivos.length ? archivos[archivos.length-1] : null;
+    us.innerText=ultimo ? `📁 Último: ${ultimo.nombre}` : "📁 Sin archivos subidos";
+    us.className=ultimo ? "status-pill ok" : "status-pill";
+  }
+  if(ec){
+    const criticos=docs.filter(d=>d.semaforo==="Rojo" || d.prioridad==="Alta" || d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar").length;
+    const porVencer=docs.filter(d=>d.estado==="Por vencer").length;
+    if(!docs.length){
+      ec.innerText="⚠️ Sin revisión todavía";
+      ec.className="status-pill warn";
+    }else if(criticos){
+      ec.innerText=`🚨 ${criticos} crítico(s) · ${porVencer} por vencer`;
+      ec.className="status-pill bad";
+    }else if(porVencer){
+      ec.innerText=`⚠️ ${porVencer} documento(s) por vencer`;
+      ec.className="status-pill warn";
+    }else{
+      ec.innerText="✅ Sin críticos detectados";
+      ec.className="status-pill ok";
+    }
+  }
+}
+
+function diagnosticarSistema(){
+  const criticos=docs.filter(d=>d.semaforo==="Rojo" || d.prioridad==="Alta" || d.estado!=="Acreditado").length;
+  const mensaje=[
+    "DIAGNÓSTICO MINERCONTROL",
+    "",
+    "Trabajadores: "+trabajadores.length,
+    "Archivos cargados: "+archivos.length,
+    "Documentos/registros: "+docs.length,
+    "Faenas: "+new Set(docs.map(d=>d.faena)).size,
+    "Errores detectados: "+errores.length,
+    "Alertas críticas: "+criticos,
+    "Carpetas cargadas: "+carpetasTrabajadores.length,
+    "",
+    docs.length ? "Estado: datos cargados y panel operativo." : "Estado: falta subir un Excel o cargar demo."
+  ].join("\n");
+  alert(mensaje);
+}
+
 
 function iniciarSesion(){
   if(loginUser.value!=="admin" || loginPass.value!=="admin123"){
@@ -558,7 +763,104 @@ function mostrarModulo(id,btn){
   document.getElementById(id).classList.add("active");
   document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
   if(btn)btn.classList.add("active");
+  const main=document.querySelector(".main");
+  if(main)main.scrollTo({top:0,behavior:"smooth"});
   renderizar();
+}
+
+const MODULOS_NAV={
+  dashboard:0,
+  trabajadores:1,
+  documentos:2,
+  faenas:3,
+  requisitos:4,
+  acreditacion:5,
+  carpetas:6,
+  reportes:7,
+  historial:8
+};
+const MODULOS_TITULOS={
+  dashboard:"Dashboard",
+  trabajadores:"Trabajadores",
+  documentos:"Documentos / Archivos",
+  faenas:"Faenas",
+  requisitos:"Requisitos",
+  acreditacion:"Acreditación",
+  carpetas:"Carpetas",
+  reportes:"Reportes",
+  historial:"Historial"
+};
+function botonModulo(id){
+  const botones=document.querySelectorAll(".nav button");
+  return botones[MODULOS_NAV[id]] || null;
+}
+function limpiarFiltrosModulo(id){
+  if(id==="trabajadores"){
+    const b=document.getElementById("buscarTrabajador");
+    const f=document.getElementById("filtrarSemaforoTrabajador");
+    if(b)b.value="";
+    if(f)f.value="todos";
+    cerrarPerfilTrabajador();
+  }
+  if(id==="documentos"){
+    const b=document.getElementById("buscarArchivo");
+    if(b)b.value="";
+    cerrarDetalle();
+  }
+  if(id==="acreditacion"){
+    const b=document.getElementById("buscarAcreditacion");
+    if(b)b.value="";
+    filtroEstadoAcreditacion="todos";
+  }
+}
+function irModuloRapido(id){
+  limpiarFiltrosModulo(id);
+  mostrarModulo(id,botonModulo(id));
+  mostrarToast("Abriendo "+(MODULOS_TITULOS[id]||id),"ok");
+}
+function etiquetaFiltroAcreditacion(filtro){
+  const nombres={
+    todos:"Todos los documentos",
+    criticos:"Vencidos / críticos",
+    Acreditado:"Acreditados",
+    Pendiente:"Pendientes",
+    Vencido:"Vencidos",
+    "Por vencer":"Por vencer",
+    Revisar:"Revisar"
+  };
+  return nombres[filtro] || filtro;
+}
+function coincideFiltroAcreditacion(d){
+  if(filtroEstadoAcreditacion==="todos")return true;
+  if(filtroEstadoAcreditacion==="criticos"){
+    return d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta" || d.semaforo==="Rojo";
+  }
+  return d.estado===filtroEstadoAcreditacion;
+}
+function irAcreditacionFiltro(filtro){
+  filtroEstadoAcreditacion=filtro || "todos";
+  const b=document.getElementById("buscarAcreditacion");
+  if(b)b.value="";
+  mostrarModulo("acreditacion",botonModulo("acreditacion"));
+  renderizarAcreditacion();
+  mostrarToast("Mostrando: "+etiquetaFiltroAcreditacion(filtroEstadoAcreditacion),"ok");
+}
+function limpiarFiltroAcreditacion(){
+  filtroEstadoAcreditacion="todos";
+  const b=document.getElementById("buscarAcreditacion");
+  if(b)b.value="";
+  renderizarAcreditacion();
+  mostrarToast("Filtro de acreditación quitado","ok");
+}
+function irTrabajadoresBloqueados(){
+  const b=document.getElementById("buscarTrabajador");
+  const f=document.getElementById("filtrarSemaforoTrabajador");
+  if(b)b.value="";
+  if(f)f.value="critico";
+  mostrarModulo("trabajadores",botonModulo("trabajadores"));
+  if(f)f.value="critico";
+  renderizarTrabajadores();
+  mostrarToast("Mostrando trabajadores bloqueados / críticos","warn");
 }
 
 function normalizar(txt){
@@ -867,7 +1169,9 @@ function detectarEstado(d){
 
 function importarExcelPro(e){
   const files=[...e.target.files];
+  if(!files.length)return;
   let resumenes=[];
+  resumenImportacion.innerHTML=`<div class="alert">⏳ Leyendo ${files.length} archivo(s)...</div>`;
 
   files.forEach(file=>{
     const reader=new FileReader();
@@ -967,7 +1271,7 @@ function importarExcelPro(e){
       `);
 
       resumenImportacion.innerHTML=resumenes.join("");
-      alert("Importación inteligente lista: "+file.name);
+      mostrarToast("✅ Importación lista: "+file.name,"ok");
     };
 
     reader.readAsArrayBuffer(file);
@@ -1077,6 +1381,7 @@ function renderizar(){
   renderizarRequisitos();
   renderizarHistorial();
   crearGrafico();
+  actualizarEstadoSistema();
 }
 
 function renderizarDashboard(){
@@ -1160,7 +1465,7 @@ function renderizarAlertas(){
   const alertas=obtenerAlertasCriticas();
 
   if(!alertas.length){
-    body.innerHTML=`<tr><td colspan="9" class="empty">Sin alertas críticas detectadas.</td></tr>`;
+    body.innerHTML=`<tr><td colspan="10" class="empty">Sin alertas críticas detectadas.</td></tr>`;
     return;
   }
 
@@ -1624,7 +1929,19 @@ function renderizarFaenas(){
 
 function renderizarAcreditacion(){
   const q=(document.getElementById("buscarAcreditacion")?.value||"").toLowerCase();
-  const filtrados=docs.filter(d=>JSON.stringify(d).toLowerCase().includes(q));
+  const banner=document.getElementById("filtroAcreditacionActivo");
+  let filtrados=docs.filter(d=>JSON.stringify(d).toLowerCase().includes(q));
+  filtrados=filtrados.filter(d=>coincideFiltroAcreditacion(d));
+
+  if(banner){
+    if(filtroEstadoAcreditacion!=="todos"){
+      banner.classList.add("active");
+      banner.innerHTML=`<span>Filtro activo: ${etiquetaFiltroAcreditacion(filtroEstadoAcreditacion)} · ${filtrados.length} resultado(s)</span><button onclick="limpiarFiltroAcreditacion()">Ver todos</button>`;
+    }else{
+      banner.classList.remove("active");
+      banner.innerHTML="";
+    }
+  }
 
   acreditacionBody.innerHTML=filtrados.length?filtrados.map(d=>`
     <tr>
@@ -1640,7 +1957,7 @@ function renderizarAcreditacion(){
       <td>${d.hoja || "-"}</td>
       <td>${d.fechaSubida}</td>
     </tr>
-  `).join(""):`<tr><td colspan="10" class="empty">Sin documentos para acreditar.</td></tr>`;
+  `).join(""):`<tr><td colspan="11" class="empty">Sin documentos para acreditar.</td></tr>`;
 }
 
 function renderizarReportes(){
@@ -1744,17 +2061,19 @@ function guardarLocal(mostrar=true){
     errores,
     carpetasTrabajadores:carpetasTrabajadores.map(c=>({...c, archivosFisicos:[]})),
     requisitosFaena,
-    historialOperacional
+    historialOperacional,
+    actualizado:new Date().toISOString()
   }));
 
-  if(mostrar)alert("Vista guardada en este computador.");
+  actualizarEstadoSistema();
+  if(mostrar)mostrarToast("💾 Vista guardada en este computador.","ok");
 }
 
 function cargarLocal(mostrar=true){
   const raw=localStorage.getItem("minercontrol_data");
 
   if(!raw){
-    if(mostrar)alert("No hay datos guardados todavía.");
+    if(mostrar)mostrarToast("No hay datos guardados todavía.","warn");
     return;
   }
 
@@ -1773,9 +2092,9 @@ function cargarLocal(mostrar=true){
       return a;
     });
     renderizar();
-    if(mostrar)alert("Datos cargados.");
+    if(mostrar)mostrarToast("✅ Datos cargados.","ok");
   }catch(e){
-    if(mostrar)alert("No se pudieron cargar los datos guardados.");
+    if(mostrar)mostrarToast("No se pudieron cargar los datos guardados.","error");
   }
 }
 
@@ -1866,6 +2185,7 @@ function cargarDemo(){
   reconstruirTrabajadores();
   guardarLocal(false);
   renderizar();
+  mostrarToast("Demo cargada correctamente.","ok");
 }
 
 function borrarVista(){
@@ -1880,6 +2200,7 @@ function borrarVista(){
     localStorage.removeItem("minercontrol_data");
     cerrarDetalle();
     renderizar();
+    mostrarToast("Vista limpiada. El respaldo index_backup.html no se toca.","warn");
   }
 }
 
@@ -2433,6 +2754,7 @@ function crearGrafico(){
   const vencidos=docs.filter(d=>d.estado==="Vencido").length;
   const porVencer=docs.filter(d=>d.estado==="Por vencer").length;
   const revisar=docs.filter(d=>d.estado==="Revisar").length;
+  const filtrosGrafico=["Acreditado","Pendiente","Vencido","Por vencer","Revisar"];
 
   chart=new Chart(ctx,{
     type:"bar",
@@ -2445,9 +2767,24 @@ function crearGrafico(){
       }]
     },
     options:{
+      onClick:(event,elements)=>{
+        if(!elements.length)return;
+        const idx=elements[0].index;
+        irAcreditacionFiltro(filtrosGrafico[idx]);
+      },
+      onHover:(event,elements)=>{
+        if(event.native && event.native.target){
+          event.native.target.style.cursor=elements.length?"pointer":"default";
+        }
+      },
       plugins:{
         legend:{
           labels:{color:"#fff"}
+        },
+        tooltip:{
+          callbacks:{
+            afterLabel:()=>"Haz clic para ver el detalle"
+          }
         }
       },
       scales:{
