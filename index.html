@@ -22,8 +22,11 @@ button,input,select{font-family:inherit}
 button{border:0;cursor:pointer;font-weight:800}
 #loginView{min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at top,#12345c,#06111f 60%)}
 .login-card{width:420px;background:var(--panel);border:1px solid var(--line);border-radius:28px;padding:38px}
-.logo{font-size:34px;font-weight:900;line-height:1;margin-bottom:26px}
+.logo{font-size:34px;font-weight:900;line-height:1;margin-bottom:26px;cursor:pointer;user-select:none}
 .logo span{color:var(--orange)}
+.logo-home{background:transparent;color:var(--text);text-align:left;border:0;padding:0;width:100%;display:block}
+.logo-home:hover{filter:brightness(1.12);transform:none}
+.logo-home:active{transform:scale(.99)}
 .login-card input{width:100%;padding:15px;margin-bottom:12px;border-radius:14px;border:1px solid var(--line);background:#081726;color:white}
 .btn-orange{background:var(--orange);color:white;width:100%;padding:14px;border-radius:14px}
 #appView{display:none;height:100vh}
@@ -122,6 +125,47 @@ canvas{width:100%!important;max-height:320px!important}
 .folder-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
 .folder-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+
+
+/* Importador automático nivel dios */
+.smart-import-panel{
+  display:grid;
+  grid-template-columns:1.2fr .8fr;
+  gap:16px;
+  margin:18px 0;
+}
+.smart-box{
+  background:#081726;
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:18px;
+}
+.smart-box h3{margin-bottom:8px}
+.smart-box ul{margin-left:18px;color:#c7d2fe;line-height:1.7}
+.smart-drop{
+  border:2px dashed #3b668e;
+  background:linear-gradient(180deg,#081726,#0b1c31);
+  border-radius:24px;
+  padding:22px;
+  text-align:center;
+}
+.smart-drop label{display:block;font-size:18px;font-weight:900;cursor:pointer}
+.smart-drop input{display:none}
+.smart-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:14px 0}
+.smart-metric{background:#081726;border:1px solid var(--line);border-radius:16px;padding:13px}
+.smart-metric b{font-size:24px;display:block;margin-top:4px}
+.confidence{height:10px;background:#06111f;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:8px}
+.confidence span{display:block;height:100%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green));width:0%}
+.auto-file-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:12px}
+.auto-file{background:#081726;border:1px solid var(--line);border-radius:14px;padding:10px;font-size:13px;line-height:1.4}
+.auto-file.ok{border-color:#1f7a3d}.auto-file.warn{border-color:#b7791f}.auto-file.bad{border-color:#8b1d1d}
+.preview-doc{display:flex;gap:12px;align-items:center;margin-top:12px;background:#081726;border:1px solid var(--line);border-radius:16px;padding:10px}
+.preview-doc img{width:72px;height:72px;border-radius:14px;object-fit:cover;border:1px solid var(--line)}
+.detected-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#081726;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;margin:3px;color:#dbeafe}
+.detected-pill.ok{border-color:#1f7a3d;color:#86efac}.detected-pill.warn{border-color:#b7791f;color:#fde68a}.detected-pill.bad{border-color:#8b1d1d;color:#fecaca}
+.ai-note{border-left:5px solid var(--orange);background:#081726;border-radius:16px;padding:13px;margin-top:12px;color:#dbeafe;line-height:1.55}
+@media(max-width:900px){.smart-import-panel{grid-template-columns:1fr}.auto-file-list{grid-template-columns:1fr}}
+
 
 
 /* Mejoras UI v2 - MinerControl */
@@ -261,7 +305,7 @@ button{transition:.15s ease}
 <div class="layout">
 
 <aside class="sidebar">
-  <div class="logo">MinerControl<br><span>Enterprise</span></div>
+  <button type="button" id="logoHome" class="logo logo-home" title="Volver al inicio / cerrar sesión">MinerControl<br><span>Enterprise</span></button>
   <div class="nav">
     <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Dashboard</button>
     <button onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
@@ -509,16 +553,30 @@ button{transition:.15s ease}
   <div class="section">
     <div class="head">
       <div>
-        <h2>Carpetas de Trabajadores</h2>
-        <p style="color:#9eb3cb;margin-top:6px">Sube una carpeta completa, el sistema detecta documentos, arma checklist, marca faltantes y permite despachar un ZIP.</p>
+        <h2>Importador Automático Nivel Dios</h2>
+        <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl detecta trabajador, RUT, faena, empresa, tipo documental, vencimientos, duplicados y arma checklist automáticamente.</p>
       </div>
-      <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena..." oninput="renderizarCarpetas()">
+      <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
     </div>
 
-    <div class="upload-zone">
-      <label for="inputCarpeta">📂 Subir carpeta completa del trabajador</label>
-      <p style="color:#9eb3cb;margin-top:8px">Puedes seleccionar una carpeta con PDFs, imágenes, Word o Excel. Idealmente el nombre de carpeta debe incluir trabajador o RUT.</p>
-      <input id="inputCarpeta" type="file" webkitdirectory directory multiple onchange="importarCarpetaTrabajador(event)">
+    <div class="smart-import-panel">
+      <div class="smart-drop">
+        <label for="inputCarpeta">📂 Subir carpeta completa automática</label>
+        <p style="color:#9eb3cb;margin-top:8px">Ideal: una carpeta por trabajador o subcarpetas con RUT/nombre. Lee PDFs, imágenes, Word, Excel y nombres de archivo.</p>
+        <input id="inputCarpeta" type="file" webkitdirectory directory multiple onchange="importarCarpetaTrabajador(event)">
+      </div>
+      <div class="smart-drop">
+        <label for="inputArchivosSueltos">⚡ Subir archivos sueltos automáticos</label>
+        <p style="color:#9eb3cb;margin-top:8px">Si no tienes carpetas, sube todos los documentos juntos. Se agrupan por RUT/nombre detectado.</p>
+        <input id="inputArchivosSueltos" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.csv" onchange="importarArchivosSueltos(event)">
+      </div>
+    </div>
+
+    <div class="ai-note">
+      <b>Formato recomendado para detección perfecta:</b><br>
+      <span>12.345.678-9 Juan Perez - Collahuasi - Licencia conducir - vence 2026-12-30.pdf</span><br>
+      <span>20.111.333-5 Camila Rojas - Spence - Cedula identidad.jpg</span><br>
+      <span>Carpeta: 12345678-9 Juan Perez / contrato.pdf / examen ocupacional.pdf / odi.pdf</span>
     </div>
 
     <div class="grid">
@@ -528,12 +586,22 @@ button{transition:.15s ease}
       <div class="card kpi-pro kpi-bad"><small>Incompletas</small><h2 id="cIncompletas">0</h2></div>
     </div>
 
+    <div class="smart-metrics">
+      <div class="smart-metric"><small>Docs auto detectados</small><b id="cAutoDocs">0</b></div>
+      <div class="smart-metric"><small>RUT detectados</small><b id="cRutsDetectados">0</b></div>
+      <div class="smart-metric"><small>Fotos / cédulas</small><b id="cFotosCedulas">0</b></div>
+      <div class="smart-metric"><small>Confianza promedio</small><b id="cConfianza">0%</b><div class="confidence"><span id="cConfianzaBar"></span></div></div>
+    </div>
+
     <div class="actions">
-      <button class="blue" onclick="crearCarpetaDemo()">Cargar demo carpeta</button>
+      <button class="blue" onclick="crearCarpetaDemoDios()">Cargar demo nivel dios</button>
       <button class="green" onclick="exportarCarpetasExcel()">Exportar carpetas Excel</button>
+      <button class="purple" onclick="exportarMatrizControl()">Exportar matriz control</button>
+      <button class="yellow" onclick="generarZIPMasivo()">ZIP masivo listas</button>
       <button class="red" onclick="borrarCarpetas()">Borrar carpetas</button>
     </div>
 
+    <div id="resumenCarpetasAuto"></div>
     <div id="carpetasGrid"></div>
   </div>
 </section>
@@ -742,6 +810,7 @@ function iniciarSesion(){
   }
   loginView.style.display="none";
   appView.style.display="block";
+  activarLogoInicio();
   actualizarFecha();
   cargarLocal(false);
   renderizar();
@@ -751,12 +820,22 @@ function cerrarSesion(){
   location.reload();
 }
 
+function activarLogoInicio(){
+  const logo=document.getElementById("logoHome");
+  if(logo){
+    logo.onclick=function(){
+      cerrarSesion();
+    };
+  }
+}
+
 function actualizarFecha(){
   const ahora=new Date();
   fechaActual.innerText=ahora.toLocaleDateString("es-CL");
   horaActual.innerText=ahora.toLocaleTimeString("es-CL");
 }
 setInterval(actualizarFecha,1000);
+document.addEventListener("DOMContentLoaded",activarLogoInicio);
 
 function mostrarModulo(id,btn){
   document.querySelectorAll(".module").forEach(m=>m.classList.remove("active"));
@@ -2059,7 +2138,7 @@ function guardarLocal(mostrar=true){
     docs,
     archivos,
     errores,
-    carpetasTrabajadores:carpetasTrabajadores.map(c=>({...c, archivosFisicos:[]})),
+    carpetasTrabajadores:carpetasTrabajadores.map(c=>({...c, archivosFisicos:[], archivos:(c.archivos||[]).map(a=>({...a, previewURL:""})), fotosPrincipales:(c.fotosPrincipales||[]).map(f=>({...f, previewURL:""}))})),
     requisitosFaena,
     historialOperacional,
     actualizado:new Date().toISOString()
@@ -2083,7 +2162,13 @@ function cargarLocal(mostrar=true){
     docs=data.docs||[];
     archivos=data.archivos||[];
     errores=data.errores||[];
-    carpetasTrabajadores=data.carpetasTrabajadores||[];
+    carpetasTrabajadores=(data.carpetasTrabajadores||[]).map(c=>{
+      c.archivos=(c.archivos||[]).map(a=>({...a, previewURL:""}));
+      c.checklist=c.checklist||crearChecklistCarpeta(c.archivos||[]);
+      c.confianza=c.confianza||calcularConfianzaCarpeta(c);
+      c.duplicados=c.duplicados||duplicadosCarpeta(c);
+      return c;
+    });
     requisitosFaena=data.requisitosFaena||requisitosDefault();
     historialOperacional=data.historialOperacional||[];
     docs=docs.map(d=>enriquecerDocumento(d));
@@ -2205,19 +2290,32 @@ function borrarVista(){
 }
 
 
+
 const DOCS_REQUERIDOS=[
-  {key:"cedula", nombre:"Cédula de identidad", aliases:["cedula","carnet","ci","identidad","rut","run"]},
-  {key:"licencia", nombre:"Licencia de conducir", aliases:["licencia","conducir","claseb","clased","clasea"]},
-  {key:"examen", nombre:"Examen médico / ocupacional", aliases:["examen","medico","ocupacional","preocupacional","altura","psico","salud"]},
-  {key:"contrato", nombre:"Contrato / anexo", aliases:["contrato","anexo"]},
-  {key:"odi", nombre:"ODI / Derecho a saber", aliases:["odi","derechoasaber","obligaciondeinformar","charla"]},
-  {key:"foto", nombre:"Foto trabajador", aliases:["foto","selfie","imagen","perfil","credencial"]},
-  {key:"epp", nombre:"EPP / entrega de elementos", aliases:["epp","elementos","proteccionpersonal","casco","zapatos"]},
-  {key:"antecedentes", nombre:"Certificado antecedentes", aliases:["antecedentes","certificadoantecedentes"]}
+  {key:"cedula", nombre:"Cédula de identidad", peso:18, aliases:["cedula","cedulaidentidad","carnet","ci","identidad","rut","run","dni","documentoidentidad","c.i"]},
+  {key:"licencia", nombre:"Licencia de conducir", peso:16, aliases:["licencia","conducir","conductor","claseb","clased","clasea","licenciaconducir","licenciachofer"]},
+  {key:"examen", nombre:"Examen ocupacional", peso:18, aliases:["examen","ocupacional","preocupacional","medico","salud","altura","alturafisica","psicosensometrico","psico","aptitud"]},
+  {key:"contrato", nombre:"Contrato / anexo", peso:16, aliases:["contrato","anexo","contratodetrabajo","adendum","relacionlaboral"]},
+  {key:"odi", nombre:"ODI / Derecho a Saber", peso:15, aliases:["odi","derechoasaber","obligaciondeinformar","charla","das","induccionodi"]},
+  {key:"antecedentes", nombre:"Certificado antecedentes", peso:13, aliases:["antecedentes","certificadoantecedentes","penales","criminal","registrocivil"]},
+  {key:"hoja_vida", nombre:"Hoja de vida conductor", peso:12, aliases:["hojadevida","vida conductor","vidaconductor","hvconductor"]},
+  {key:"epp", nombre:"EPP / entrega de elementos", peso:12, aliases:["epp","entregaepp","elementosproteccion","proteccionpersonal","casco","zapatos","guantes"]},
+  {key:"curso", nombre:"Curso / certificación", peso:11, aliases:["curso","certificacion","certificado","capacitacion","induccion","credencial","habilitacion"]},
+  {key:"foto", nombre:"Foto trabajador / credencial", peso:8, aliases:["foto","selfie","imagen","perfil","credencial","avatar"]},
+  {key:"seguro", nombre:"Seguro / mutual", peso:10, aliases:["seguro","mutual","poliza","achs","ist","isl"]},
+  {key:"finiquito", nombre:"Finiquito", peso:7, aliases:["finiquito","termino","egreso"]}
 ];
+
+const FAENAS_CONOCIDAS=["Collahuasi","Spence","Escondida","QB2","Quebrada Blanca","Los Bronces","Andina","El Teniente","Chuquicamata","Caserones","Centinela","Candelaria"];
+const CARGOS_HINT=["Operador","Supervisor","Supervisora","Prevencionista","Mecánico","Mecanico","Soldador","Conductor","Rigger","Administrativo","Eléctrico","Electrico","Mantenedor"];
 
 function limpiarNombreArchivo(txt){
   return String(txt||"").replace(/[\\/:*?"<>|]/g,"_").trim() || "Sin_nombre";
+}
+
+function extensionArchivo(nombre){
+  const m=String(nombre||"").toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m?m[1]:"";
 }
 
 function extraerRutTexto(txt){
@@ -2225,39 +2323,205 @@ function extraerRutTexto(txt){
   return m?m[0].replace(/\./g,"").replace(/(\d{1,2})(\d{3})(\d{3})([0-9kK])/,"$1.$2.$3-$4"):"Sin RUT";
 }
 
-function detectarTipoArchivo(nombre){
-  const n=normalizar(nombre);
-  for(const req of DOCS_REQUERIDOS){
-    if(req.aliases.some(a=>n.includes(normalizar(a))))return req.key;
+function textoSinRut(txt){
+  return String(txt||"").replace(/\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9kK]\b/g," ");
+}
+
+function formatearNombreDetectado(txt){
+  let s=textoSinRut(txt)
+    .replace(/\.[a-z0-9]+$/i," ")
+    .replace(/[_]+/g," ")
+    .replace(/[-]+/g," ")
+    .replace(/\b(cedula|cédula|carnet|identidad|licencia|conducir|examen|ocupacional|preocupacional|contrato|anexo|odi|derecho|saber|antecedentes|certificado|epp|curso|foto|vence|vto|vigente|aprobado|pendiente|vencido|rechazado|pdf|jpg|jpeg|png|docx?|xlsx?|csv)\b/ig," ")
+    .replace(/\b(20\d{2}|19\d{2})[-_ .]?\d{1,2}[-_ .]?\d{1,2}\b/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+
+  FAENAS_CONOCIDAS.forEach(f=>{s=s.replace(new RegExp(f,"ig")," ")});
+  CARGOS_HINT.forEach(c=>{s=s.replace(new RegExp(c,"ig")," ")});
+  s=s.replace(/\s+/g," ").trim();
+  if(!s || s.length<4)return "Trabajador sin identificar";
+  return s.split(" ").slice(0,4).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
+}
+
+function detectarFaenaTexto(txt){
+  const n=normalizar(txt);
+  const todas=[...new Set([...Object.keys(requisitosFaena||{}),...FAENAS_CONOCIDAS])];
+  return todas.find(f=>n.includes(normalizar(f))) || "Sin faena";
+}
+
+function detectarCargoTexto(txt){
+  const n=normalizar(txt);
+  return CARGOS_HINT.find(c=>n.includes(normalizar(c))) || "Sin cargo";
+}
+
+function detectarEmpresaTexto(txt){
+  const s=String(txt||"");
+  const m=s.match(/(?:empresa|contratista|proveedor)\s*[-_: ]\s*([a-záéíóúñ0-9 .&]+?)(?:\s[-_]|$)/i);
+  if(m)return m[1].trim();
+  return "Sin empresa";
+}
+
+function detectarFechaArchivo(txt){
+  const s=String(txt||"");
+  const near=s.match(/(?:vence|vencimiento|vto|vigencia|hasta|valido|válido)\s*[-_: ]*([0-9]{1,2}[\/-][0-9]{1,2}[\/-][0-9]{2,4}|[0-9]{4}[\/-][0-9]{1,2}[\/-][0-9]{1,2})/i);
+  if(near)return normalizarFecha(near[1]);
+  const any=s.match(/([0-9]{1,2}[\/-][0-9]{1,2}[\/-][0-9]{2,4}|[0-9]{4}[\/-][0-9]{1,2}[\/-][0-9]{1,2})/);
+  return any?normalizarFecha(any[1]):"";
+}
+
+function detectarEstadoArchivo(txt,fechaISO=""){
+  const n=normalizar(txt);
+  const dias=diasHasta(fechaISO);
+  if(typeof dias==="number"){
+    if(dias<0)return "Vencido";
+    if(dias<=30)return "Por vencer";
+    return "Acreditado";
   }
-  if(n.includes("pdf"))return "documento";
-  return "otro";
+  if(n.includes("vencido") || n.includes("caducado") || n.includes("expirado"))return "Vencido";
+  if(n.includes("rechazado") || n.includes("pendiente") || n.includes("faltante") || n.includes("falta"))return "Pendiente";
+  if(n.includes("porvencer") || n.includes("vencepronto"))return "Por vencer";
+  if(n.includes("vigente") || n.includes("aprobado") || n.includes("ok") || n.includes("validado"))return "Acreditado";
+  return "Acreditado";
+}
+
+function detectarDocumentoArchivo(nombre,ruta=""){
+  const full=`${ruta} ${nombre}`;
+  const n=normalizar(full);
+  const ext=extensionArchivo(nombre);
+  let mejor={key:"otro",nombre:"Documento adicional",confianza:22,senales:[],peso:0};
+
+  DOCS_REQUERIDOS.forEach(req=>{
+    let score=0;
+    const senales=[];
+    req.aliases.forEach(a=>{
+      const an=normalizar(a);
+      if(n.includes(an)){
+        score+=req.peso;
+        senales.push(a);
+      }
+    });
+    if(score>mejor.peso)mejor={key:req.key,nombre:req.nombre,confianza:Math.min(98,45+score),senales,peso:score};
+  });
+
+  if(mejor.key==="otro"){
+    if(["jpg","jpeg","png","webp"].includes(ext))mejor={key:"foto",nombre:"Foto trabajador / imagen",confianza:55,senales:["imagen"],peso:5};
+    if(ext==="pdf")mejor.confianza=35;
+  }
+
+  const fechaVencimiento=detectarFechaArchivo(full);
+  const estado=detectarEstadoArchivo(full,fechaVencimiento);
+  const rut=extraerRutTexto(full);
+  return {
+    tipo:mejor.key,
+    tipoNombre:mejor.nombre,
+    confianza:mejor.confianza,
+    senales:mejor.senales,
+    fechaVencimiento,
+    diasRestantes:diasHasta(fechaVencimiento),
+    estado,
+    prioridad:estado==="Vencido"||estado==="Pendiente"?"Alta":estado==="Por vencer"?"Media":"Normal",
+    rut,
+    extension:ext,
+    esImagen:["jpg","jpeg","png","webp"].includes(ext)
+  };
+}
+
+function detectarTipoArchivo(nombre){
+  return detectarDocumentoArchivo(nombre).tipo;
 }
 
 function nombreTipoDoc(key){
   return DOCS_REQUERIDOS.find(d=>d.key===key)?.nombre || "Documento adicional";
 }
 
+function agruparArchivosAutomatico(files,modo="carpeta"){
+  const grupos={};
+  files.forEach(file=>{
+    const ruta=file.webkitRelativePath || file.name;
+    const partes=ruta.split("/").filter(Boolean);
+    const baseCarpeta=modo==="sueltos" ? "Archivos sueltos" : (partes[0] || "Carpeta sin nombre");
+    const subCarpeta=partes.length>2 ? partes[1] : "";
+    const texto=`${ruta} ${file.name}`;
+    const rut=extraerRutTexto(texto);
+    const nombreDesdeCarpeta=formatearNombreDetectado(subCarpeta || baseCarpeta);
+    const nombreDesdeArchivo=formatearNombreDetectado(file.name);
+    const trabajador=nombreDesdeCarpeta!=="Trabajador sin identificar" ? nombreDesdeCarpeta : nombreDesdeArchivo;
+    const key=rut!=="Sin RUT" ? rut : `${baseCarpeta}|${trabajador}`;
+    if(!grupos[key]){
+      grupos[key]={
+        nombreCarpeta:baseCarpeta,
+        trabajador,
+        rut,
+        empresa:detectarEmpresaTexto(texto),
+        faena:detectarFaenaTexto(texto),
+        cargo:detectarCargoTexto(texto),
+        files:[]
+      };
+    }
+    if(grupos[key].rut==="Sin RUT" && rut!=="Sin RUT")grupos[key].rut=rut;
+    if(grupos[key].trabajador==="Trabajador sin identificar" && trabajador!=="Trabajador sin identificar")grupos[key].trabajador=trabajador;
+    if(grupos[key].faena==="Sin faena")grupos[key].faena=detectarFaenaTexto(texto);
+    if(grupos[key].cargo==="Sin cargo")grupos[key].cargo=detectarCargoTexto(texto);
+    grupos[key].files.push(file);
+  });
+  return grupos;
+}
+
+function crearArchivoDetectado(file){
+  const ruta=file.webkitRelativePath || file.name;
+  const det=detectarDocumentoArchivo(file.name,ruta);
+  return {
+    nombre:file.name,
+    ruta,
+    tamano:file.size||0,
+    tipo:det.tipo,
+    tipoNombre:det.tipoNombre,
+    confianza:det.confianza,
+    senales:det.senales,
+    estado:det.estado,
+    fechaVencimiento:det.fechaVencimiento,
+    diasRestantes:det.diasRestantes,
+    prioridad:det.prioridad,
+    extension:det.extension,
+    esImagen:det.esImagen,
+    previewURL:det.esImagen ? URL.createObjectURL(file) : ""
+  };
+}
+
 function crearChecklistCarpeta(archivos){
   const encontrados={};
   archivos.forEach(a=>{
-    const tipo=detectarTipoArchivo(a.name||a.nombre||"");
+    const tipo=a.tipo || detectarTipoArchivo(a.name||a.nombre||"");
     if(!encontrados[tipo])encontrados[tipo]=[];
     encontrados[tipo].push(a);
   });
 
-  return DOCS_REQUERIDOS.map(req=>({
-    key:req.key,
-    nombre:req.nombre,
-    estado:encontrados[req.key]?.length?"Recibido":"Falta",
-    cantidad:encontrados[req.key]?.length||0,
-    archivos:(encontrados[req.key]||[]).map(a=>a.name||a.nombre)
-  }));
+  return DOCS_REQUERIDOS.slice(0,8).map(req=>{
+    const arr=encontrados[req.key]||[];
+    const vencidos=arr.filter(a=>a.estado==="Vencido" || a.estado==="Pendiente").length;
+    const porVencer=arr.filter(a=>a.estado==="Por vencer").length;
+    let estado="Falta";
+    if(arr.length){
+      if(vencidos)estado="Vencido/Pendiente";
+      else if(porVencer)estado="Por vencer";
+      else estado="Recibido";
+    }
+    return {
+      key:req.key,
+      nombre:req.nombre,
+      estado,
+      cantidad:arr.length,
+      archivos:arr.map(a=>a.nombre||a.name),
+      confianza:arr.length?Math.round(arr.reduce((acc,a)=>acc+(a.confianza||50),0)/arr.length):0
+    };
+  });
 }
 
 function estadoCarpeta(checklist){
-  const faltan=checklist.filter(x=>x.estado==="Falta").length;
-  if(faltan===0)return "Lista";
+  const faltan=checklist.filter(x=>x.estado==="Falta" || x.estado==="Vencido/Pendiente").length;
+  const porVencer=checklist.filter(x=>x.estado==="Por vencer").length;
+  if(faltan===0 && porVencer===0)return "Lista";
   if(faltan<=2)return "Observada";
   return "Incompleta";
 }
@@ -2268,55 +2532,92 @@ function badgeCarpeta(estado){
   return `<span class="badge bad">Incompleta</span>`;
 }
 
+function calcularConfianzaCarpeta(c){
+  const arr=c.archivos||[];
+  if(!arr.length)return 0;
+  const base=Math.round(arr.reduce((acc,a)=>acc+(a.confianza||40),0)/arr.length);
+  const bonus=(c.rut&&c.rut!=="Sin RUT"?8:0)+(c.trabajador&&c.trabajador!=="Trabajador sin identificar"?6:0)+(c.faena&&c.faena!=="Sin faena"?4:0);
+  return Math.min(100,base+bonus);
+}
+
+function duplicadosCarpeta(c){
+  const seen={};
+  const dups=[];
+  (c.archivos||[]).forEach(a=>{
+    const key=normalizar(a.nombre)+"|"+(a.tamano||0);
+    if(seen[key])dups.push(a.nombre);
+    seen[key]=true;
+  });
+  return dups;
+}
+
+function procesarGrupoCarpeta(grupo,filesCarpeta){
+  const archivosDetectados=filesCarpeta.map(crearArchivoDetectado);
+  const checklist=crearChecklistCarpeta(archivosDetectados);
+  const estado=estadoCarpeta(checklist);
+  const fotos=archivosDetectados.filter(a=>a.tipo==="cedula" || a.tipo==="foto" || a.esImagen);
+  const fecha=new Date().toLocaleString("es-CL");
+  const carpeta={
+    id:Date.now()+"_"+Math.random().toString(16).slice(2),
+    trabajador:grupo.trabajador || "Trabajador sin identificar",
+    rut:grupo.rut || "Sin RUT",
+    empresa:grupo.empresa || "Sin empresa",
+    faena:grupo.faena || "Sin faena",
+    cargo:grupo.cargo || "Sin cargo",
+    observacion:"",
+    estado,
+    fechaSubida:fecha,
+    archivos:archivosDetectados,
+    archivosFisicos:filesCarpeta,
+    checklist,
+    fotosPrincipales:fotos.slice(0,3).map(a=>({nombre:a.nombre,previewURL:a.previewURL,tipo:a.tipoNombre})),
+    confianza:0,
+    duplicados:[]
+  };
+  carpeta.confianza=calcularConfianzaCarpeta(carpeta);
+  carpeta.duplicados=duplicadosCarpeta(carpeta);
+  return carpeta;
+}
+
 function importarCarpetaTrabajador(e){
-  const files=[...e.target.files];
+  importarCarpetasDesdeFiles([...e.target.files],"carpeta");
+  e.target.value="";
+}
+
+function importarArchivosSueltos(e){
+  importarCarpetasDesdeFiles([...e.target.files],"sueltos");
+  e.target.value="";
+}
+
+function importarCarpetasDesdeFiles(files,modo="carpeta"){
   if(!files.length)return;
-
-  const porCarpeta={};
-  files.forEach(file=>{
-    const ruta=file.webkitRelativePath || file.name;
-    const carpeta=(ruta.split("/")[0] || "Carpeta sin nombre").trim();
-    if(!porCarpeta[carpeta])porCarpeta[carpeta]=[];
-    porCarpeta[carpeta].push(file);
-  });
-
-  Object.entries(porCarpeta).forEach(([nombreCarpeta,filesCarpeta])=>{
-    const textoBusqueda=nombreCarpeta+" "+filesCarpeta.map(f=>f.name).join(" ");
-    const rut=extraerRutTexto(textoBusqueda);
-    const trabajador=nombreCarpeta.replace(/[_-]/g," ").replace(/\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9kK]\b/g,"").trim() || "Trabajador sin identificar";
-    const checklist=crearChecklistCarpeta(filesCarpeta);
-    const estado=estadoCarpeta(checklist);
-
-    carpetasTrabajadores.push({
-      id:Date.now()+"_"+Math.random().toString(16).slice(2),
-      trabajador,
-      rut,
-      empresa:"Sin empresa",
-      faena:"Sin faena",
-      cargo:"Sin cargo",
-      observacion:"",
-      estado,
-      fechaSubida:new Date().toLocaleString("es-CL"),
-      archivos:filesCarpeta.map(f=>({nombre:f.name,tamano:f.size,tipo:detectarTipoArchivo(f.name)})),
-      archivosFisicos:filesCarpeta,
-      checklist
-    });
-
+  const grupos=agruparArchivosAutomatico(files,modo);
+  let creadas=0, autoDocs=0, ruts=0, bajaConfianza=0;
+  Object.values(grupos).forEach(grupo=>{
+    const carpeta=procesarGrupoCarpeta(grupo,grupo.files);
+    carpetasTrabajadores.push(carpeta);
+    creadas++;
+    autoDocs+=carpeta.archivos.filter(a=>a.tipo!=="otro").length;
+    if(carpeta.rut!=="Sin RUT")ruts++;
+    if(carpeta.confianza<55)bajaConfianza++;
     registrarMovimiento({
-      trabajador,
-      rut,
-      empresa:"Sin empresa",
-      faena:"Sin faena",
-      accion:"📂 Carpeta subida",
-      estado,
-      origen:"Carpetas"
+      trabajador:carpeta.trabajador,
+      rut:carpeta.rut,
+      empresa:carpeta.empresa,
+      faena:carpeta.faena,
+      accion:"🤖 Importación automática de carpeta",
+      estado:carpeta.estado,
+      origen:"Importador Nivel Dios"
     });
   });
-
   guardarLocal(false);
   renderizarCarpetas();
-  alert("Carpeta importada. Revisa el checklist y despacha cuando esté lista.");
-  e.target.value="";
+  renderizarHistorial();
+  const resumen=document.getElementById("resumenCarpetasAuto");
+  if(resumen){
+    resumen.innerHTML=`<div class="alert ${bajaConfianza?"problem":""}"><b>🤖 Importación automática lista</b><br>Carpetas/grupos creados: ${creadas}<br>Documentos clasificados: ${autoDocs} de ${files.length}<br>RUT detectados: ${ruts}<br>${bajaConfianza?"⚠️ Hay grupos con baja confianza. Revisa y edita datos si corresponde.":"✅ Detección estable."}</div>`;
+  }
+  mostrarToast(`🤖 Importación nivel dios lista: ${creadas} grupo(s).`,"ok");
 }
 
 function renderizarCarpetas(){
@@ -2330,17 +2631,31 @@ function renderizarCarpetas(){
   const listas=carpetasTrabajadores.filter(c=>c.estado==="Lista").length;
   const observadas=carpetasTrabajadores.filter(c=>c.estado==="Observada").length;
   const incompletas=carpetasTrabajadores.filter(c=>c.estado==="Incompleta").length;
+  const autoDocs=carpetasTrabajadores.reduce((acc,c)=>acc+(c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro").length,0);
+  const ruts=new Set(carpetasTrabajadores.filter(c=>c.rut&&c.rut!=="Sin RUT").map(c=>c.rut)).size;
+  const fotos=carpetasTrabajadores.reduce((acc,c)=>acc+(c.archivos||[]).filter(a=>a.tipo==="cedula"||a.tipo==="foto"||a.esImagen).length,0);
+  const confianza=carpetasTrabajadores.length?Math.round(carpetasTrabajadores.reduce((acc,c)=>acc+(c.confianza||calcularConfianzaCarpeta(c)),0)/carpetasTrabajadores.length):0;
+
   if(document.getElementById("cCarpetas"))cCarpetas.innerText=total;
   if(document.getElementById("cListas"))cListas.innerText=listas;
   if(document.getElementById("cObservadas"))cObservadas.innerText=observadas;
   if(document.getElementById("cIncompletas"))cIncompletas.innerText=incompletas;
+  if(document.getElementById("cAutoDocs"))cAutoDocs.innerText=autoDocs;
+  if(document.getElementById("cRutsDetectados"))cRutsDetectados.innerText=ruts;
+  if(document.getElementById("cFotosCedulas"))cFotosCedulas.innerText=fotos;
+  if(document.getElementById("cConfianza"))cConfianza.innerText=confianza+"%";
+  if(document.getElementById("cConfianzaBar"))cConfianzaBar.style.width=confianza+"%";
 
   if(!filtradas.length){
-    grid.innerHTML=`<div class="empty">Todavía no hay carpetas cargadas.</div>`;
+    grid.innerHTML=`<div class="empty">Todavía no hay carpetas cargadas. Sube una carpeta o usa la demo nivel dios.</div>`;
     return;
   }
 
-  grid.innerHTML=filtradas.map(c=>`
+  grid.innerHTML=filtradas.map(c=>{
+    const conf=c.confianza||calcularConfianzaCarpeta(c);
+    const dups=c.duplicados||duplicadosCarpeta(c);
+    const sinClasificar=(c.archivos||[]).filter(a=>!a.tipo || a.tipo==="otro").length;
+    return `
     <div class="folder-card">
       <div class="folder-head">
         <div>
@@ -2348,20 +2663,44 @@ function renderizarCarpetas(){
           <div class="meta" style="margin-top:8px">
             RUT: ${c.rut} · Empresa: ${c.empresa || "Sin empresa"}<br>
             Faena: ${c.faena || "Sin faena"} · Cargo: ${c.cargo || "Sin cargo"}<br>
-            Subida: ${c.fechaSubida} · Archivos: ${c.archivos?.length||0}
+            Subida: ${c.fechaSubida} · Archivos: ${c.archivos?.length||0} · Confianza: ${conf}%
           </div>
+          <div class="confidence" style="max-width:280px"><span style="width:${conf}%"></span></div>
         </div>
         <div>${badgeCarpeta(c.estado)}</div>
       </div>
 
+      ${(c.fotosPrincipales||[]).length?`
+        <div class="preview-doc">
+          ${c.fotosPrincipales.map(f=>f.previewURL?`<img src="${f.previewURL}" alt="${f.nombre}">`:"").join("")}
+          <div><b>Imagen/cédula detectada</b><br><span class="small">${c.fotosPrincipales.map(f=>f.nombre).join(" · ")}</span></div>
+        </div>`:""}
+
+      <div style="margin-top:12px">
+        <span class="detected-pill ok">🤖 ${((c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro").length)} docs detectados</span>
+        <span class="detected-pill ${sinClasificar?"warn":"ok"}">🧩 ${sinClasificar} sin clasificar</span>
+        <span class="detected-pill ${dups.length?"bad":"ok"}">🧬 ${dups.length} duplicado(s)</span>
+      </div>
+
       <div class="check-grid">
         ${(c.checklist||[]).map(item=>`
-          <div class="check-card ${item.estado==="Recibido"?"ok-doc":"bad-doc"}">
-            <b>${item.estado==="Recibido"?"✅":"❌"} ${item.nombre}</b>
-            <div class="small" style="margin-top:6px">${item.cantidad||0} archivo(s)</div>
+          <div class="check-card ${item.estado==="Recibido"?"ok-doc":item.estado==="Por vencer"?"warn-doc":"bad-doc"}">
+            <b>${item.estado==="Recibido"?"✅":item.estado==="Por vencer"?"⚠️":"❌"} ${item.nombre}</b>
+            <div class="small" style="margin-top:6px">${item.estado} · ${item.cantidad||0} archivo(s) · Confianza ${item.confianza||0}%</div>
             <div class="doc-list">
-              ${(item.archivos||[]).slice(0,3).map(a=>`<div class="doc-chip"><span>${a}</span><span>OK</span></div>`).join("")}
+              ${(item.archivos||[]).slice(0,4).map(a=>`<div class="doc-chip"><span>${a}</span><span>${item.estado}</span></div>`).join("")}
             </div>
+          </div>
+        `).join("")}
+      </div>
+
+      <h3 style="margin:18px 0 10px">Archivos detectados automáticamente</h3>
+      <div class="auto-file-list">
+        ${(c.archivos||[]).slice(0,16).map(a=>`
+          <div class="auto-file ${a.tipo&&a.tipo!=="otro"?"ok":"warn"}">
+            <b>${a.tipoNombre||nombreTipoDoc(a.tipo)}</b><br>
+            ${a.nombre}<br>
+            <span class="small">Estado: ${a.estado||"Acreditado"} · Vence: ${a.fechaVencimiento||"-"} · Confianza: ${a.confianza||0}%</span>
           </div>
         `).join("")}
       </div>
@@ -2369,13 +2708,14 @@ function renderizarCarpetas(){
       <textarea class="note" placeholder="Observaciones para esta carpeta..." oninput="actualizarObservacionCarpeta('${c.id}',this.value)">${c.observacion||""}</textarea>
 
       <div class="folder-actions">
+        <button class="mini green" onclick="integrarCarpetaADocumentos('${c.id}')">Enviar a acreditación</button>
         <button class="mini green" onclick="despacharCarpeta('${c.id}')">Despachar ZIP</button>
         <button class="mini blue" onclick="marcarCarpetaLista('${c.id}')">Marcar lista</button>
         <button class="mini yellow" onclick="editarDatosCarpeta('${c.id}')">Editar datos</button>
         <button class="mini red" onclick="eliminarCarpeta('${c.id}')">Eliminar</button>
       </div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
 }
 
 function actualizarObservacionCarpeta(id,valor){
@@ -2391,8 +2731,50 @@ function editarDatosCarpeta(id){
   c.empresa=prompt("Empresa contratista",c.empresa)||c.empresa;
   c.faena=prompt("Faena",c.faena)||c.faena;
   c.cargo=prompt("Cargo",c.cargo)||c.cargo;
+  c.confianza=calcularConfianzaCarpeta(c);
   guardarLocal(false);
   renderizarCarpetas();
+}
+
+function integrarCarpetaADocumentos(id){
+  const c=carpetasTrabajadores.find(x=>x.id===id);
+  if(!c)return;
+  const fecha=new Date().toLocaleString("es-CL");
+  const fechaISO=new Date().toISOString();
+  const nuevos=(c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro").map((a,idx)=>enriquecerDocumento({
+    trabajador:c.trabajador,
+    rut:c.rut,
+    documento:a.tipoNombre || nombreTipoDoc(a.tipo),
+    contratista:c.empresa,
+    faena:c.faena,
+    cargo:c.cargo,
+    estadoOriginal:a.estado || "Acreditado",
+    fechaVencimiento:a.fechaVencimiento || "",
+    archivo:a.nombre,
+    hoja:"Carpeta automática",
+    filaExcel:idx+1,
+    fechaSubida:fecha,
+    fechaISO,
+    origen:"Carpetas Nivel Dios"
+  }));
+  if(!nuevos.length){mostrarToast("No hay documentos clasificados para enviar.","warn");return;}
+  docs.push(...nuevos);
+  archivos.push({
+    nombre:`Carpeta_${limpiarNombreArchivo(c.trabajador)}_${limpiarNombreArchivo(c.rut)}.auto`,
+    fechaSubida:fecha,
+    fechaISO,
+    registros:nuevos.length,
+    trabajadores:1,
+    faenas:1,
+    hojas:["Carpeta automática"],
+    columnasDetectadas:[],
+    items:nuevos
+  });
+  reconstruirTrabajadores();
+  registrarMovimiento({trabajador:c.trabajador,rut:c.rut,empresa:c.empresa,faena:c.faena,accion:"✅ Documentos enviados a acreditación",estado:c.estado,origen:"Carpetas Nivel Dios"});
+  guardarLocal(false);
+  renderizar();
+  mostrarToast(`✅ ${nuevos.length} documento(s) enviados a acreditación.`,"ok");
 }
 
 function marcarCarpetaLista(id){
@@ -2442,30 +2824,35 @@ async function despacharCarpeta(id){
   const carpeta=zip.folder(base);
 
   const resumen=[
-    "MINERCONTROL - DESPACHO DE CARPETA",
-    "===================================",
+    "MINERCONTROL - DESPACHO AUTOMÁTICO NIVEL DIOS",
+    "==============================================",
     `Trabajador: ${c.trabajador}`,
     `RUT: ${c.rut}`,
     `Empresa: ${c.empresa}`,
     `Faena: ${c.faena}`,
     `Cargo: ${c.cargo}`,
     `Estado: ${c.estado}`,
+    `Confianza detección: ${c.confianza||calcularConfianzaCarpeta(c)}%`,
     `Fecha despacho: ${new Date().toLocaleString("es-CL")}`,
     "",
     "CHECKLIST:",
-    ...(c.checklist||[]).map(x=>`${x.estado==="Recibido"?"OK":"FALTA"} - ${x.nombre} (${x.cantidad} archivo/s)`),
+    ...(c.checklist||[]).map(x=>`${x.estado==="Recibido"?"OK":x.estado.toUpperCase()} - ${x.nombre} (${x.cantidad} archivo/s)`),
+    "",
+    "ARCHIVOS DETECTADOS:",
+    ...(c.archivos||[]).map(a=>`${a.tipoNombre||nombreTipoDoc(a.tipo)} | ${a.estado||"Acreditado"} | ${a.nombre}`),
     "",
     "OBSERVACIONES:",
     c.observacion || "Sin observaciones"
   ].join("\n");
 
-  carpeta.file("00_RESUMEN_DESPACHO.txt",resumen);
-  carpeta.file("01_CHECKLIST.csv",["Documento,Estado,Cantidad",...(c.checklist||[]).map(x=>`"${x.nombre}","${x.estado}","${x.cantidad}"`)].join("\n"));
+  carpeta.file("00_RESUMEN_DESPACHO_NIVEL_DIOS.txt",resumen);
+  carpeta.file("01_CHECKLIST.csv",["Documento,Estado,Cantidad,Confianza",...(c.checklist||[]).map(x=>`"${x.nombre}","${x.estado}","${x.cantidad}","${x.confianza||0}%"`)].join("\n"));
+  carpeta.file("02_ARCHIVOS_DETECTADOS.csv",["Archivo,Tipo,Estado,Vencimiento,Confianza",...(c.archivos||[]).map(a=>`"${a.nombre}","${a.tipoNombre||nombreTipoDoc(a.tipo)}","${a.estado||""}","${a.fechaVencimiento||""}","${a.confianza||0}%"`)].join("\n"));
 
   if(c.archivosFisicos && c.archivosFisicos.length){
     c.archivosFisicos.forEach((file,idx)=>{
-      const tipo=nombreTipoDoc(detectarTipoArchivo(file.name));
-      carpeta.file(`${String(idx+1).padStart(2,"0")}_${limpiarNombreArchivo(tipo)}_${limpiarNombreArchivo(file.name)}`,file);
+      const det=detectarDocumentoArchivo(file.name,file.webkitRelativePath||file.name);
+      carpeta.file(`${String(idx+1).padStart(2,"0")}_${limpiarNombreArchivo(det.tipoNombre)}_${limpiarNombreArchivo(file.name)}`,file);
     });
   }else{
     carpeta.file("IMPORTANTE.txt","Los archivos originales no están disponibles porque la página fue recargada. Vuelve a subir la carpeta y despacha el ZIP en la misma sesión.");
@@ -2474,7 +2861,7 @@ async function despacharCarpeta(id){
   const blob=await zip.generateAsync({type:"blob"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download=base+"_DESPACHO.zip";
+  a.download=base+"_DESPACHO_NIVEL_DIOS.zip";
   a.click();
   URL.revokeObjectURL(a.href);
 
@@ -2491,31 +2878,58 @@ async function despacharCarpeta(id){
   renderizarHistorial();
 }
 
-function crearCarpetaDemo(){
+function crearCarpetaDemo(){crearCarpetaDemoDios();}
+
+function crearCarpetaDemoDios(){
+  const mk=(nombre,tipo,estado="Acreditado",fecha="")=>({
+    nombre,
+    ruta:`Demo Nivel Dios/${nombre}`,
+    tamano:1000,
+    tipo,
+    tipoNombre:nombreTipoDoc(tipo),
+    confianza:92,
+    senales:[tipo],
+    estado,
+    fechaVencimiento:fecha,
+    diasRestantes:diasHasta(fecha),
+    prioridad:estado==="Vencido"||estado==="Pendiente"?"Alta":estado==="Por vencer"?"Media":"Normal",
+    extension:extensionArchivo(nombre),
+    esImagen:/\.(jpg|jpeg|png|webp)$/i.test(nombre),
+    previewURL:""
+  });
+  const fechaFutura=new Date(Date.now()+120*86400000).toISOString().slice(0,10);
+  const fechaCerca=new Date(Date.now()+18*86400000).toISOString().slice(0,10);
   const archivosDemo=[
-    {nombre:"cedula_juan_perez.pdf",tamano:1000,tipo:"cedula"},
-    {nombre:"licencia_conducir_juan.pdf",tamano:1000,tipo:"licencia"},
-    {nombre:"examen_ocupacional_altura.pdf",tamano:1000,tipo:"examen"},
-    {nombre:"contrato_juan.pdf",tamano:1000,tipo:"contrato"},
-    {nombre:"odi_derecho_a_saber.pdf",tamano:1000,tipo:"odi"}
+    mk("12.345.678-9 Juan Perez Collahuasi Cedula identidad.jpg","cedula","Acreditado",fechaFutura),
+    mk("12.345.678-9 Juan Perez Licencia conducir vence 2026-12-30.pdf","licencia","Acreditado","2026-12-30"),
+    mk(`12.345.678-9 Juan Perez Examen ocupacional vence ${fechaCerca}.pdf`,"examen","Por vencer",fechaCerca),
+    mk("12.345.678-9 Juan Perez Contrato trabajo vigente.pdf","contrato","Acreditado",fechaFutura),
+    mk("12.345.678-9 Juan Perez ODI Derecho a Saber.pdf","odi","Acreditado",fechaFutura),
+    mk("12.345.678-9 Juan Perez Certificado antecedentes.pdf","antecedentes","Acreditado",fechaFutura),
+    mk("12.345.678-9 Juan Perez Entrega EPP.pdf","epp","Acreditado",fechaFutura)
   ];
   const checklist=crearChecklistCarpeta(archivosDemo);
-  carpetasTrabajadores.push({
-    id:Date.now()+"_demo",
+  const carpeta={
+    id:Date.now()+"_demo_dios",
     trabajador:"Juan Pérez",
     rut:"12.345.678-9",
     empresa:"Mardones Servicios",
     faena:"Collahuasi",
     cargo:"Operador",
-    observacion:"Falta foto, EPP y antecedentes para quedar 100% completo.",
+    observacion:"Demo automática: falta hoja de vida conductor para quedar full 100%.",
     estado:estadoCarpeta(checklist),
     fechaSubida:new Date().toLocaleString("es-CL"),
     archivos:archivosDemo,
     archivosFisicos:[],
-    checklist
-  });
+    checklist,
+    fotosPrincipales:[],
+    confianza:94,
+    duplicados:[]
+  };
+  carpetasTrabajadores.push(carpeta);
   guardarLocal(false);
   renderizarCarpetas();
+  mostrarToast("Demo nivel dios cargada.","ok");
 }
 
 function exportarCarpetasExcel(){
@@ -2527,18 +2941,62 @@ function exportarCarpetasExcel(){
     faena:c.faena,
     cargo:c.cargo,
     estado:c.estado,
+    confianza:(c.confianza||calcularConfianzaCarpeta(c))+"%",
     archivos:c.archivos?.length||0,
-    faltantes:(c.checklist||[]).filter(x=>x.estado==="Falta").map(x=>x.nombre).join(" | "),
+    faltantes:(c.checklist||[]).filter(x=>x.estado==="Falta"||x.estado==="Vencido/Pendiente").map(x=>x.nombre).join(" | "),
+    duplicados:(c.duplicados||[]).join(" | "),
     observacion:c.observacion,
     fechaSubida:c.fechaSubida
   }));
   const detalle=[];
   carpetasTrabajadores.forEach(c=>{
-    (c.checklist||[]).forEach(x=>detalle.push({trabajador:c.trabajador,rut:c.rut,documento:x.nombre,estado:x.estado,cantidad:x.cantidad,archivos:(x.archivos||[]).join(" | ")}));
+    (c.checklist||[]).forEach(x=>detalle.push({trabajador:c.trabajador,rut:c.rut,documento:x.nombre,estado:x.estado,cantidad:x.cantidad,confianza:x.confianza,archivos:(x.archivos||[]).join(" | ")}));
+  });
+  const archivosDetalle=[];
+  carpetasTrabajadores.forEach(c=>{
+    (c.archivos||[]).forEach(a=>archivosDetalle.push({trabajador:c.trabajador,rut:c.rut,archivo:a.nombre,tipo:a.tipoNombre,estado:a.estado,vencimiento:a.fechaVencimiento,confianza:a.confianza,ruta:a.ruta}));
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen),"Carpetas");
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(detalle),"Checklist");
-  XLSX.writeFile(wb,"MinerControl_Carpetas_Trabajadores.xlsx");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(archivosDetalle),"Archivos detectados");
+  XLSX.writeFile(wb,"MinerControl_Carpetas_Nivel_Dios.xlsx");
+}
+
+function exportarMatrizControl(){
+  const wb=XLSX.utils.book_new();
+  const filas=[];
+  carpetasTrabajadores.forEach(c=>{
+    const row={Trabajador:c.trabajador,RUT:c.rut,Empresa:c.empresa,Faena:c.faena,Cargo:c.cargo,Estado:c.estado,Confianza:(c.confianza||calcularConfianzaCarpeta(c))+"%"};
+    DOCS_REQUERIDOS.slice(0,8).forEach(req=>{
+      const item=(c.checklist||[]).find(x=>x.key===req.key);
+      row[req.nombre]=item?item.estado:"Falta";
+    });
+    filas.push(row);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(filas),"Matriz control");
+  XLSX.writeFile(wb,"MinerControl_Matriz_Control.xlsx");
+}
+
+async function generarZIPMasivo(){
+  const listas=carpetasTrabajadores.filter(c=>c.estado==="Lista" || c.estado==="Observada");
+  if(!listas.length){mostrarToast("No hay carpetas listas u observadas para comprimir.","warn");return;}
+  const zip=new JSZip();
+  listas.forEach(c=>{
+    const base=limpiarNombreArchivo(`${c.trabajador}_${c.rut}`);
+    const carpeta=zip.folder(base);
+    carpeta.file("00_RESUMEN.txt",[`Trabajador: ${c.trabajador}`,`RUT: ${c.rut}`,`Estado: ${c.estado}`,`Confianza: ${c.confianza||calcularConfianzaCarpeta(c)}%`].join("\n"));
+    carpeta.file("01_CHECKLIST.csv",["Documento,Estado,Cantidad",...(c.checklist||[]).map(x=>`"${x.nombre}","${x.estado}","${x.cantidad}"`)].join("\n"));
+    if(c.archivosFisicos&&c.archivosFisicos.length){
+      c.archivosFisicos.forEach((file,idx)=>carpeta.file(`${String(idx+1).padStart(2,"0")}_${limpiarNombreArchivo(file.name)}`,file));
+    }
+  });
+  const blob=await zip.generateAsync({type:"blob"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="MinerControl_ZIP_Masivo_Carpetas.zip";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  mostrarToast("ZIP masivo generado.","ok");
 }
 
 function borrarCarpetas(){
