@@ -287,6 +287,12 @@ button{transition:.15s ease}
 .hero{align-items:flex-start;flex-direction:column}.hero h1{font-size:32px}
 .main{padding:14px}.search{min-width:100%}.split{grid-template-columns:1fr}
 }
+
+.primary-upload{padding:12px 18px;border-radius:14px;color:white;font-weight:800;cursor:pointer;display:inline-flex;align-items:center}
+.extra-options{margin-bottom:22px}
+.extra-options summary{width:fit-content;padding:12px 18px;border:1px solid var(--line);border-radius:14px;background:var(--panel);font-weight:800;cursor:pointer}
+.extra-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;padding:20px 0}
+.extra-options-grid p{color:var(--muted);font-size:13px;line-height:1.5;margin-top:8px}
 </style>
 </head>
 
@@ -334,17 +340,26 @@ button{transition:.15s ease}
 </div>
 
 <div class="actions">
+  <label class="blue primary-upload" for="inputExcelPro">Subir Excel</label>
   <button class="green" onclick="exportarExcel()">Exportar Excel</button>
-  <button class="blue" onclick="cargarDemo()">Cargar demo</button>
-  <button class="purple" onclick="guardarLocal()">Guardar vista</button>
-  <button class="yellow" onclick="cargarLocal()">Cargar guardado</button>
-  <button class="blue" onclick="diagnosticarSistema()">Diagnóstico</button>
-  <button class="red" onclick="borrarVista()">Borrar vista</button>
 </div>
 
+<details class="extra-options">
+  <summary>Más opciones</summary>
+  <div class="extra-options-grid">
+    <div><button class="purple mini" onclick="guardarLocal()">Guardar datos en este navegador</button><p>Guarda los datos actuales para recuperarlos en este mismo navegador. Los archivos físicos no se guardan.</p></div>
+    <div><button class="yellow mini" onclick="cargarLocal()">Recuperar datos guardados</button><p>Abre los datos que guardaste anteriormente en este navegador.</p></div>
+    <div><button class="blue mini" onclick="diagnosticarSistema()">Diagnóstico</button><p>Revisa los datos cargados y muestra posibles problemas.</p></div>
+    <div><button class="blue mini" onclick="cargarDemo()">Cargar demo</button><p>Carga datos de ejemplo para explorar el sistema.</p></div>
+    <div><button class="red mini" onclick="borrarVista()">Borrar vista</button><p>Limpia los datos actuales y elimina el guardado de este navegador. Pide confirmación antes de hacerlo.</p></div>
+  </div>
+  <div class="status-strip">
+    <span class="status-pill ok">🟢 Sistema local activo</span>
+    <span class="status-pill" id="estadoGuardado">💾 Esperando datos</span>
+  </div>
+</details>
+
 <div class="status-strip">
-  <span class="status-pill ok">🟢 Sistema local activo</span>
-  <span class="status-pill" id="estadoGuardado">💾 Esperando datos</span>
   <span class="status-pill" id="ultimaSubida">📁 Sin archivos subidos</span>
   <span class="status-pill warn" id="estadoCritico">⚠️ Sin revisión todavía</span>
 </div>
