@@ -1617,7 +1617,7 @@ function pintarDetalleArchivo(nombre){
       <div class="worker-box">
         <div class="worker-head">
           <div>
-            <b>👷 ${g.trabajador}</b>
+            <b><a href="#perfilDocumentoTrabajador" class="worker-link" data-perfil-documento="${encodeURIComponent(JSON.stringify({rut:g.rut,trabajador:g.trabajador,faena:f.faena}))}" onclick="abrirPerfilDesdeDocumentos(this);return false">👷 ${g.trabajador}</a></b>
             <div class="small">RUT: ${g.rut} · Cargo: ${g.cargo} · Empresa: ${g.contratista}</div>
           </div>
           <div>${g.items.length} documentos</div>
@@ -1657,6 +1657,187 @@ function pintarDetalleArchivo(nombre){
       </div>
     `).join("")}
   `).join("");
+}
+
+
+// Perfil desde Documentos: solo lectura; conserva el listado y su posición.
+let retornoPerfilDocumentos=null;
+function escaparPerfilDocumento(valor){
+  return String(valor??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function tieneRutPerfilDocumento(rut){
+  return Boolean(rut && String(rut).trim()!=="Sin RUT");
+}
+function coincidePerfilDocumento(registro,trabajador){
+  if(registro.faena!==trabajador.faena)return false;
+  return tieneRutPerfilDocumento(trabajador.rut)
+    ? registro.rut===trabajador.rut
+    : !tieneRutPerfilDocumento(registro.rut) && registro.trabajador===trabajador.trabajador;
+}
+function datosExtraPerfilDocumento(registro,omitidos){
+  return Object.entries(registro).filter(([key,value])=>!omitidos.includes(key) && value!=="" && value!=null)
+    .map(([key,value])=>`<div><b>${escaparPerfilDocumento(key)}:</b> ${escaparPerfilDocumento(typeof value==="object"?JSON.stringify(value):value)}</div>`).join("");
+}
+function checklistPerfilDocumentos(t,registros){
+  const reqs=requisitosFaena[t.faena] || [];
+  if(!reqs.length)return `<div class="alert problem">⚠️ Esta faena no tiene requisitos configurados todavía.</div>`;
+  const checklist=reqs.map(key=>{
+    const encontrados=registros.filter(d=>docCumpleRequisito(d,key));
+    const vencidos=registros.filter(d=>{
+      const cat=CATALOGO_REQUISITOS.find(x=>x.key===key);
+      const texto=normalizar(`${d.documento||""} ${d.tipoDocumento||""}`);
+      return cat && cat.aliases.some(a=>texto.includes(normalizar(a))) && (d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar");
+    });
+    const estado=encontrados.length?(encontrados.some(d=>d.estado==="Por vencer")?"Por vencer":"Cumple"):(vencidos.length?"Vencido/Pendiente":"Falta");
+    return {nombre:nombreReq(key),estado,archivos:[...encontrados,...vencidos].map(d=>d.documento)};
+  });
+  const faltan=checklist.filter(x=>x.estado==="Falta" || x.estado==="Vencido/Pendiente").length;
+  const porVencer=checklist.filter(x=>x.estado==="Por vencer").length;
+  const estado=faltan===0 && porVencer===0?"Cumple":faltan<=2?"Observado":"Bloqueado";
+  const cumplimiento=Math.round((checklist.filter(x=>x.estado==="Cumple" || x.estado==="Por vencer").length/reqs.length)*100);
+  return `<h3 style="margin:18px 0 10px">Acreditación · Requisitos de ${escaparPerfilDocumento(t.faena)}</h3>
+    <div class="alert ${estado!=="Cumple"?"problem":""}">Estado requisitos: ${badgeReqEstado(estado)} · Cumplimiento requisitos: <b>${cumplimiento}%</b> · Faltan/pendientes: <b>${faltan}</b></div>
+    <div class="check-grid">${checklist.map(item=>`<div class="check-card ${item.estado==="Cumple"?"ok-doc":item.estado==="Por vencer"?"warn-doc":"bad-doc"}">
+      <b>${escaparPerfilDocumento(item.nombre)}</b><div class="small" style="margin-top:6px">${item.estado}</div>
+      <div class="doc-list">${item.archivos.slice(0,3).map(a=>`<div class="doc-chip"><span>${escaparPerfilDocumento(a)}</span><span>${item.estado}</span></div>`).join("")}</div></div>`).join("")}</div>`;
+}
+function abrirPerfilDesdeDocumentos(enlace){
+  const seleccionado=JSON.parse(decodeURIComponent(enlace.dataset.perfilDocumento));
+  const registros=docs.filter(d=>coincidePerfilDocumento(d,seleccionado));
+  if(!registros.length)return;
+  const general=registros.find(d=>d.trabajador && d.trabajador!==d.rut && d.trabajador!=="Sin nombre") || registros[0];
+  const trabajador={...seleccionado,trabajador:general.trabajador,
+    contratista:registros.find(d=>d.contratista && d.contratista!=="Empresa")?.contratista || general.contratista,
+    cargo:registros.find(d=>d.cargo && d.cargo!=="-")?.cargo || general.cargo};
+  const t=Object.fromEntries(Object.entries(trabajador).map(([key,value])=>[key,escaparPerfilDocumento(value)]));
+  const adicionales={};
+  for(const registro of registros){
+    for(const [key,value] of Object.entries(registro)){
+      if(/turno|acceso|ingreso|correo|email|telefono|teléfono/i.test(key) && value!=="" && value!=null){
+        (adicionales[key]??=new Set()).add(typeof value==="object"?JSON.stringify(value):String(value));
+      }
+    }
+  }
+  const datosAdicionales=Object.entries(adicionales).map(([key,values])=>`<br>${escaparPerfilDocumento(key)}: ${escaparPerfilDocumento([...values].join(" · "))}`).join("");
+  const omitidos=["trabajador","rut","contratista","faena","cargo","documento","tipoDocumento","fechaVencimiento","diasRestantes","estado","semaforo","prioridad","archivo","hoja","filaExcel","fechaSubida"];
+  const relacionados=registros.map(d=>({...Object.fromEntries(Object.entries(d).map(([key,value])=>[key,escaparPerfilDocumento(value)])),otrosDatosPerfil:datosExtraPerfilDocumento(d,omitidos)||"-"}));
+  const acreditados=registros.filter(d=>d.estado==="Acreditado").length;
+  const porVencer=registros.filter(d=>d.estado==="Por vencer").length;
+  const cumplimiento=Math.round(acreditados/registros.length*100);
+  const criticos=registros.filter(d=>d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta");
+  const proximos=registros.filter(d=>d.estado==="Por vencer");
+  const semaforoPerfil=registros.some(d=>d.semaforo==="Rojo")?semaforoHtml("Rojo")+" Crítico":registros.some(d=>d.semaforo==="Amarillo")?semaforoHtml("Amarillo")+" Atención":semaforoHtml("Verde")+" OK";
+  const movimientos=historialOperacional.filter(h=>coincidePerfilDocumento(h,seleccionado));
+  const historialPerfil=movimientos.length?`<h3 style="margin:18px 0 10px">Historial del trabajador</h3><div class="timeline">${movimientos.slice().sort((a,b)=>String(b.fechaISO||"").localeCompare(String(a.fechaISO||""))).map(h=>`<div class="timeline-item">${datosExtraPerfilDocumento(h,["id"])}</div>`).join("")}</div>`:"";
+  let panel=document.getElementById("perfilDocumentoTrabajador");
+  if(!panel){
+    panel=document.createElement("div");
+    panel.id="perfilDocumentoTrabajador";
+    panel.className="profile-panel";
+    detalleArchivo.after(panel);
+  }
+  if(!retornoPerfilDocumentos){
+    const main=document.querySelector(".main");
+    retornoPerfilDocumentos={enlace,main,scroll:main?.scrollTop||0,windowScroll:window.scrollY,display:detalleArchivo.style.display};
+  }
+  detalleArchivo.style.display="none";
+  panel.classList.add("active");
+  panel.innerHTML=`
+    <div class="section" style="margin-bottom:0">
+      <div class="profile-header">
+        <div>
+          <h2>👷 Perfil de ${t.trabajador}</h2>
+          <p class="meta" style="margin-top:8px">
+            RUT: ${t.rut} · Empresa: ${t.contratista}<br>
+            Faena: ${t.faena} · Cargo: ${t.cargo}${datosAdicionales}
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="mini red" onclick="cerrarPerfilDesdeDocumentos()">← Volver a Documentos</button>
+        </div>
+      </div>
+
+      <div class="profile-kpis">
+        <div class="profile-kpi"><small>Documentos</small><h2>${relacionados.length}</h2></div>
+        <div class="profile-kpi"><small>Cumplimiento</small><h2>${cumplimiento}%</h2><div class="progress"><span style="width:${cumplimiento}%"></span></div></div>
+        <div class="profile-kpi"><small>Críticos</small><h2>${criticos.length}</h2></div>
+        <div class="profile-kpi"><small>Por vencer</small><h2>${porVencer}</h2></div>
+      </div>
+
+      <h3 style="margin:18px 0 10px">Resumen automático</h3>
+      <div class="alert ${criticos.length?"problem":""}">
+        ${criticos.length?`🚨 Tiene ${criticos.length} documento(s) crítico(s).`:"✅ Sin documentos críticos."}<br>
+        ${proximos.length?`⚠️ Tiene ${proximos.length} documento(s) por vencer.`:"✅ Sin vencimientos cercanos."}<br>
+        Estado general: ${semaforoPerfil}
+      </div>
+
+      ${checklistPerfilDocumentos(trabajador,registros)}
+
+      <h3 style="margin:18px 0 10px">Documentos del trabajador</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Documento</th>
+              <th>Tipo</th>
+              <th>Vencimiento</th>
+              <th>Días</th>
+              <th>Estado</th>
+              <th>Prioridad</th>
+              <th>Archivo</th>
+              <th>Hoja</th>
+              <th>Fila Excel</th>
+              <th>Subido</th>
+              <th>Otros datos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${relacionados.length?relacionados.map(d=>`
+              <tr>
+                <td>${d.documento}</td>
+                <td><span class="tipo-pill">${d.tipoDocumento||"Documento"}</span></td>
+                <td>${d.fechaVencimiento||"-"}</td>
+                <td>${d.diasRestantes!==""?d.diasRestantes:"-"}</td>
+                <td>${badge(d.estado)} ${semaforoHtml(d.semaforo)}</td>
+                <td>${prioridadBadge(d.prioridad)}</td>
+                <td>${d.archivo}</td>
+                <td>${d.hoja||"-"}</td>
+                <td>${d.filaExcel||"-"}</td>
+                <td>${d.fechaSubida||"-"}</td>
+                <td>${d.otrosDatosPerfil}</td>
+              </tr>
+            `).join(""):`<tr><td colspan="11" class="empty">Sin documentos para este trabajador.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      ${historialPerfil}
+      <h3 style="margin:18px 0 10px">Cargas de documentos</h3>
+      <div class="timeline">
+        ${relacionados.slice().sort((a,b)=>String(b.fechaSubida).localeCompare(String(a.fechaSubida))).map(d=>`
+          <div class="timeline-item">
+            <b>${d.fechaSubida}</b> · ${d.documento}<br>
+            <span class="small">Estado: ${d.estado} · Archivo: ${d.archivo} · Hoja: ${d.hoja||"-"}</span>
+          </div>
+        `).join("") || `<div class="empty">Sin historial todavía.</div>`}
+      </div>
+    </div>
+  `;
+
+  panel.scrollIntoView({behavior:"smooth",block:"start"});
+  const volver=panel.querySelector("button");
+  if(volver)volver.focus({preventScroll:true});
+}
+function cerrarPerfilDesdeDocumentos(){
+  const panel=document.getElementById("perfilDocumentoTrabajador");
+  if(panel){panel.classList.remove("active");panel.innerHTML="";}
+  if(!retornoPerfilDocumentos)return;
+  const retorno=retornoPerfilDocumentos;
+  retornoPerfilDocumentos=null;
+  detalleArchivo.style.display=retorno.display;
+  if(retorno.main)retorno.main.scrollTo({top:retorno.scroll,behavior:"instant"});
+  window.scrollTo({top:retorno.windowScroll,behavior:"instant"});
+  if(retorno.enlace.isConnected)retorno.enlace.focus({preventScroll:true});
 }
 
 function cerrarDetalle(){
