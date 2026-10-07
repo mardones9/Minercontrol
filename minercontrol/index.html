@@ -766,8 +766,8 @@ function actualizarEstadoSistema(){
     us.className=ultimo ? "status-pill ok" : "status-pill";
   }
   if(ec){
-    const criticos=docs.filter(d=>d.semaforo==="Rojo" || d.prioridad==="Alta" || d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar").length;
-    const porVencer=docs.filter(d=>d.estado==="Por vencer").length;
+    const criticos=documentosReales().filter(d=>d.semaforo==="Rojo" || d.prioridad==="Alta" || d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar").length;
+    const porVencer=documentosReales().filter(d=>d.estado==="Por vencer").length;
     if(!docs.length){
       ec.innerText="⚠️ Sin revisión todavía";
       ec.className="status-pill warn";
@@ -1156,8 +1156,11 @@ function diasHasta(fechaISO){
 
 function clasificarDocumento(nombre){
   const t=normalizar(nombre);
+  if(t.includes("licencia") && /medic/.test(t))return "Licencia médica";
+  if(t.includes("licencia") && /conduc|conducc|chofer|clase[abcd]/.test(t))return "Licencia de conducir";
   const reglas=[
-    ["Licencia médica",["licenciamedica","licencia","medica"]],
+    ["Licencia médica",["licenciamedica","licenciamedico"]],
+    ["Licencia de conducir",["licenciaconducir","licenciadeconducir","licenciaconduccion","licenciadeconduccion","licenciaconductor","licenciaclase"]],
     ["Contrato",["contrato","contratodetrabajo"]],
     ["Anexo",["anexo","anexocontrato"]],
     ["ODI / Charla",["odi","charla","obligaciondeinformar","derechoasaber"]],
@@ -1322,7 +1325,7 @@ function importarExcelPro(e){
         fechaISO,
         items:itemsArchivo,
         registros:itemsArchivo.length,
-        trabajadores:new Set(itemsArchivo.map(i=>i.rut+"|"+i.trabajador)).size,
+        trabajadores:new Set(itemsArchivo.map(claveTrabajador)).size,
         faenas:new Set(itemsArchivo.map(i=>i.faena)).size,
         hojas:hojasProcesadas,
         columnasDetectadas
@@ -1398,54 +1401,63 @@ function verColumnas(nombreCod){
   alert(texto);
 }
 
+function rutIdentidad(rut){
+  const valor=String(rut||"").trim().toUpperCase().replace(/[.\s-]/g,"");
+  return valor && valor!=="SINRUT"?valor:"";
+}
+function claveTrabajador(registro){
+  return JSON.stringify([rutIdentidad(registro.rut)||String(registro.trabajador||"").trim(),String(registro.faena||"").trim()]);
+}
+function esFichaLaboral(registro){
+  return ["trabajadores","trabajador","nomina","nominatrabajadores"].includes(normalizar(registro.documento));
+}
+function documentosReales(){return docs.filter(d=>!esFichaLaboral(d));}
+function documentosDelTrabajador(t){return documentosReales().filter(d=>coincidePerfilDocumento(d,t));}
+function datosGeneralesTrabajador(items,base={}){
+  const ordenados=[...items.filter(esFichaLaboral),...items.filter(d=>!esFichaLaboral(d))];
+  const t={...base};
+  for(const campo of ["trabajador","rut","contratista","faena","cargo"]){
+    const registro=ordenados.find(d=>{
+      const valor=String(d[campo]||"").trim();
+      if(!valor || ["-","Sin nombre","Sin RUT","Empresa","Sin empresa","Sin cargo"].includes(valor))return false;
+      return campo!=="trabajador" || !rutIdentidad(d.rut) || rutIdentidad(valor)!==rutIdentidad(d.rut);
+    });
+    t[campo]=registro?registro[campo]:(t[campo]||ordenados[0]?.[campo]||"-");
+  }
+  const ficha=items.find(esFichaLaboral);
+  t.estadoLaboral=ficha?.estadoOriginal || "";
+  return t;
+}
+function trabajadorDeRegistro(d){return trabajadores.find(t=>claveTrabajador(t)===claveTrabajador(d)) || d;}
+function cumplimientoGlobalRequisitos(){
+  const evaluaciones=trabajadores.map(evaluarRequisitosTrabajador);
+  const exigidos=evaluaciones.reduce((total,e)=>total+e.reqs.length,0);
+  const cumplidos=evaluaciones.reduce((total,e)=>total+e.checklist.filter(r=>r.estado==="Cumple" || r.estado==="Por vencer").length,0);
+  return exigidos?Math.round(cumplidos/exigidos*100):0;
+}
+
 function reconstruirTrabajadores(){
-  const mapa={};
-
-  docs.forEach(i=>{
-    const key=(i.rut!=="Sin RUT"?i.rut:i.trabajador)+"|"+i.faena;
-
-    if(!mapa[key]){
-      mapa[key]={
-        trabajador:i.trabajador,
-        rut:i.rut,
-        contratista:i.contratista,
-        faena:i.faena,
-        cargo:i.cargo,
-        documentos:0
-      };
-    }
-
-    mapa[key].documentos++;
+  const mapa=new Map();
+  docs.forEach(d=>{
+    const key=claveTrabajador(d);
+    if(!mapa.has(key))mapa.set(key,[]);
+    mapa.get(key).push(d);
   });
-
-  trabajadores=Object.values(mapa);
+  trabajadores=[...mapa.values()].map(items=>({...datosGeneralesTrabajador(items),documentos:items.filter(d=>!esFichaLaboral(d)).length}));
 }
 
 function agruparPorFaenaYTrabajador(items){
-  const faenas={};
-
+  const faenas=new Map();
   items.forEach(d=>{
-    if(!faenas[d.faena])faenas[d.faena]={faena:d.faena,trabajadores:{}};
-
-    const key=(d.rut!=="Sin RUT"?d.rut:d.trabajador)+"|"+d.trabajador;
-
-    if(!faenas[d.faena].trabajadores[key]){
-      faenas[d.faena].trabajadores[key]={
-        trabajador:d.trabajador,
-        rut:d.rut,
-        contratista:d.contratista,
-        cargo:d.cargo,
-        items:[]
-      };
-    }
-
-    faenas[d.faena].trabajadores[key].items.push(d);
+    if(!faenas.has(d.faena))faenas.set(d.faena,new Map());
+    const grupos=faenas.get(d.faena), key=claveTrabajador(d);
+    if(!grupos.has(key))grupos.set(key,[]);
+    grupos.get(key).push(d);
   });
-
-  return Object.values(faenas).map(f=>({
-    faena:f.faena,
-    trabajadores:Object.values(f.trabajadores)
-  }));
+  return [...faenas].map(([faena,grupos])=>({faena,trabajadores:[...grupos.values()].map(registros=>({
+    ...datosGeneralesTrabajador(docs.filter(d=>claveTrabajador(d)===claveTrabajador(registros[0]))),
+    items:registros.filter(d=>!esFichaLaboral(d))
+  }))}));
 }
 
 function renderizar(){
@@ -1467,11 +1479,11 @@ function renderizarDashboard(){
   kTrabajadores.innerText=trabajadores.length;
   kArchivos.innerText=archivos.length;
   kFaenas.innerText=new Set(docs.map(d=>d.faena)).size;
-  const acreditados=docs.filter(d=>d.estado==="Acreditado").length;
-  const vencidos=docs.filter(d=>d.estado==="Vencido" || d.prioridad==="Alta").length;
-  const porVencer=docs.filter(d=>d.estado==="Por vencer").length;
-  const cumplimiento=docs.length?Math.round((acreditados/docs.length)*100):0;
-  const bloqueados=new Set(docs.filter(d=>d.semaforo==="Rojo").map(d=>(d.rut||d.trabajador)+"|"+d.faena)).size;
+  const acreditados=documentosReales().filter(d=>d.estado==="Acreditado").length;
+  const vencidos=documentosReales().filter(d=>d.estado==="Vencido" || d.prioridad==="Alta").length;
+  const porVencer=documentosReales().filter(d=>d.estado==="Por vencer").length;
+  const cumplimiento=cumplimientoGlobalRequisitos();
+  const bloqueados=new Set(documentosReales().filter(d=>d.semaforo==="Rojo").map(d=>(d.rut||d.trabajador)+"|"+d.faena)).size;
 
   kAcreditados.innerText=acreditados;
   kCumplimiento.innerText=cumplimiento+"%";
@@ -1487,7 +1499,7 @@ function renderizarDashboard(){
 
 function contarCriticosPor(campo){
   const mapa={};
-  docs.forEach(d=>{
+  documentosReales().forEach(d=>{
     const key=d[campo]||"Sin dato";
     if(!mapa[key])mapa[key]={total:0,criticos:0};
     mapa[key].total++;
@@ -1519,7 +1531,7 @@ function renderizarRanking(){
 }
 
 function obtenerAlertasCriticas(){
-  return docs.filter(d=>{
+  return documentosReales().filter(d=>{
     const texto=(d.documento+" "+(d.estadoOriginal||"")+" "+(d.estado||"")).toLowerCase();
 
     return d.estado==="Pendiente" ||
@@ -1550,7 +1562,7 @@ function renderizarAlertas(){
 
   body.innerHTML=alertas.slice(0,100).map(a=>`
     <tr>
-      <td>${a.trabajador}</td>
+      <td>${trabajadorDeRegistro(a).trabajador}</td>
       <td>${a.rut}</td>
       <td>${a.documento}</td>
       <td>${a.faena}</td>
@@ -1575,7 +1587,7 @@ function renderizarDocumentos(){
       <div class="meta">
         <b>Subido:</b> ${a.fechaSubida}<br>
         <b>Registros:</b> ${a.registros}<br>
-        <b>Trabajadores detectados:</b> ${a.trabajadores}<br>
+        <b>Trabajadores detectados:</b> ${new Set(a.items.map(claveTrabajador)).size}<br>
         <b>Faenas:</b> ${a.faenas}<br>
         <b>Hojas:</b> ${a.columnasDetectadas?.length ? (a.hojas||[]).length : "No analizado"}
       </div>
@@ -1666,12 +1678,12 @@ function escaparPerfilDocumento(valor){
   return String(valor??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function tieneRutPerfilDocumento(rut){
-  return Boolean(rut && String(rut).trim()!=="Sin RUT");
+  return Boolean(rutIdentidad(rut));
 }
 function coincidePerfilDocumento(registro,trabajador){
-  if(registro.faena!==trabajador.faena)return false;
+  if(String(registro.faena||"").trim()!==String(trabajador.faena||"").trim())return false;
   return tieneRutPerfilDocumento(trabajador.rut)
-    ? registro.rut===trabajador.rut
+    ? rutIdentidad(registro.rut)===rutIdentidad(trabajador.rut)
     : !tieneRutPerfilDocumento(registro.rut) && registro.trabajador===trabajador.trabajador;
 }
 function datosExtraPerfilDocumento(registro,omitidos){
@@ -1679,22 +1691,8 @@ function datosExtraPerfilDocumento(registro,omitidos){
     .map(([key,value])=>`<div><b>${escaparPerfilDocumento(key)}:</b> ${escaparPerfilDocumento(typeof value==="object"?JSON.stringify(value):value)}</div>`).join("");
 }
 function checklistPerfilDocumentos(t,registros){
-  const reqs=requisitosFaena[t.faena] || [];
+  const {reqs,checklist,estado,cumplimiento,faltan}=evaluarRequisitosTrabajador(t);
   if(!reqs.length)return `<div class="alert problem">⚠️ Esta faena no tiene requisitos configurados todavía.</div>`;
-  const checklist=reqs.map(key=>{
-    const encontrados=registros.filter(d=>docCumpleRequisito(d,key));
-    const vencidos=registros.filter(d=>{
-      const cat=CATALOGO_REQUISITOS.find(x=>x.key===key);
-      const texto=normalizar(`${d.documento||""} ${d.tipoDocumento||""}`);
-      return cat && cat.aliases.some(a=>texto.includes(normalizar(a))) && (d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar");
-    });
-    const estado=encontrados.length?(encontrados.some(d=>d.estado==="Por vencer")?"Por vencer":"Cumple"):(vencidos.length?"Vencido/Pendiente":"Falta");
-    return {nombre:nombreReq(key),estado,archivos:[...encontrados,...vencidos].map(d=>d.documento)};
-  });
-  const faltan=checklist.filter(x=>x.estado==="Falta" || x.estado==="Vencido/Pendiente").length;
-  const porVencer=checklist.filter(x=>x.estado==="Por vencer").length;
-  const estado=faltan===0 && porVencer===0?"Cumple":faltan<=2?"Observado":"Bloqueado";
-  const cumplimiento=Math.round((checklist.filter(x=>x.estado==="Cumple" || x.estado==="Por vencer").length/reqs.length)*100);
   return `<h3 style="margin:18px 0 10px">Acreditación · Requisitos de ${escaparPerfilDocumento(t.faena)}</h3>
     <div class="alert ${estado!=="Cumple"?"problem":""}">Estado requisitos: ${badgeReqEstado(estado)} · Cumplimiento requisitos: <b>${cumplimiento}%</b> · Faltan/pendientes: <b>${faltan}</b></div>
     <div class="check-grid">${checklist.map(item=>`<div class="check-card ${item.estado==="Cumple"?"ok-doc":item.estado==="Por vencer"?"warn-doc":"bad-doc"}">
@@ -1705,12 +1703,11 @@ function abrirPerfilDesdeDocumentos(enlace){
   const seleccionado=JSON.parse(decodeURIComponent(enlace.dataset.perfilDocumento));
   const registros=docs.filter(d=>coincidePerfilDocumento(d,seleccionado));
   if(!registros.length)return;
-  const general=registros.find(d=>d.trabajador && d.trabajador!==d.rut && d.trabajador!=="Sin nombre") || registros[0];
-  const trabajador={...seleccionado,trabajador:general.trabajador,
-    contratista:registros.find(d=>d.contratista && d.contratista!=="Empresa")?.contratista || general.contratista,
-    cargo:registros.find(d=>d.cargo && d.cargo!=="-")?.cargo || general.cargo};
+  const trabajador=datosGeneralesTrabajador(registros,seleccionado);
+  const documentos=registros.filter(d=>!esFichaLaboral(d));
   const t=Object.fromEntries(Object.entries(trabajador).map(([key,value])=>[key,escaparPerfilDocumento(value)]));
   const adicionales={};
+  if(trabajador.estadoLaboral)adicionales["Estado laboral"]=new Set([trabajador.estadoLaboral]);
   for(const registro of registros){
     for(const [key,value] of Object.entries(registro)){
       if(/turno|acceso|ingreso|correo|email|telefono|teléfono/i.test(key) && value!=="" && value!=null){
@@ -1720,13 +1717,13 @@ function abrirPerfilDesdeDocumentos(enlace){
   }
   const datosAdicionales=Object.entries(adicionales).map(([key,values])=>`<br>${escaparPerfilDocumento(key)}: ${escaparPerfilDocumento([...values].join(" · "))}`).join("");
   const omitidos=["trabajador","rut","contratista","faena","cargo","documento","tipoDocumento","fechaVencimiento","diasRestantes","estado","semaforo","prioridad","archivo","hoja","filaExcel","fechaSubida"];
-  const relacionados=registros.map(d=>({...Object.fromEntries(Object.entries(d).map(([key,value])=>[key,escaparPerfilDocumento(value)])),otrosDatosPerfil:datosExtraPerfilDocumento(d,omitidos)||"-"}));
-  const acreditados=registros.filter(d=>d.estado==="Acreditado").length;
-  const porVencer=registros.filter(d=>d.estado==="Por vencer").length;
-  const cumplimiento=Math.round(acreditados/registros.length*100);
-  const criticos=registros.filter(d=>d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta");
-  const proximos=registros.filter(d=>d.estado==="Por vencer");
-  const semaforoPerfil=registros.some(d=>d.semaforo==="Rojo")?semaforoHtml("Rojo")+" Crítico":registros.some(d=>d.semaforo==="Amarillo")?semaforoHtml("Amarillo")+" Atención":semaforoHtml("Verde")+" OK";
+  const relacionados=documentos.map(d=>({...Object.fromEntries(Object.entries(d).map(([key,value])=>[key,escaparPerfilDocumento(value)])),otrosDatosPerfil:datosExtraPerfilDocumento(d,omitidos)||"-"}));
+  const acreditados=documentos.filter(d=>d.estado==="Acreditado").length;
+  const porVencer=documentos.filter(d=>d.estado==="Por vencer").length;
+  const cumplimiento=evaluarRequisitosTrabajador(trabajador).cumplimiento;
+  const criticos=documentos.filter(d=>d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta");
+  const proximos=documentos.filter(d=>d.estado==="Por vencer");
+  const semaforoPerfil=documentos.some(d=>d.semaforo==="Rojo")?semaforoHtml("Rojo")+" Crítico":documentos.some(d=>d.semaforo==="Amarillo")?semaforoHtml("Amarillo")+" Atención":semaforoHtml("Verde")+" OK";
   const movimientos=historialOperacional.filter(h=>coincidePerfilDocumento(h,seleccionado));
   const historialPerfil=movimientos.length?`<h3 style="margin:18px 0 10px">Historial del trabajador</h3><div class="timeline">${movimientos.slice().sort((a,b)=>String(b.fechaISO||"").localeCompare(String(a.fechaISO||""))).map(h=>`<div class="timeline-item">${datosExtraPerfilDocumento(h,["id"])}</div>`).join("")}</div>`:"";
   let panel=document.getElementById("perfilDocumentoTrabajador");
@@ -1846,7 +1843,7 @@ function cerrarDetalle(){
 }
 
 function estadoTrabajadorPlano(t){
-  const relacionados=docs.filter(d=>d.faena===t.faena && (d.rut===t.rut || d.trabajador===t.trabajador));
+  const relacionados=documentosDelTrabajador(t);
   if(relacionados.some(d=>d.semaforo==="Rojo"))return "critico";
   if(relacionados.some(d=>d.semaforo==="Amarillo"))return "atencion";
   return "ok";
@@ -1893,15 +1890,15 @@ function renderizarTrabajadores(){
 
 function abrirPerfilTrabajador(cod){
   const [rut,nombre,faena]=decodeURIComponent(cod).split("||");
-  const t=trabajadores.find(x=>x.rut===rut && x.trabajador===nombre && x.faena===faena) || trabajadores.find(x=>x.rut===rut || x.trabajador===nombre);
+  const t=trabajadores.find(x=>x.rut===rut && x.trabajador===nombre && x.faena===faena) || trabajadores.find(x=>coincidePerfilDocumento(x,{rut,trabajador:nombre,faena}));
   if(!t)return;
 
-  const relacionados=docs.filter(d=>d.faena===t.faena && (d.rut===t.rut || d.trabajador===t.trabajador));
+  const relacionados=documentosDelTrabajador(t);
   const acreditados=relacionados.filter(d=>d.estado==="Acreditado").length;
   const vencidos=relacionados.filter(d=>d.estado==="Vencido").length;
   const porVencer=relacionados.filter(d=>d.estado==="Por vencer").length;
   const pendientes=relacionados.filter(d=>d.estado!=="Acreditado").length;
-  const cumplimiento=relacionados.length?Math.round((acreditados/relacionados.length)*100):0;
+  const cumplimiento=evaluarRequisitosTrabajador(t).cumplimiento;
 
   const criticos=relacionados.filter(d=>d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta");
   const proximos=relacionados.filter(d=>d.estado==="Por vencer");
@@ -1917,7 +1914,7 @@ function abrirPerfilTrabajador(cod){
           <h2>👷 Historial de ${t.trabajador}</h2>
           <p class="meta" style="margin-top:8px">
             RUT: ${t.rut} · Empresa: ${t.contratista}<br>
-            Faena: ${t.faena} · Cargo: ${t.cargo}
+            Faena: ${t.faena} · Cargo: ${t.cargo}${t.estadoLaboral?`<br>Estado laboral: ${escaparPerfilDocumento(t.estadoLaboral)}`:""}
           </p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1999,7 +1996,7 @@ function cerrarPerfilTrabajador(){
 
 function exportarHistorialTrabajador(cod){
   const [rut,nombre,faena]=decodeURIComponent(cod).split("||");
-  const relacionados=docs.filter(d=>d.faena===faena && (d.rut===rut || d.trabajador===nombre));
+  const relacionados=documentosDelTrabajador({rut,trabajador:nombre,faena});
   if(!relacionados.length){
     alert("Este trabajador no tiene documentos para exportar.");
     return;
@@ -2040,6 +2037,8 @@ function nombreReq(key){
 }
 
 function docCumpleRequisito(d,key){
+  if(esFichaLaboral(d))return false;
+  if(key==="licencia" && clasificarDocumento(d.documento)!=="Licencia de conducir")return false;
   const cat=CATALOGO_REQUISITOS.find(x=>x.key===key);
   if(!cat)return false;
   const texto=normalizar(`${d.documento||""} ${d.tipoDocumento||""} ${d.archivo||""}`);
@@ -2050,7 +2049,7 @@ function docCumpleRequisito(d,key){
 
 function evaluarRequisitosTrabajador(t){
   const reqs=requisitosFaena[t.faena] || [];
-  const relacionados=docs.filter(d=>d.faena===t.faena && (d.rut===t.rut || d.trabajador===t.trabajador));
+  const relacionados=documentosDelTrabajador(t);
   const checklist=reqs.map(key=>{
     const encontrados=relacionados.filter(d=>docCumpleRequisito(d,key));
     const vencidos=relacionados.filter(d=>{
@@ -2177,10 +2176,10 @@ function renderizarFaenas(){
       <small>Faena</small>
       <h3 style="margin-top:8px">${f}</h3>
       <p class="meta" style="margin-top:10px">
-        Trabajadores: ${new Set(mapa[f].map(x=>x.rut+"|"+x.trabajador)).size}<br>
-        Documentos: ${mapa[f].length}<br>
-        Acreditados: ${mapa[f].filter(x=>x.estado==="Acreditado").length}<br>
-        Pendientes/Revisar: ${mapa[f].filter(x=>x.estado!=="Acreditado").length}<br>
+        Trabajadores: ${new Set(mapa[f].map(claveTrabajador)).size}<br>
+        Documentos: ${mapa[f].filter(d=>!esFichaLaboral(d)).length}<br>
+        Acreditados: ${mapa[f].filter(x=>!esFichaLaboral(x) && x.estado==="Acreditado").length}<br>
+        Pendientes/Revisar: ${mapa[f].filter(x=>!esFichaLaboral(x) && x.estado!=="Acreditado").length}<br>
         Requisitos activos: ${(requisitosFaena[f]||[]).length}
       </p>
     </div>
@@ -2190,7 +2189,7 @@ function renderizarFaenas(){
 function renderizarAcreditacion(){
   const q=(document.getElementById("buscarAcreditacion")?.value||"").toLowerCase();
   const banner=document.getElementById("filtroAcreditacionActivo");
-  let filtrados=docs.filter(d=>JSON.stringify(d).toLowerCase().includes(q));
+  let filtrados=documentosReales().filter(d=>JSON.stringify(d).toLowerCase().includes(q));
   filtrados=filtrados.filter(d=>coincideFiltroAcreditacion(d));
 
   if(banner){
@@ -2205,7 +2204,7 @@ function renderizarAcreditacion(){
 
   acreditacionBody.innerHTML=filtrados.length?filtrados.map(d=>`
     <tr>
-      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',document.querySelectorAll('.nav button')[1])">${d.trabajador}</a></td>
+      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',document.querySelectorAll('.nav button')[1])">${trabajadorDeRegistro(d).trabajador}</a></td>
       <td>${d.rut}</td>
       <td>${d.faena}</td>
       <td>${d.documento}</td>
@@ -2223,7 +2222,7 @@ function renderizarAcreditacion(){
 function renderizarReportes(){
   rRegistros.innerText=docs.length;
   rContratistas.innerText=new Set(docs.map(d=>d.contratista)).size;
-  rPendientes.innerText=docs.filter(d=>d.estado!=="Acreditado" || d.prioridad==="Alta").length;
+  rPendientes.innerText=documentosReales().filter(d=>d.estado!=="Acreditado" || d.prioridad==="Alta").length;
 
   const ultimo=archivos.slice().sort((a,b)=>new Date(b.fechaISO)-new Date(a.fechaISO))[0];
   rUltimo.innerText=ultimo?`${ultimo.nombre} · ${ultimo.fechaSubida}`:"Sin archivos";
@@ -2260,7 +2259,7 @@ function prioridadBadge(p){
 }
 
 function semaforoTrabajador(t){
-  const relacionados=docs.filter(d=>d.faena===t.faena && (d.rut===t.rut || d.trabajador===t.trabajador));
+  const relacionados=documentosDelTrabajador(t);
   if(relacionados.some(d=>d.semaforo==="Rojo"))return `<span class="semaforo"><span class="dot bad"></span>Crítico</span>`;
   if(relacionados.some(d=>d.semaforo==="Amarillo"))return `<span class="semaforo"><span class="dot warn"></span>Atención</span>`;
   return `<span class="semaforo"><span class="dot ok"></span>OK</span>`;
@@ -2302,7 +2301,7 @@ function exportarExcel(){
     archivo:a.nombre,
     fechaSubida:a.fechaSubida,
     registros:a.registros,
-    trabajadores:a.trabajadores,
+    trabajadores:new Set(a.items.map(claveTrabajador)).size,
     faenas:a.faenas,
     hojas:(a.hojas||[]).join(" | ")
   }))),"Archivos");
@@ -3308,7 +3307,7 @@ function generarHistorialDesdeDatos(){
 
   const existentes=new Set(historialOperacional.map(h=>`${h.origen}|${h.trabajador}|${h.rut}|${h.faena}|${h.accion}|${h.fechaISO}`));
 
-  docs.forEach(d=>{
+  documentosReales().forEach(d=>{
     const accion=d.estado==="Acreditado"?"✅ Documento acreditado":d.estado==="Por vencer"?"⚠️ Documento por vencer":d.estado==="Vencido"?"🚨 Documento vencido":"❌ Documento pendiente/revisar";
     const fechaISO=d.fechaISO?String(d.fechaISO).slice(0,10):new Date().toISOString().slice(0,10);
     const key=`Documentos|${d.trabajador}|${d.rut}|${d.faena}|${accion}|${fechaISO}`;
@@ -3388,11 +3387,11 @@ function crearGrafico(){
   if(!ctx)return;
   if(chart)chart.destroy();
 
-  const acreditados=docs.filter(d=>d.estado==="Acreditado").length;
-  const pendientes=docs.filter(d=>d.estado==="Pendiente").length;
-  const vencidos=docs.filter(d=>d.estado==="Vencido").length;
-  const porVencer=docs.filter(d=>d.estado==="Por vencer").length;
-  const revisar=docs.filter(d=>d.estado==="Revisar").length;
+  const acreditados=documentosReales().filter(d=>d.estado==="Acreditado").length;
+  const pendientes=documentosReales().filter(d=>d.estado==="Pendiente").length;
+  const vencidos=documentosReales().filter(d=>d.estado==="Vencido").length;
+  const porVencer=documentosReales().filter(d=>d.estado==="Por vencer").length;
+  const revisar=documentosReales().filter(d=>d.estado==="Revisar").length;
   const filtrosGrafico=["Acreditado","Pendiente","Vencido","Por vencer","Revisar"];
 
   chart=new Chart(ctx,{
