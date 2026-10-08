@@ -293,6 +293,9 @@ button{transition:.15s ease}
 .extra-options summary{width:fit-content;padding:12px 18px;border:1px solid var(--line);border-radius:14px;background:var(--panel);font-weight:800;cursor:pointer}
 .extra-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;padding:20px 0}
 .extra-options-grid p{color:var(--muted);font-size:13px;line-height:1.5;margin-top:8px}
+.import-review{margin:auto;width:min(700px,calc(100% - 32px));max-height:85vh;overflow:auto;padding:24px;border:1px solid var(--line);border-radius:24px;background:var(--panel);color:var(--text)}
+.import-review::backdrop{background:rgba(6,17,31,.8)}
+.import-review h2{margin-bottom:16px}.import-review p{margin:8px 0;line-height:1.5}.import-review ul{margin:10px 0 0 20px;line-height:1.6}.import-review button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 
@@ -721,6 +724,15 @@ button{transition:.15s ease}
 
 
 </main>
+<dialog id="revisionExcelModal" class="import-review" aria-labelledby="revisionExcelTitulo" oncancel="cancelarRevisionExcel()">
+  <h2 id="revisionExcelTitulo">Revisar Excel antes de cargar</h2>
+  <div id="revisionExcelContenido"></div>
+  <div class="actions" style="margin-top:20px;margin-bottom:0">
+    <button id="confirmarRevisionExcel" class="green" onclick="confirmarRevisionExcel()" disabled>Confirmar carga</button>
+    <button class="blue" onclick="cancelarRevisionExcel()">Cancelar</button>
+  </div>
+</dialog>
+
 </div>
 </div>
 
@@ -1264,17 +1276,12 @@ function detectarEstado(d){
   return "Acreditado";
 }
 
-function importarExcelPro(e){
-  const files=[...e.target.files];
-  if(!files.length)return;
-  let resumenes=[];
-  resumenImportacion.innerHTML=`<div class="alert">⏳ Leyendo ${files.length} archivo(s)...</div>`;
+let revisionExcelPendiente=null;
+let revisionExcelLeyendo=false;
 
-  files.forEach(file=>{
-    const reader=new FileReader();
-
-    reader.onload=ev=>{
-      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+function leerExcelParaRevision(file,contenido){
+  const erroresArchivo=[];
+      const wb=XLSX.read(new Uint8Array(contenido),{type:"array"});
       const fechaISO=new Date().toISOString();
       const fechaBonita=new Date().toLocaleString("es-CL");
 
@@ -1321,15 +1328,15 @@ function importarExcelPro(e){
           itemsArchivo.push(item);
 
           if(item.trabajador==="Sin nombre"){
-            errores.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó nombre de trabajador"});
+            erroresArchivo.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó nombre de trabajador"});
           }
 
           if(item.rut==="Sin RUT"){
-            errores.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó RUT"});
+            erroresArchivo.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó RUT"});
           }
 
           if(item.faena==="Faena"){
-            errores.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó faena"});
+            erroresArchivo.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó faena"});
           }
         });
       });
@@ -1346,35 +1353,76 @@ function importarExcelPro(e){
         columnasDetectadas
       };
 
-      archivos.push(archivo);
-      docs.push(...itemsArchivo);
-      reconstruirTrabajadores();
-      guardarLocal(false);
-      renderizar();
 
-      const sinNombre=itemsArchivo.filter(i=>i.trabajador==="Sin nombre").length;
-      const sinRut=itemsArchivo.filter(i=>i.rut==="Sin RUT").length;
-      const sinFaena=itemsArchivo.filter(i=>i.faena==="Faena").length;
+  return {archivo,errores:erroresArchivo};
+}
 
-      resumenes.push(`
-        <div class="alert ${sinNombre || sinRut || sinFaena ? "problem":""}">
-          <b>${file.name}</b><br>
-          Registros importados: ${itemsArchivo.length}<br>
-          Hojas leídas: ${hojasProcesadas.join(", ")}<br>
-          Trabajadores detectados: ${archivo.trabajadores}<br>
-          Sin nombre: ${sinNombre} · Sin RUT: ${sinRut} · Sin faena: ${sinFaena}<br>
-          <button class="mini blue" style="margin-top:10px" onclick="verColumnas('${encodeURIComponent(file.name)}')">Ver columnas detectadas</button>
-        </div>
-      `);
+function firmaRevisionExcel(item){
+  return JSON.stringify([claveTrabajador(item),normalizar(item.documento),normalizar(item.estadoOriginal),item.fechaVencimiento||""]);
+}
 
-      resumenImportacion.innerHTML=resumenes.join("");
-      mostrarToast("✅ Importación lista: "+file.name,"ok");
-    };
-
-    reader.readAsArrayBuffer(file);
-  });
-
+async function importarExcelPro(e){
+  const files=[...e.target.files];
   e.target.value="";
+  if(!files.length || revisionExcelLeyendo || revisionExcelPendiente)return;
+  revisionExcelLeyendo=true;
+  const modal=document.getElementById("revisionExcelModal");
+  const contenido=document.getElementById("revisionExcelContenido");
+  const confirmar=document.getElementById("confirmarRevisionExcel");
+  confirmar.disabled=true;
+  contenido.textContent="Leyendo los archivos seleccionados…";
+  modal.showModal();
+  const resultados=await Promise.all(files.map(async file=>{
+    try{return leerExcelParaRevision(file,await file.arrayBuffer());}
+    catch(error){return {fallo:file.name};}
+  }));
+  revisionExcelLeyendo=false;
+  // Cancelar durante la lectura descarta también sus resultados.
+  if(!modal.open)return;
+  const fallos=resultados.filter(r=>r.fallo);
+  revisionExcelPendiente=resultados.filter(r=>!r.fallo);
+  const items=revisionExcelPendiente.flatMap(r=>r.archivo.items);
+  const documentos=items.filter(i=>!esFichaLaboral(i));
+  const firmas=new Set(docs.map(firmaRevisionExcel));
+  let duplicados=0;
+  items.forEach(i=>{const firma=firmaRevisionExcel(i);if(firmas.has(firma))duplicados++;firmas.add(firma);});
+  const sinNombre=items.filter(i=>i.trabajador==="Sin nombre").length;
+  const sinRut=items.filter(i=>i.rut==="Sin RUT").length;
+  const sinFaena=items.filter(i=>i.faena==="Faena").length;
+  const problemas=revisionExcelPendiente.flatMap(r=>r.errores);
+  contenido.innerHTML=`
+    <p>Revisa lo detectado antes de agregarlo a tus datos actuales.</p>
+    <div class="alert">
+      <b>Trabajadores detectados: ${new Set(items.map(claveTrabajador)).size}</b><br>
+      Documentos: ${documentos.length} · Fichas laborales: ${items.length-documentos.length}<br>
+      Sin nombre: ${sinNombre} · Sin RUT: ${sinRut} · Sin faena: ${sinFaena}<br>
+      Posibles registros duplicados: ${duplicados}
+    </div>
+    ${revisionExcelPendiente.map(r=>`<p><b>${escaparPerfilDocumento(r.archivo.nombre)}</b>: ${r.archivo.registros} registros · ${r.archivo.hojas.length} hojas leídas</p>`).join("")}
+    ${duplicados?'<div class="alert problem">Hay registros que coinciden con otros del archivo o con datos existentes. Si confirmas, se incorporarán todos; no se eliminarán automáticamente.</div>':""}
+    ${problemas.length?`<div class="alert problem"><b>Datos que necesitan revisión</b><ul>${problemas.slice(0,10).map(p=>`<li>${escaparPerfilDocumento(p.archivo)} · ${escaparPerfilDocumento(p.hoja)} · fila ${p.fila}: ${escaparPerfilDocumento(p.problema)}</li>`).join("")}</ul>${problemas.length>10?`<p>Y ${problemas.length-10} avisos más.</p>`:""}</div>`:""}
+    ${fallos.length?`<div class="alert problem">No se pudo leer: ${fallos.map(r=>escaparPerfilDocumento(r.fallo)).join(", ")}. Cancela y vuelve a seleccionar los archivos para completar la carga.</div>`:""}
+    ${!items.length?'<div class="alert problem">No se detectaron registros para cargar.</div>':""}
+  `;
+  confirmar.disabled=!!fallos.length || !items.length;
+}
+
+function cancelarRevisionExcel(){
+  revisionExcelPendiente=null;
+  document.getElementById("revisionExcelModal").close();
+}
+
+function confirmarRevisionExcel(){
+  if(!revisionExcelPendiente || document.getElementById("confirmarRevisionExcel").disabled)return;
+  const lote=revisionExcelPendiente;
+  revisionExcelPendiente=null;
+  lote.forEach(r=>{archivos.push(r.archivo);docs.push(...r.archivo.items);errores.push(...r.errores);});
+  reconstruirTrabajadores();
+  guardarLocal(false);
+  renderizar();
+  resumenImportacion.innerHTML=lote.map(r=>`<div class="alert"><b>${escaparPerfilDocumento(r.archivo.nombre)}</b><br>Registros importados: ${r.archivo.registros}<br>Trabajadores detectados: ${r.archivo.trabajadores}<br><button class="mini blue" style="margin-top:10px" onclick="verColumnas('${encodeURIComponent(r.archivo.nombre)}')">Ver columnas detectadas</button></div>`).join("");
+  document.getElementById("revisionExcelModal").close();
+  mostrarToast("✅ Carga confirmada: "+lote.length+" archivo(s)","ok");
 }
 
 function verColumnas(nombreCod){
