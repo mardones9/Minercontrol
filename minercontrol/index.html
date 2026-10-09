@@ -304,8 +304,9 @@ button{transition:.15s ease}
 <div id="loginView">
   <div class="login-card">
     <div class="logo">MinerControl<br><span>Enterprise</span></div>
-    <input id="loginUser" placeholder="Usuario">
-    <input id="loginPass" type="password" placeholder="Contraseña">
+    <input id="loginUser" placeholder="Usuario" autocomplete="username">
+    <input id="loginPass" type="password" placeholder="Contraseña" autocomplete="current-password">
+    <p id="loginError" role="alert" style="color:var(--red)"></p>
     <button class="btn-orange" onclick="iniciarSesion()">Ingresar</button>
   </div>
 </div>
@@ -325,6 +326,7 @@ button{transition:.15s ease}
     <button onclick="mostrarModulo('carpetas',this)">📦 Carpetas</button>
     <button onclick="mostrarModulo('reportes',this)">📈 Reportes</button>
     <button onclick="mostrarModulo('historial',this)">📜 Historial</button>
+    <button id="navUsuarios" hidden onclick="mostrarModulo('usuarios',this)">👥 Usuarios</button>
     <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
   </div>
 </aside>
@@ -723,6 +725,20 @@ button{transition:.15s ease}
 </section>
 
 
+<section id="usuarios" class="module">
+  <h2>Gestión de usuarios</h2>
+  <p id="usuariosEstado" role="status"></p>
+  <form id="crearUsuarioForm" class="card" style="margin:20px 0;display:flex;gap:12px;flex-wrap:wrap">
+    <input name="username" aria-label="Usuario nuevo" placeholder="Usuario" pattern="[a-z0-9_]{3,32}" required autocomplete="off">
+    <input name="name" aria-label="Nombre" placeholder="Nombre" maxlength="80" required>
+    <input name="password" aria-label="Contraseña nueva" placeholder="Contraseña (mín. 12 caracteres)" type="password" minlength="12" maxlength="72" required autocomplete="new-password">
+    <select name="role" aria-label="Rol"><option>Usuario</option><option>Administrador</option></select>
+    <button class="green" type="submit">Crear usuario</button>
+  </form>
+  <div class="card" style="overflow-x:auto"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuariosFilas"></tbody></table></div>
+</section>
+
+
 </main>
 <dialog id="revisionExcelModal" class="import-review" aria-labelledby="revisionExcelTitulo" oncancel="cancelarRevisionExcel()">
   <h2 id="revisionExcelTitulo">Revisar Excel antes de cargar</h2>
@@ -783,7 +799,7 @@ function actualizarEstadoSistema(){
   const us=document.getElementById("ultimaSubida");
   const ec=document.getElementById("estadoCritico");
   if(eg){
-    const raw=localStorage.getItem("minercontrol_data");
+    const raw=localStorage.getItem(claveDatosMiner());
     eg.innerText=raw ? "💾 Guardado local disponible" : "💾 Sin guardado local";
     eg.className=raw ? "status-pill ok" : "status-pill";
   }
@@ -829,23 +845,6 @@ function diagnosticarSistema(){
   alert(mensaje);
 }
 
-
-function iniciarSesion(){
-  if(loginUser.value!=="admin" || loginPass.value!=="admin123"){
-    alert("Usuario incorrecto");
-    return;
-  }
-  loginView.style.display="none";
-  appView.style.display="block";
-  activarLogoInicio();
-  actualizarFecha();
-  cargarLocal(false);
-  renderizar();
-}
-
-function cerrarSesion(){
-  location.reload();
-}
 
 function activarLogoInicio(){
   const logo=document.getElementById("logoHome");
@@ -2376,7 +2375,7 @@ function exportarExcel(){
 }
 
 function guardarLocal(mostrar=true){
-  localStorage.setItem("minercontrol_data",JSON.stringify({
+  localStorage.setItem(claveDatosMiner(),JSON.stringify({
     trabajadores,
     docs,
     archivos,
@@ -2392,7 +2391,7 @@ function guardarLocal(mostrar=true){
 }
 
 function cargarLocal(mostrar=true){
-  const raw=localStorage.getItem("minercontrol_data");
+  const raw=localStorage.getItem(claveDatosMiner());
 
   if(!raw){
     if(mostrar)mostrarToast("No hay datos guardados todavía.","warn");
@@ -2525,7 +2524,7 @@ function borrarVista(){
     archivoSeleccionado=null;
     carpetasTrabajadores=[];
     requisitosFaena=requisitosDefault();
-    localStorage.removeItem("minercontrol_data");
+    localStorage.removeItem(claveDatosMiner());
     cerrarDetalle();
     renderizar();
     mostrarToast("Vista limpiada. El respaldo index_backup.html no se toca.","warn");
@@ -3497,5 +3496,130 @@ function crearGrafico(){
 }
 </script>
 
+<script>
+// All credentials and account administration are checked by Supabase RPCs.
+let usuarioActual=null;
+let tokenMiner=sessionStorage.getItem('minercontrol_session')||'';
+let sesionPendiente=false;
+const accionesAdministrador=['borrarVista','eliminarArchivo','crearFaenaRequisito','toggleRequisitoFaena',
+ 'eliminarFaenaRequisito','eliminarCarpeta','borrarCarpetas','borrarHistorialOperacional'];
+function claveDatosMiner(){
+ if(!usuarioActual)throw new Error('Inicia sesión');
+ return usuarioActual.username==='admin'?'minercontrol_data':`minercontrol_data_${usuarioActual.id}`;
+}
+async function cuentaRPC(nombre,datos={}){
+ const {data,error}=await supabaseClient.rpc(nombre,datos);
+ if(error)throw new Error(error.message);
+ if(data?.error)throw new Error(data.error);
+ return data;
+}
+function limpiarSesionMiner(){
+ usuarioActual=null;tokenMiner='';sessionStorage.removeItem('minercontrol_session');
+ // Reload also clears all in-memory operational data and any pending import.
+ location.reload();
+}
+function pintarPermisosMiner(){
+ const admin=usuarioActual?.role==='Administrador';
+ document.getElementById('navUsuarios').hidden=!admin;
+ document.querySelectorAll('[onclick],[onchange]').forEach(el=>{
+   const code=(el.getAttribute('onclick')||'')+' '+(el.getAttribute('onchange')||'');
+   if(accionesAdministrador.some(fn=>new RegExp(`\\b${fn}\\s*\\(`).test(code))){
+     el.disabled=!admin;el.title=admin?'':'Disponible solo para Administrador';
+   }
+ });
+}
+async function verificarSesionMiner(){
+ if(!tokenMiner)throw new Error('Inicia sesión');
+ try{usuarioActual=await cuentaRPC('miner_session',{p_token:tokenMiner});pintarPermisosMiner();return usuarioActual;}
+ catch(error){limpiarSesionMiner();throw error;}
+}
+async function iniciarSesion(){
+ if(sesionPendiente)return;
+ sesionPendiente=true;
+ const button=document.querySelector('#loginView button');button.disabled=true;
+ const mensaje=document.getElementById('loginError');mensaje.textContent='';
+ try{
+   const data=await cuentaRPC('miner_login',{p_username:loginUser.value,p_password:loginPass.value});
+   tokenMiner=data.token;usuarioActual=data.user;
+   sessionStorage.setItem('minercontrol_session',tokenMiner);loginPass.value='';
+   abrirSesionMiner();
+ }catch(error){mensaje.textContent='No se pudo ingresar: '+error.message;}
+ finally{sesionPendiente=false;button.disabled=false;}
+}
+function abrirSesionMiner(){
+ loginView.style.display='none';appView.style.display='block';
+ document.querySelector('.main h1').textContent=`Bienvenido ${usuarioActual.name} 👋`;
+ activarLogoInicio();actualizarFecha();cargarLocal(false);renderizar();pintarPermisosMiner();
+}
+async function cerrarSesion(){
+ try{if(tokenMiner)await cuentaRPC('miner_logout',{p_token:tokenMiner});}
+ finally{limpiarSesionMiner();}
+}
+function textoCuenta(tag,texto){const el=document.createElement(tag);el.textContent=texto;return el;}
+async function cargarUsuariosMiner(){
+ const estado=document.getElementById('usuariosEstado');
+ try{
+   const users=await cuentaRPC('miner_users',{p_token:tokenMiner});
+   const body=document.getElementById('usuariosFilas');body.replaceChildren();
+   for(const u of users){
+     const row=document.createElement('tr');
+     row.append(textoCuenta('td',u.username),textoCuenta('td',u.name));
+     const role=document.createElement('select');
+     for(const name of ['Usuario','Administrador']){const option=textoCuenta('option',name);option.value=name;role.append(option);}
+     role.value=u.role;
+     const roleCell=document.createElement('td');roleCell.append(role);row.append(roleCell);
+     row.append(textoCuenta('td',u.active?'Activo':'Bloqueado'));
+     const cell=document.createElement('td');
+     const update=async(action,active,rol)=>{
+       try{await cuentaRPC('miner_users',{p_token:tokenMiner,p_action:action,p_id:u.id,p_active:active,p_role:rol});await cargarUsuariosMiner();}
+       catch(error){estado.textContent=error.message;}
+     };
+     const save=textoCuenta('button','Guardar rol');save.className='mini blue';save.onclick=()=>update('update',u.active,role.value);
+     const block=textoCuenta('button',u.active?'Bloquear':'Desbloquear');block.className='mini yellow';block.onclick=()=>update('update',!u.active,u.role);
+     const remove=textoCuenta('button','Eliminar');remove.className='mini red';remove.onclick=()=>{
+       if(confirm(`¿Eliminar permanentemente la cuenta ${u.username}? Se revocará su acceso.`))update('delete',false,u.role);
+     };
+     if(u.id===usuarioActual.id){save.disabled=block.disabled=remove.disabled=true;role.disabled=true;}
+     if(u.username==='admin'){save.disabled=remove.disabled=true;role.disabled=true;}
+     cell.append(save,block,remove);row.append(cell);body.append(row);
+   }
+   estado.textContent='Cuentas permanentes. Los permisos se comprueban en el servidor.';
+ }catch(error){estado.textContent=error.message;}
+}
+async function crearUsuarioMiner(event){
+ event.preventDefault();const form=event.currentTarget;const submit=form.querySelector('button');submit.disabled=true;
+ try{
+   await cuentaRPC('miner_users',{p_token:tokenMiner,p_action:'create',p_username:form.elements.username.value,
+     p_name:form.elements.name.value,p_password:form.elements.password.value,p_role:form.elements.role.value});
+   form.reset();await cargarUsuariosMiner();
+ }catch(error){document.getElementById('usuariosEstado').textContent=error.message;}
+ finally{submit.disabled=false;}
+}
+// Local business actions affect only this account's browser workspace. Account writes are server protected.
+for(const fn of accionesAdministrador){
+ const original=window[fn];
+ window[fn]=async function(...args){
+   try{
+     await verificarSesionMiner();
+     if(usuarioActual.role!=='Administrador'){mostrarToast('Acción exclusiva de Administrador','error');return;}
+     return original.apply(this,args);
+   }catch(error){mostrarToast('No se pudo validar el permiso','error');}
+ };
+}
+const mostrarModuloOriginal=mostrarModulo;
+mostrarModulo=function(id,btn){
+ if(!usuarioActual)return;
+ if(id==='usuarios'&&usuarioActual.role!=='Administrador'){mostrarToast('Acceso exclusivo de Administrador','error');return;}
+ mostrarModuloOriginal(id,btn);if(id==='usuarios')cargarUsuariosMiner();
+};
+const renderizarOriginal=renderizar;
+renderizar=function(){renderizarOriginal();pintarPermisosMiner();};
+document.getElementById('crearUsuarioForm').addEventListener('submit',crearUsuarioMiner);
+document.getElementById('loginPass').addEventListener('keydown',event=>{if(event.key==='Enter')iniciarSesion();});
+setInterval(()=>{if(tokenMiner)verificarSesionMiner().catch(()=>{});},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tokenMiner)verificarSesionMiner().catch(()=>{});});
+if(tokenMiner)verificarSesionMiner().then(abrirSesionMiner).catch(()=>{});
+
+</script>
 </body>
 </html>
