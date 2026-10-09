@@ -344,6 +344,19 @@ button{transition:.15s ease}
   </div>
 </div>
 
+<div class="card" style="margin-bottom:16px">
+  <div class="actions history-filters">
+    <button class="blue" onclick="moverDiaMiner(-1)" aria-label="Día anterior">◀</button>
+    <label for="diaMiner">Documentación del día</label>
+    <input id="diaMiner" type="date" onchange="cambiarDiaMiner(this.value)">
+    <button class="blue" onclick="moverDiaMiner(1)" aria-label="Día siguiente">▶</button>
+    <button class="blue" onclick="cambiarDiaMiner(hoyMiner())">Hoy</button>
+    <select id="diasGuardadosMiner" aria-label="Días guardados" onchange="if(this.value)cambiarDiaMiner(this.value)"></select>
+  </div>
+  <p>Los registros se guardan por día y por cuenta en este navegador. Los archivos físicos deben volver a seleccionarse para abrirlos.</p>
+  <details><summary>Archivos y carpetas del día · eliminar o revisar</summary><div id="recientesMiner"></div></details>
+</div>
+
 <div class="actions">
   <label class="blue primary-upload" for="inputExcelPro">Subir Excel</label>
   <button class="green" onclick="exportarExcel()">Exportar Excel</button>
@@ -356,7 +369,7 @@ button{transition:.15s ease}
     <div><button class="yellow mini" onclick="cargarLocal()">Recuperar datos guardados</button><p>Abre los datos que guardaste anteriormente en este navegador.</p></div>
     <div><button class="blue mini" onclick="diagnosticarSistema()">Diagnóstico</button><p>Revisa los datos cargados y muestra posibles problemas.</p></div>
     <div><button class="blue mini" onclick="cargarDemo()">Cargar demo</button><p>Carga datos de ejemplo para explorar el sistema.</p></div>
-    <div><button class="red mini" onclick="borrarVista()">Borrar vista</button><p>Limpia los datos actuales y elimina el guardado de este navegador. Pide confirmación antes de hacerlo.</p></div>
+    <div><button class="red mini" onclick="borrarVista()">Borrar vista</button><p>Elimina los registros del día seleccionado; conserva los otros días. Pide confirmación antes de hacerlo.</p></div>
   </div>
   <div class="status-strip">
     <span class="status-pill ok">🟢 Sistema local activo</span>
@@ -1372,7 +1385,7 @@ async function importarExcelPro(e){
   contenido.textContent="Leyendo los archivos seleccionados…";
   modal.showModal();
   const resultados=await Promise.all(files.map(async file=>{
-    try{return leerExcelParaRevision(file,await file.arrayBuffer());}
+    try{const resultado=leerExcelParaRevision(file,await file.arrayBuffer());resultado.archivo.firmaOrigen=JSON.stringify([file.name,file.size,file.lastModified]);return resultado;}
     catch(error){return {fallo:file.name};}
   }));
   revisionExcelLeyendo=false;
@@ -1414,6 +1427,8 @@ function cancelarRevisionExcel(){
 function confirmarRevisionExcel(){
   if(!revisionExcelPendiente || document.getElementById("confirmarRevisionExcel").disabled)return;
   const lote=revisionExcelPendiente;
+  for(const r of lote){if(!confirmarUsoMiner(firmaExcelMiner(r.archivo),r.archivo.nombre,'archivo'))return;}
+  lote.forEach(r=>registrarUsoMiner(firmaExcelMiner(r.archivo),r.archivo.nombre,'archivo'));
   revisionExcelPendiente=null;
   lote.forEach(r=>{archivos.push(r.archivo);docs.push(...r.archivo.items);errores.push(...r.errores);});
   reconstruirTrabajadores();
@@ -2335,6 +2350,7 @@ function eliminarArchivo(nombreCod){
   archivos=archivos.filter(a=>a.nombre!==nombre);
   docs=docs.filter(d=>d.archivo!==nombre);
   errores=errores.filter(e=>e.archivo!==nombre);
+  reconstruirTrabajadores();
   archivoSeleccionado=null;
 
   guardarLocal(false);
@@ -2387,6 +2403,7 @@ function guardarLocal(mostrar=true){
   }));
 
   actualizarEstadoSistema();
+  pintarDiasMiner();
   if(mostrar)mostrarToast("💾 Vista guardada en este computador.","ok");
 }
 
@@ -2516,7 +2533,7 @@ function cargarDemo(){
 }
 
 function borrarVista(){
-  if(confirm("Esto limpia solo la vista actual. ¿Continuar?")){
+  if(confirm("Esto elimina los registros del día seleccionado. Los otros días se conservan. ¿Continuar?")){
     trabajadores=[];
     docs=[];
     archivos=[];
@@ -2524,10 +2541,11 @@ function borrarVista(){
     archivoSeleccionado=null;
     carpetasTrabajadores=[];
     requisitosFaena=requisitosDefault();
+    historialOperacional=[];
     localStorage.removeItem(claveDatosMiner());
     cerrarDetalle();
     renderizar();
-    mostrarToast("Vista limpiada. El respaldo index_backup.html no se toca.","warn");
+    mostrarToast("Vista del día limpiada. Los otros días se conservan.","warn");
   }
 }
 
@@ -2836,7 +2854,11 @@ function importarCarpetasDesdeFiles(files,modo="carpeta"){
   const grupos=agruparArchivosAutomatico(files,modo);
   let creadas=0, autoDocs=0, ruts=0, bajaConfianza=0;
   Object.values(grupos).forEach(grupo=>{
+    const firma=firmaCarpetaMiner(grupo.files);
+    const nombre=grupo.files[0]?.webkitRelativePath?.split('/')[0]||grupo.files[0]?.name||'Carpeta';
+    if(!confirmarUsoMiner(firma,nombre,'carpeta'))return;
     const carpeta=procesarGrupoCarpeta(grupo,grupo.files);
+    registrarUsoMiner(firma,nombre,'carpeta');
     carpetasTrabajadores.push(carpeta);
     creadas++;
     autoDocs+=carpeta.archivos.filter(a=>a.tipo!=="otro").length;
@@ -3501,11 +3523,59 @@ function crearGrafico(){
 let usuarioActual=null;
 let tokenMiner=sessionStorage.getItem('minercontrol_session')||'';
 let sesionPendiente=false;
-const accionesAdministrador=['borrarVista','eliminarArchivo','crearFaenaRequisito','toggleRequisitoFaena',
- 'eliminarFaenaRequisito','eliminarCarpeta','borrarCarpetas','borrarHistorialOperacional'];
-function claveDatosMiner(){
+const accionesAdministrador=['crearFaenaRequisito','toggleRequisitoFaena','eliminarFaenaRequisito'];
+function baseDatosMiner(){
  if(!usuarioActual)throw new Error('Inicia sesión');
  return usuarioActual.username==='admin'?'minercontrol_data':`minercontrol_data_${usuarioActual.id}`;
+}
+function hoyMiner(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
+let diaSeleccionadoMiner=hoyMiner();
+function claveDatosMiner(){
+ const base=baseDatosMiner();
+ if(!localStorage.getItem(base+':migradoDias')){
+  const anterior=localStorage.getItem(base);
+  if(anterior && !localStorage.getItem(base+':dia:'+hoyMiner()))localStorage.setItem(base+':dia:'+hoyMiner(),anterior);
+  localStorage.setItem(base+':migradoDias','1');
+ }
+ return base+':dia:'+diaSeleccionadoMiner;
+}
+function cambiarDiaMiner(dia){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(dia)||Number.isNaN(Date.parse(dia)))return;
+ if(revisionExcelLeyendo){mostrarToast('Espera a que termine la lectura del Excel.','warn');document.getElementById('diaMiner').value=diaSeleccionadoMiner;return;}
+ guardarLocal(false);
+ diaSeleccionadoMiner=dia;
+ trabajadores=[];docs=[];archivos=[];errores=[];carpetasTrabajadores=[];historialOperacional=[];
+ archivoSeleccionado=null;filtroEstadoAcreditacion='todos';
+ for(const id of ['buscarArchivo','buscarTrabajador','buscarAcreditacion','buscarCarpeta','buscarHistorial','filtroFechaHistorial']){const campo=document.getElementById(id);if(campo)campo.value='';}
+ document.getElementById('filtrarSemaforoTrabajador').value='todos';document.getElementById('filtroAccionHistorial').value='todos';
+ document.getElementById('resumenImportacion').replaceChildren();document.getElementById('resumenCarpetasAuto').replaceChildren();
+ cancelarRevisionExcel();cerrarDetalle();cerrarPerfilTrabajador();
+ cargarLocal(false);renderizar();pintarDiasMiner();
+}
+function moverDiaMiner(delta){const d=new Date(diaSeleccionadoMiner+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+delta);cambiarDiaMiner(d.toISOString().slice(0,10));}
+function usosMiner(){try{return JSON.parse(localStorage.getItem(baseDatosMiner()+':usos')||'[]');}catch{return [];}}
+function confirmarUsoMiner(firma,nombre,tipo){
+ const anterior=usosMiner().find(u=>u.firma===firma);
+ return !anterior || confirm(`${tipo==='carpeta'?'Esta carpeta':'Este archivo'} ya se utilizó el ${anterior.dia}: ${nombre}. ${tipo==='carpeta'?'¿Estás seguro de que deseas usarla de nuevo?':'¿Estás seguro de que deseas usarlo de nuevo?'}`);
+}
+function registrarUsoMiner(firma,nombre,tipo){
+ const usos=usosMiner();usos.push({firma,nombre,tipo,dia:diaSeleccionadoMiner});
+ localStorage.setItem(baseDatosMiner()+':usos',JSON.stringify(usos));
+}
+function firmaCarpetaMiner(files){return 'carpeta:'+JSON.stringify(files.map(f=>[f.webkitRelativePath||f.name,f.size,f.lastModified]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));}
+function firmaExcelMiner(a){return 'excel:'+(a.firmaOrigen||JSON.stringify([a.nombre,(a.items||[]).map(firmaRevisionExcel).sort()]));}
+function pintarDiasMiner(){
+ if(!usuarioActual)return;
+ const input=document.getElementById('diaMiner');if(!input)return;
+ input.value=diaSeleccionadoMiner;
+ const select=document.getElementById('diasGuardadosMiner');select.replaceChildren();
+ const primer=document.createElement('option');primer.value='';primer.textContent='Ir a un día guardado';select.append(primer);
+ const prefijo=baseDatosMiner()+':dia:';
+ Object.keys(localStorage).filter(k=>k.startsWith(prefijo)).map(k=>k.slice(prefijo.length)).sort().reverse().forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;select.append(o);});
+ const lista=document.getElementById('recientesMiner');lista.replaceChildren();
+ const filas=[...archivos.map(a=>({nombre:a.nombre,borrar:()=>eliminarArchivo(encodeURIComponent(a.nombre))})),...carpetasTrabajadores.map(c=>({nombre:c.trabajador+' · '+c.archivos.length+' archivos',borrar:()=>eliminarCarpeta(c.id)}))];
+ if(!filas.length)lista.textContent='No hay archivos ni carpetas en este día.';
+ filas.forEach(f=>{const row=document.createElement('div');row.className='actions';const texto=document.createElement('span');texto.textContent=f.nombre;const b=document.createElement('button');b.className='red mini';b.textContent='Eliminar del día';b.onclick=()=>{f.borrar();pintarDiasMiner();};row.append(texto,b);lista.append(row);});
 }
 async function cuentaRPC(nombre,datos={}){
  const {data,error}=await supabaseClient.rpc(nombre,datos);
@@ -3530,7 +3600,7 @@ function pintarPermisosMiner(){
 }
 async function verificarSesionMiner(){
  if(!tokenMiner)throw new Error('Inicia sesión');
- try{usuarioActual=await cuentaRPC('miner_session',{p_token:tokenMiner});pintarPermisosMiner();return usuarioActual;}
+ try{usuarioActual=await cuentaRPC('miner_session',{p_token:tokenMiner});pintarPermisosMiner();pintarDiasMiner();return usuarioActual;}
  catch(error){limpiarSesionMiner();throw error;}
 }
 async function iniciarSesion(){
@@ -3549,7 +3619,7 @@ async function iniciarSesion(){
 function abrirSesionMiner(){
  loginView.style.display='none';appView.style.display='block';
  document.querySelector('.main h1').textContent=`Bienvenido ${usuarioActual.name} 👋`;
- activarLogoInicio();actualizarFecha();cargarLocal(false);renderizar();pintarPermisosMiner();
+ activarLogoInicio();actualizarFecha();cargarLocal(false);renderizar();pintarPermisosMiner();pintarDiasMiner();
 }
 async function cerrarSesion(){
  try{if(tokenMiner)await cuentaRPC('miner_logout',{p_token:tokenMiner});}
@@ -3613,7 +3683,7 @@ mostrarModulo=function(id,btn){
  mostrarModuloOriginal(id,btn);if(id==='usuarios')cargarUsuariosMiner();
 };
 const renderizarOriginal=renderizar;
-renderizar=function(){renderizarOriginal();pintarPermisosMiner();};
+renderizar=function(){renderizarOriginal();pintarPermisosMiner();pintarDiasMiner();};
 document.getElementById('crearUsuarioForm').addEventListener('submit',crearUsuarioMiner);
 document.getElementById('loginPass').addEventListener('keydown',event=>{if(event.key==='Enter')iniciarSesion();});
 setInterval(()=>{if(tokenMiner)verificarSesionMiner().catch(()=>{});},60000);
