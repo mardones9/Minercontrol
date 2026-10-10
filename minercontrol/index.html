@@ -496,6 +496,9 @@ button{transition:.15s ease}
           <option value="critico">Solo críticos</option>
           <option value="atencion">Solo atención</option>
           <option value="ok">Solo OK</option>
+          <option value="req:Cumple">Requisitos: cumplen</option>
+          <option value="req:Observado">Requisitos: observados</option>
+          <option value="req:Bloqueado">Requisitos: bloqueados</option>
         </select>
       </div>
     </div>
@@ -541,10 +544,10 @@ button{transition:.15s ease}
     </div>
 
     <div class="grid">
-      <div class="card kpi-pro"><small>Faenas configuradas</small><h2 id="reqTotalFaenas">0</h2></div>
-      <div class="card kpi-pro kpi-ok"><small>Trabajadores que cumplen</small><h2 id="reqCumplen">0</h2></div>
-      <div class="card kpi-pro kpi-warn"><small>Trabajadores observados</small><h2 id="reqObservados">0</h2></div>
-      <div class="card kpi-pro kpi-bad"><small>Trabajadores bloqueados</small><h2 id="reqBloqueados">0</h2></div>
+      <div class="card nav-card kpi-pro" role="button" tabindex="0" aria-label="Ver faenas configuradas" title="Ver faenas configuradas" onclick="irFaenasConfiguradas()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();irFaenasConfiguradas();}"><small>Faenas configuradas</small><h2 id="reqTotalFaenas">0</h2></div>
+      <div class="card nav-card kpi-pro kpi-ok" role="button" tabindex="0" aria-label="Ver trabajadores que cumplen" title="Ver trabajadores que cumplen" onclick="irTrabajadoresRequisitos('Cumple')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();irTrabajadoresRequisitos('Cumple');}"><small>Trabajadores que cumplen</small><h2 id="reqCumplen">0</h2></div>
+      <div class="card nav-card kpi-pro kpi-warn" role="button" tabindex="0" aria-label="Ver trabajadores observados" title="Ver trabajadores observados" onclick="irTrabajadoresRequisitos('Observado')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();irTrabajadoresRequisitos('Observado');}"><small>Trabajadores observados</small><h2 id="reqObservados">0</h2></div>
+      <div class="card nav-card kpi-pro kpi-bad" role="button" tabindex="0" aria-label="Ver trabajadores bloqueados" title="Ver trabajadores bloqueados" onclick="irTrabajadoresRequisitos('Bloqueado')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();irTrabajadoresRequisitos('Bloqueado');}"><small>Trabajadores bloqueados</small><h2 id="reqBloqueados">0</h2></div>
     </div>
 
     <div id="requisitosGrid" class="file-grid"></div>
@@ -969,6 +972,16 @@ function limpiarFiltroAcreditacion(){
   if(b)b.value="";
   renderizarAcreditacion();
   mostrarToast("Filtro de acreditación quitado","ok");
+}
+function irFaenasConfiguradas(){
+  mostrarModulo("requisitos",botonModulo("requisitos"));
+  document.getElementById("requisitosGrid").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function irTrabajadoresRequisitos(estado){
+  limpiarFiltrosModulo("trabajadores");
+  document.getElementById("filtrarSemaforoTrabajador").value="req:"+estado;
+  mostrarModulo("trabajadores",botonModulo("trabajadores"));
+  mostrarToast("Mostrando trabajadores: "+estado.toLowerCase(),"ok");
 }
 function irTrabajadoresBloqueados(){
   const b=document.getElementById("buscarTrabajador");
@@ -1938,7 +1951,7 @@ function renderizarTrabajadores(){
   let filtrados=trabajadores.filter(t=>JSON.stringify(t).toLowerCase().includes(q));
 
   if(filtro!=="todos"){
-    filtrados=filtrados.filter(t=>estadoTrabajadorPlano(t)===filtro);
+    filtrados=filtrados.filter(t=>filtro.startsWith("req:")?evaluarRequisitosTrabajador(t).estado===filtro.slice(4):estadoTrabajadorPlano(t)===filtro);
   }
 
   filtrados.sort((a,b)=>{
@@ -1962,7 +1975,7 @@ function renderizarTrabajadores(){
       <td>${t.documentos||0}</td>
       <td>${semaforoTrabajador(t)}</td>
     </tr>
-  `).join(""):`<tr><td colspan="7" class="empty">Sin trabajadores cargados.</td></tr>`;
+  `).join(""):`<tr><td colspan="7" class="empty">No hay trabajadores que coincidan con los filtros.</td></tr>`;
 }
 
 function abrirPerfilTrabajador(cod){
