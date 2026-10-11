@@ -850,6 +850,12 @@ function mostrarToast(mensaje,tipo="info"){
   window.__toastTimer=setTimeout(()=>t.classList.remove("show"),3500);
 }
 
+// Una misma definición para conteos, rankings y filtros documentales.
+function esDocumentoCritico(d){
+  return ["Vencido","Pendiente","Revisar"].includes(d.estado) || d.prioridad==="Alta" || d.semaforo==="Rojo";
+}
+function esDocumentoPendiente(d){return d.estado==="Pendiente" || d.estado==="Revisar";}
+
 function actualizarEstadoSistema(){
   const eg=document.getElementById("estadoGuardado");
   const us=document.getElementById("ultimaSubida");
@@ -865,7 +871,7 @@ function actualizarEstadoSistema(){
     us.className=ultimo ? "status-pill ok" : "status-pill";
   }
   if(ec){
-    const criticos=documentosReales().filter(d=>d.semaforo==="Rojo" || d.prioridad==="Alta" || d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar").length;
+    const criticos=documentosReales().filter(esDocumentoCritico).length;
     const porVencer=documentosReales().filter(d=>d.estado==="Por vencer").length;
     if(!docs.length){
       ec.innerText="⚠️ Sin revisión todavía";
@@ -884,7 +890,7 @@ function actualizarEstadoSistema(){
 }
 
 function diagnosticarSistema(){
-  const criticos=docs.filter(d=>d.semaforo==="Rojo" || d.prioridad==="Alta" || d.estado!=="Acreditado").length;
+  const criticos=docs.filter(esDocumentoCritico).length;
   const mensaje=[
     "DIAGNÓSTICO MINERCONTROL",
     "",
@@ -995,7 +1001,7 @@ function etiquetaFiltroAcreditacion(filtro){
 function coincideFiltroAcreditacion(d){
   if(filtroEstadoAcreditacion==="todos")return true;
   if(filtroEstadoAcreditacion==="criticos"){
-    return d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta" || d.semaforo==="Rojo";
+    return esDocumentoCritico(d);
   }
   return d.estado===filtroEstadoAcreditacion;
 }
@@ -1576,7 +1582,7 @@ function renderizarDashboard(){
   kArchivos.innerText=archivos.length;
   kFaenas.innerText=nombresFaenas().length;
   const acreditados=documentosReales().filter(d=>d.estado==="Acreditado").length;
-  const vencidos=documentosReales().filter(d=>d.estado==="Vencido" || d.prioridad==="Alta").length;
+  const vencidos=documentosReales().filter(esDocumentoCritico).length;
   const porVencer=documentosReales().filter(d=>d.estado==="Por vencer").length;
   const cumplimiento=cumplimientoGlobalRequisitos();
   const bloqueados=new Set(documentosReales().filter(d=>d.semaforo==="Rojo").map(d=>(d.rut||d.trabajador)+"|"+d.faena)).size;
@@ -1599,7 +1605,7 @@ function contarCriticosPor(campo){
     const key=d[campo]||"Sin dato";
     if(!mapa[key])mapa[key]={total:0,criticos:0};
     mapa[key].total++;
-    if(d.semaforo==="Rojo" || d.prioridad==="Alta" || d.estado!=="Acreditado")mapa[key].criticos++;
+    if(esDocumentoCritico(d))mapa[key].criticos++;
   });
   return Object.entries(mapa)
     .map(([nombre,v])=>({nombre,total:v.total,criticos:v.criticos,porcentaje:v.total?Math.round((v.criticos/v.total)*100):0}))
@@ -1817,7 +1823,7 @@ function abrirPerfilDesdeDocumentos(enlace){
   const acreditados=documentos.filter(d=>d.estado==="Acreditado").length;
   const porVencer=documentos.filter(d=>d.estado==="Por vencer").length;
   const cumplimiento=evaluarRequisitosTrabajador(trabajador).cumplimiento;
-  const criticos=documentos.filter(d=>d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta");
+  const criticos=documentos.filter(esDocumentoCritico);
   const proximos=documentos.filter(d=>d.estado==="Por vencer");
   const semaforoPerfil=documentos.some(d=>d.semaforo==="Rojo")?semaforoHtml("Rojo")+" Crítico":documentos.some(d=>d.semaforo==="Amarillo")?semaforoHtml("Amarillo")+" Atención":semaforoHtml("Verde")+" OK";
   const movimientos=historialOperacional.filter(h=>coincidePerfilDocumento(h,seleccionado));
@@ -1993,10 +1999,10 @@ function abrirPerfilTrabajador(cod){
   const acreditados=relacionados.filter(d=>d.estado==="Acreditado").length;
   const vencidos=relacionados.filter(d=>d.estado==="Vencido").length;
   const porVencer=relacionados.filter(d=>d.estado==="Por vencer").length;
-  const pendientes=relacionados.filter(d=>d.estado!=="Acreditado").length;
+  const pendientes=relacionados.filter(esDocumentoPendiente).length;
   const cumplimiento=evaluarRequisitosTrabajador(t).cumplimiento;
 
-  const criticos=relacionados.filter(d=>d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta");
+  const criticos=relacionados.filter(esDocumentoCritico);
   const proximos=relacionados.filter(d=>d.estado==="Por vencer");
 
   const panel=document.getElementById("perfilTrabajador");
@@ -2339,7 +2345,7 @@ function renderizarFaenas(){
    const titulo=document.createElement('h3');titulo.textContent=f;
    const registros=registrosFaena(f,docs).filter(d=>!esFichaLaboral(d));
    const meta=document.createElement('p');meta.className='meta';meta.style.whiteSpace='pre-line';meta.style.marginTop='10px';
-   meta.textContent='Trabajadores: '+trabajadoresDeFaena(f).length+'\nDocumentos: '+registros.length+'\nAcreditados: '+registros.filter(d=>d.estado==='Acreditado').length+'\nPendientes/Revisar: '+registros.filter(d=>d.estado!=='Acreditado').length+'\nRequisitos activos: '+(requisitosFaena[f]||[]).length;
+   meta.textContent='Trabajadores: '+trabajadoresDeFaena(f).length+'\nDocumentos: '+registros.length+'\nAcreditados: '+registros.filter(d=>d.estado==='Acreditado').length+'\nPendientes/Revisar: '+registros.filter(esDocumentoPendiente).length+'\nRequisitos activos: '+(requisitosFaena[f]||[]).length;
    const acciones=document.createElement('div');acciones.className='file-actions';
    const ver=document.createElement('button');ver.className='mini blue';ver.textContent='Ver trabajadores';ver.onclick=()=>verTrabajadoresFaena(encodeURIComponent(f));
    const borrar=document.createElement('button');borrar.className='mini red';borrar.textContent='Eliminar faena';
@@ -2385,7 +2391,7 @@ function renderizarAcreditacion(){
 function renderizarReportes(){
   rRegistros.innerText=docs.length;
   rContratistas.innerText=new Set(docs.map(d=>d.contratista)).size;
-  rPendientes.innerText=documentosReales().filter(d=>d.estado!=="Acreditado" || d.prioridad==="Alta").length;
+  rPendientes.innerText=documentosReales().filter(esDocumentoPendiente).length;
 
   const ultimo=archivos.slice().sort((a,b)=>new Date(b.fechaISO)-new Date(a.fechaISO))[0];
   rUltimo.innerText=ultimo?`${ultimo.nombre} · ${ultimo.fechaSubida}`:"Sin archivos";
