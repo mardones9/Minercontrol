@@ -824,7 +824,17 @@ button{transition:.15s ease}
 <section id="usuarios" class="module">
   <h2>Gestión de usuarios</h2>
   <p id="usuariosEstado" role="status"></p>
-  <p class="meta" style="margin-top:10px">Los nuevos clientes reciben 21 días de prueba gratis. Al registrar un pago pasan a mensualidad. Vencimiento: inicio del día indicado, horario de Chile. En meses sin día 30 se usa el último día. Tu cuenta Administrador está exenta.</p>
+  <p class="meta" style="margin-top:10px">Los nuevos clientes tienen 21 días de prueba. Mientras el control esté apagado, la prueba queda pausada y no hay bloqueos ni avisos de cobro. Actívalo cuando MinerControl esté listo y hayas definido la duración del acceso pagado. Tu cuenta Administrador está exenta.</p>
+  <div class="card" style="margin:16px 0">
+    <h3>Control de suscripciones</h3>
+    <p id="estadoControlSuscripciones" class="meta" style="margin-top:10px">Consultando configuración...</p>
+    <div class="actions" style="margin-bottom:0">
+      <label for="duracionAccesoPagado">Duración del acceso pagado (días)</label>
+      <input id="duracionAccesoPagado" type="number" min="1" max="3650" placeholder="Definir cuando esté listo" style="padding:12px;border-radius:12px">
+      <button id="guardarControlSuscripciones" class="blue" onclick="guardarControlSuscripcionesMiner(false)">Guardar duración</button>
+      <button id="alternarControlSuscripciones" class="yellow" onclick="guardarControlSuscripcionesMiner(true)" disabled>Consultar estado</button>
+    </div>
+  </div>
   <p id="resumenSuscripciones" class="alert" role="status"></p>
   <form id="crearUsuarioForm" class="card" style="margin:20px 0;display:flex;gap:12px;flex-wrap:wrap">
     <input name="username" aria-label="Usuario nuevo" placeholder="Usuario" pattern="[a-z0-9_]{3,32}" required autocomplete="off">
@@ -3658,6 +3668,7 @@ let tokenMiner=sessionStorage.getItem('minercontrol_session')||'';
 let sesionPendiente=false;
 let suscripcionBloqueada=false;
 let ultimoAvisoCobros='';
+let controlSuscripcionesMiner={enabled:false,paid_days:null};
 const accionesAdministrador=['crearFaena','eliminarFaena','crearFaenaRequisito','toggleRequisitoFaena','eliminarFaenaRequisito'];
 function baseDatosMiner(){
  if(!usuarioActual)throw new Error('Inicia sesión');
@@ -3754,9 +3765,10 @@ function fechaSuscripcionMiner(iso){
  if(!iso)return 'Sin fecha';const partes=iso.split('-');return partes.length===3?partes.reverse().join('/'):iso;
 }
 function textoSuscripcionMiner(s){
+ if(s?.mode==='paused')return 'Modo de prueba libre · sin bloqueo por vencimiento';
  if(!s||s.mode==='unconfigured')return 'Sin suscripción configurada';
  if(s.mode==='exempt')return 'Administrador · exento';
- const tipo=s.mode==='trial'?'Prueba gratuita':'Suscripción mensual';
+ const tipo=s.mode==='trial'?'Prueba gratuita':'Suscripción';
  if(s.blocked)return tipo+' vencida · acceso suspendido';
  if(s.days_remaining===1)return 'Mañana vence tu '+(s.mode==='trial'?'prueba gratuita':'suscripción');
  if(s.days_remaining<=2)return 'En '+s.days_remaining+' días vence tu '+(s.mode==='trial'?'prueba gratuita':'suscripción');
@@ -3776,6 +3788,27 @@ function pintarSuscripcionMiner(s){
 async function comprobarRenovacionMiner(){
  try{await verificarSesionMiner();abrirSesionMiner();mostrarToast('Acceso renovado. Puedes continuar.','ok');}
  catch(error){if(!String(error.message).includes('SUBSCRIPTION_EXPIRED'))mostrarToast('No se pudo comprobar el acceso. Inténtalo de nuevo.','error');}
+}
+function pintarControlSuscripcionesMiner(config){
+ controlSuscripcionesMiner=config;
+ const estado=document.getElementById('estadoControlSuscripciones');
+ estado.textContent=config.enabled?'Control ACTIVADO: los vencimientos pueden bloquear el acceso. Cada pago renueva '+config.paid_days+' días.':'Control DESACTIVADO: pruebas sin bloqueo ni avisos de cobro. Los días de prueba quedan pausados. La duración de pago se definirá cuando estés listo.';
+ const input=document.getElementById('duracionAccesoPagado');if(document.activeElement!==input)input.value=config.paid_days||'';
+ const boton=document.getElementById('alternarControlSuscripciones');boton.textContent=config.enabled?'Desactivar control':'Activar cuando esté listo';boton.disabled=false;
+}
+async function guardarControlSuscripcionesMiner(alternar){
+ const diasTexto=document.getElementById('duracionAccesoPagado').value;
+ const dias=diasTexto?Number(diasTexto):null;
+ const habilitar=alternar?!controlSuscripcionesMiner.enabled:controlSuscripcionesMiner.enabled;
+ if(dias!==null&&(!Number.isInteger(dias)||dias<1||dias>3650)){mostrarToast('Indica una duración de 1 a 3650 días.','warn');return;}
+ if(habilitar&&!dias){mostrarToast('Define primero cuántos días de acceso dará cada pago.','warn');return;}
+ if(alternar&&!confirm(habilitar?'¿Activar los vencimientos y bloqueos? Las pruebas retomarán sus días restantes y cada pago renovará '+dias+' días.':'¿Desactivar vencimientos y bloqueos? Los días de prueba quedarán pausados.'))return;
+ const boton=document.getElementById('alternarControlSuscripciones');boton.disabled=true;
+ try{
+  const config=await cuentaRPC('miner_subscription_control',{p_token:tokenMiner,p_enabled:habilitar,p_paid_days:dias});
+  pintarControlSuscripcionesMiner(config);await cargarUsuariosMiner();await refrescarAvisosCobroMiner();
+  mostrarToast(habilitar?'Control de suscripciones activado.':'Control desactivado. Puedes continuar las pruebas.','ok');
+ }catch(error){document.getElementById('usuariosEstado').textContent=error.message;boton.disabled=false;}
 }
 async function refrescarAvisosCobroMiner(){
  if(usuarioActual?.role!=='Administrador')return;
@@ -3820,9 +3853,10 @@ function textoCuenta(tag,texto){const el=document.createElement(tag);el.textCont
 async function cargarUsuariosMiner(){
  const estado=document.getElementById('usuariosEstado');
  try{
-   const [users,subscriptions]=await Promise.all([cuentaRPC('miner_users',{p_token:tokenMiner}),cuentaRPC('miner_subscriptions',{p_token:tokenMiner})]);
+   const [users,subscriptions,control]=await Promise.all([cuentaRPC('miner_users',{p_token:tokenMiner}),cuentaRPC('miner_subscriptions',{p_token:tokenMiner}),cuentaRPC('miner_subscription_control',{p_token:tokenMiner})]);
+   pintarControlSuscripcionesMiner(control);
    const suscripciones=new Map(subscriptions.map(s=>[s.id,s]));
-   document.getElementById('resumenSuscripciones').textContent=subscriptions.filter(s=>s.blocked).length+' cuentas vencidas · '+subscriptions.filter(s=>s.warning).length+' próximas a vencer · '+subscriptions.filter(s=>s.mode==='trial'&&!s.blocked).length+' pruebas gratuitas activas.';
+   document.getElementById('resumenSuscripciones').textContent=!control.enabled?'Modo de prueba libre: no hay cuentas bloqueadas por vencimiento.':subscriptions.filter(s=>s.blocked).length+' cuentas vencidas · '+subscriptions.filter(s=>s.warning).length+' próximas a vencer · '+subscriptions.filter(s=>s.mode==='trial'&&!s.blocked).length+' pruebas gratuitas activas.';
    const body=document.getElementById('usuariosFilas');body.replaceChildren();
    for(const u of users){
      const row=document.createElement('tr');
@@ -3835,16 +3869,16 @@ async function cargarUsuariosMiner(){
      const sub=suscripciones.get(u.id),subCell=document.createElement('td');
      subCell.append(textoCuenta('p',textoSuscripcionMiner(sub)));
      if(sub?.mode!=='exempt'){
-      const fecha=document.createElement('input');fecha.type='date';fecha.setAttribute('aria-label','Próximo vencimiento de '+u.username);fecha.value=sub?.next_due||'';
-      const aplicar=textoCuenta('button','Guardar vencimiento mensual');aplicar.className='mini blue';
+      const fecha=document.createElement('input');fecha.type='date';fecha.setAttribute('aria-label','Próximo vencimiento de '+u.username);fecha.value=sub?.next_due||sub?.planned_due||'';fecha.disabled=!control.enabled;
+      const aplicar=textoCuenta('button','Guardar vencimiento');aplicar.className='mini blue';aplicar.disabled=!control.enabled;
       aplicar.onclick=async()=>{
        if(!fecha.value){mostrarToast('Indica una fecha de vencimiento.','warn');return;}
-       if(!confirm('¿Configurar suscripción mensual para '+u.username+' con vencimiento '+fechaSuscripcionMiner(fecha.value)+'? Si la fecha ya pasó, se suspenderá el acceso.'))return;
+       if(!confirm('¿Configurar suscripción para '+u.username+' con vencimiento '+fechaSuscripcionMiner(fecha.value)+'? Si la fecha ya pasó, se suspenderá el acceso.'))return;
        aplicar.disabled=true;
        try{await cuentaRPC('miner_subscriptions',{p_token:tokenMiner,p_action:'configure',p_id:u.id,p_due:fecha.value,p_billing_day:30});await cargarUsuariosMiner();await refrescarAvisosCobroMiner();}
        catch(error){estado.textContent=error.message;}finally{aplicar.disabled=false;}
       };
-      const pago=textoCuenta('button','Pago recibido · renovar');pago.className='mini green';pago.disabled=!sub||sub.mode==='unconfigured';
+      const pago=textoCuenta('button','Pago recibido · renovar');pago.className='mini green';pago.disabled=!control.enabled||!sub||sub.mode==='unconfigured';
       let solicitudPago=crypto.randomUUID();
       pago.onclick=async()=>{
        if(!confirm('¿Confirmas que recibiste la mensualidad de '+u.username+'? Se registrará el pago y se renovará su acceso.'))return;
@@ -3871,7 +3905,7 @@ async function cargarUsuariosMiner(){
      if(u.username==='admin'){save.disabled=remove.disabled=true;role.disabled=true;}
      cell.append(save,block,remove);row.append(cell);body.append(row);
    }
-   estado.textContent='Cuentas permanentes. La prueba y el vencimiento se comprueban en el servidor. Cobro mensual el día 30; febrero usa el último día. Los pagos quedan registrados.';
+   estado.textContent='Cuentas permanentes. Tú decides cuándo activar el control y la duración del acceso pagado. Los pagos quedan registrados al activar las suscripciones.';
  }catch(error){estado.textContent=error.message;}
 }
 async function crearUsuarioMiner(event){
