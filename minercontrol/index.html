@@ -2167,15 +2167,41 @@ function nombreReq(key){
   return CATALOGO_REQUISITOS.find(x=>x.key===key)?.nombre || key;
 }
 
+// El nombre del archivo identifica el origen, no el requisito documental.
+function requisitoDeDocumento(d){
+  if(esFichaLaboral(d))return null;
+  function identificar(valor){
+    const texto=String(valor||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    const compacto=normalizar(texto);
+    const claves=[];
+    const reglas=[
+      ["cedula",/cedula|carnet|identidad|\b(?:rut|run|dni|ci)\b/],
+      ["licencia",/licencia.*(?:conduc|chofer|clase\s*[abcd])/],
+      ["altura",/altura/],
+      ["psicosensometrico",/psicosensometrico|sensometrico/],
+      ["examen",/ocupacional|preocupacional|examen\s*medico/],
+      ["odi",/\bodi\b|derecho\s*a\s*saber|obligacion\s*de\s*informar/],
+      ["hoja_vida",/hoja\s*de\s*vida/],
+      ["contrato",/contrato|anexo/],
+      ["antecedentes",/antecedentes/],
+      ["epp",/\bepp\b|elementos\s*.*proteccion|proteccion\s*personal/],
+      ["curso",/curso|certificacion|capacitacion|induccion/],
+      ["foto",/foto|selfie/]
+    ];
+    for(const [key,re] of reglas){
+      const alias=(CATALOGO_REQUISITOS.find(x=>x.key===key)?.aliases||[])
+        .filter(x=>!["rut","run","medico","psico","charla","conductor","certificado","credencial","imagen","licencia"].includes(x));
+      if(re.test(texto) || alias.some(x=>compacto===normalizar(x)))claves.push(key);
+    }
+    return claves.length===1?claves[0]:null;
+  }
+  const nombre=String(d.documento||"").trim();
+  // Un tipo genérico no sustituye un nombre presente pero ambiguo.
+  return nombre?identificar(nombre):identificar(d.tipoDocumento);
+}
+
 function docCumpleRequisito(d,key){
-  if(esFichaLaboral(d))return false;
-  if(key==="licencia" && clasificarDocumento(d.documento)!=="Licencia de conducir")return false;
-  const cat=CATALOGO_REQUISITOS.find(x=>x.key===key);
-  if(!cat)return false;
-  const texto=normalizar(`${d.documento||""} ${d.tipoDocumento||""} ${d.archivo||""}`);
-  const match=cat.aliases.some(a=>texto.includes(normalizar(a)));
-  if(!match)return false;
-  return d.estado==="Acreditado" || d.estado==="Por vencer";
+  return requisitoDeDocumento(d)===key && (d.estado==="Acreditado" || d.estado==="Por vencer");
 }
 
 function evaluarRequisitosTrabajador(t){
@@ -2183,11 +2209,8 @@ function evaluarRequisitosTrabajador(t){
   const relacionados=documentosDelTrabajador(t);
   const checklist=reqs.map(key=>{
     const encontrados=relacionados.filter(d=>docCumpleRequisito(d,key));
-    const vencidos=relacionados.filter(d=>{
-      const cat=CATALOGO_REQUISITOS.find(x=>x.key===key);
-      const texto=normalizar(`${d.documento||""} ${d.tipoDocumento||""}`);
-      return cat && cat.aliases.some(a=>texto.includes(normalizar(a))) && (d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar");
-    });
+    const vencidos=relacionados.filter(d=>requisitoDeDocumento(d)===key &&
+      (d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar"));
     let estado="Falta";
     if(encontrados.length)estado=encontrados.some(d=>d.estado==="Por vencer")?"Por vencer":"Cumple";
     else if(vencidos.length)estado="Vencido/Pendiente";
