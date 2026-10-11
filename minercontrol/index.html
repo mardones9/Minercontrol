@@ -526,6 +526,19 @@ button{transition:.15s ease}
 <section id="faenas" class="module">
   <div class="section">
     <h2 style="margin-bottom:18px">Faenas</h2>
+    <div class="actions">
+      <input class="search" id="nuevaFaena" placeholder="Nombre de nueva faena" aria-label="Nombre de nueva faena" maxlength="120">
+      <button class="mini green" onclick="crearFaena()">Crear faena</button>
+    </div>
+    <div class="head">
+      <input class="search" id="buscarFaena" placeholder="Buscar faena..." aria-label="Buscar faena" oninput="renderizarFaenas()">
+      <select class="search" id="ordenarFaenas" aria-label="Ordenar faenas" onchange="renderizarFaenas()">
+        <option value="nombre">Nombre: A → Z</option><option value="nombreDesc">Nombre: Z → A</option>
+        <option value="cantidad">Trabajadores: mayor a menor</option><option value="cantidadAsc">Trabajadores: menor a mayor</option>
+      </select>
+    </div>
+    <p class="meta">La eliminación se bloquea si existen datos asociados. Los cambios se guardan para el usuario y día seleccionados en este navegador.</p>
+    <div id="trabajadoresFaena" class="section" hidden></div>
     <div id="faenasGrid" class="grid"></div>
   </div>
 </section>
@@ -1568,7 +1581,7 @@ function renderizar(){
 function renderizarDashboard(){
   kTrabajadores.innerText=trabajadores.length;
   kArchivos.innerText=archivos.length;
-  kFaenas.innerText=new Set(docs.map(d=>d.faena)).size;
+  kFaenas.innerText=nombresFaenas().length;
   const acreditados=documentosReales().filter(d=>d.estado==="Acreditado").length;
   const vencidos=documentosReales().filter(d=>d.estado==="Vencido" || d.prioridad==="Alta").length;
   const porVencer=documentosReales().filter(d=>d.estado==="Por vencer").length;
@@ -1940,7 +1953,7 @@ function estadoTrabajadorPlano(t){
 }
 
 function idTrabajador(t){
-  return encodeURIComponent(`${t.rut}||${t.trabajador}||${t.faena}`);
+  return encodeURIComponent(`${t.rut}||${t.trabajador}||${t.faena}`).replace(/'/g,"%27");
 }
 
 function renderizarTrabajadores(){
@@ -2165,15 +2178,7 @@ function badgeReqEstado(estado){
   return `<span class="badge bad">Bloqueado</span>`;
 }
 
-function crearFaenaRequisito(){
-  const input=document.getElementById("nuevaFaenaReq");
-  const nombre=(input?.value||"").trim();
-  if(!nombre){alert("Escribe el nombre de la faena.");return;}
-  if(!requisitosFaena[nombre])requisitosFaena[nombre]=["cedula","examen","odi","contrato"];
-  if(input)input.value="";
-  guardarLocal(false);
-  renderizarRequisitos();
-}
+function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
 
 function toggleRequisitoFaena(faena,key,checked){
   if(!requisitosFaena[faena])requisitosFaena[faena]=[];
@@ -2251,29 +2256,81 @@ function renderChecklistRequisitosTrabajador(t){
   `;
 }
 
+function nombreFaenaClave(nombre){return String(nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');}
+function registrosFaena(nombre,lista){return lista.filter(x=>nombreFaenaClave(x.faena)===nombreFaenaClave(nombre));}
+function nombresFaenas(){
+ const nombres=new Map();
+ for(const f of [...Object.keys(requisitosFaena),...docs.map(x=>x.faena),...trabajadores.map(x=>x.faena),...carpetasTrabajadores.map(x=>x.faena),...historialOperacional.map(x=>x.faena),...archivos.flatMap(x=>(x.items||[]).map(d=>d.faena))]){
+   if(nombreFaenaClave(f)&&!nombres.has(nombreFaenaClave(f)))nombres.set(nombreFaenaClave(f),f);
+ }
+ return [...nombres.values()];
+}
+function trabajadoresDeFaena(f){return registrosFaena(f,trabajadores);}
+function guardarCambioFaena(cambio){
+ const anterior={...requisitosFaena};
+ try{cambio();guardarLocal(false);}
+ catch(error){requisitosFaena=anterior;alert('No se pudo guardar el cambio. Revisa el almacenamiento del navegador.');return false;}
+ renderizar();return true;
+}
+function crearFaenaDesde(input){
+ const nombre=(input?.value||'').trim().replace(/\s+/g,' ');
+ if(!nombre||nombre.length>120){alert('Escribe un nombre de faena de hasta 120 caracteres.');return;}
+ if(['__proto__','constructor','prototype'].includes(nombreFaenaClave(nombre))||/[<>"'\\]/.test(nombre)){
+   alert('Usa un nombre sin comillas, barras invertidas ni signos < o >.');return;
+ }
+ if(nombresFaenas().some(f=>nombreFaenaClave(f)===nombreFaenaClave(nombre))){alert('Esta faena ya existe.');return;}
+ if(guardarCambioFaena(()=>{requisitosFaena[nombre]=['cedula','examen','odi','contrato'];}))input.value='';
+}
+function crearFaena(){crearFaenaDesde(document.getElementById('nuevaFaena'));}
+function eliminarFaena(cod){
+ const f=decodeURIComponent(cod);
+ const listas=[trabajadores,docs,carpetasTrabajadores,historialOperacional,...archivos.map(a=>a.items||[])];
+ if(listas.some(lista=>registrosFaena(f,lista).length)){
+   alert('No se puede eliminar '+f+': tiene trabajadores, documentos, carpetas o historial asociados. Sus datos se conservarán.');return;
+ }
+ const claves=Object.keys(requisitosFaena).filter(k=>nombreFaenaClave(k)===nombreFaenaClave(f));
+ if(!claves.length)return;
+ if(!confirm('¿Eliminar la faena '+f+' y su configuración de requisitos del día seleccionado?'))return;
+ guardarCambioFaena(()=>{for(const k of claves)delete requisitosFaena[k];});
+}
+function verTrabajadoresFaena(cod){
+ const f=decodeURIComponent(cod),panel=document.getElementById('trabajadoresFaena');
+ panel.replaceChildren();panel.hidden=false;panel.dataset.faena=f;
+ const titulo=document.createElement('h3');titulo.textContent='Trabajadores · '+f;panel.append(titulo);
+ const cerrar=document.createElement('button');cerrar.className='mini blue';cerrar.textContent='Cerrar';cerrar.onclick=()=>{panel.hidden=true;delete panel.dataset.faena;};panel.append(cerrar);
+ const lista=trabajadoresDeFaena(f).slice().sort((a,b)=>String(a.trabajador).localeCompare(String(b.trabajador),'es'));
+ if(!lista.length){const p=document.createElement('p');p.className='meta';p.textContent='Esta faena aún no tiene trabajadores cargados.';panel.append(p);}
+ for(const t of lista){
+   const fila=document.createElement('div');fila.className='head';
+   const abrir=document.createElement('button');abrir.className='mini blue';abrir.textContent=t.trabajador+' · '+t.rut;
+   abrir.onclick=()=>{mostrarModulo('trabajadores',document.querySelector('.nav button[onclick*="trabajadores"]'));abrirPerfilTrabajador(idTrabajador(t));};
+   const datos=document.createElement('span');datos.className='meta';datos.textContent=(t.contratista||'Sin empresa')+' · '+(t.documentos||0)+' documentos';fila.append(abrir,datos);panel.append(fila);
+ }
+}
 function renderizarFaenas(){
-  const mapa={};
-
-  docs.forEach(d=>{
-    if(!mapa[d.faena])mapa[d.faena]=[];
-    mapa[d.faena].push(d);
-  });
-
-  const faenas=Object.keys(mapa);
-
-  faenasGrid.innerHTML=faenas.length?faenas.map(f=>`
-    <div class="card">
-      <small>Faena</small>
-      <h3 style="margin-top:8px">${f}</h3>
-      <p class="meta" style="margin-top:10px">
-        Trabajadores: ${new Set(mapa[f].map(claveTrabajador)).size}<br>
-        Documentos: ${mapa[f].filter(d=>!esFichaLaboral(d)).length}<br>
-        Acreditados: ${mapa[f].filter(x=>!esFichaLaboral(x) && x.estado==="Acreditado").length}<br>
-        Pendientes/Revisar: ${mapa[f].filter(x=>!esFichaLaboral(x) && x.estado!=="Acreditado").length}<br>
-        Requisitos activos: ${(requisitosFaena[f]||[]).length}
-      </p>
-    </div>
-  `).join(""):`<div class="empty">No hay faenas cargadas.</div>`;
+ const grid=document.getElementById('faenasGrid');if(!grid)return;
+ const q=nombreFaenaClave(document.getElementById('buscarFaena')?.value),orden=document.getElementById('ordenarFaenas')?.value||'nombre';
+ const faenas=nombresFaenas().filter(f=>nombreFaenaClave(f).includes(q));
+ faenas.sort((a,b)=>{
+   const nombre=String(a).localeCompare(String(b),'es');
+   if(orden==='cantidad'||orden==='cantidadAsc'){const diferencia=trabajadoresDeFaena(b).length-trabajadoresDeFaena(a).length;return (orden==='cantidadAsc'?-diferencia:diferencia)||nombre;}
+   return orden==='nombreDesc'?-nombre:nombre;
+ });
+ grid.replaceChildren();
+ if(!faenas.length){const vacio=document.createElement('div');vacio.className='empty';vacio.textContent='No hay faenas que coincidan con la búsqueda.';grid.append(vacio);}
+ for(const f of faenas){
+   const card=document.createElement('div');card.className='card';
+   const titulo=document.createElement('h3');titulo.textContent=f;
+   const registros=registrosFaena(f,docs).filter(d=>!esFichaLaboral(d));
+   const meta=document.createElement('p');meta.className='meta';meta.style.whiteSpace='pre-line';meta.style.marginTop='10px';
+   meta.textContent='Trabajadores: '+trabajadoresDeFaena(f).length+'\nDocumentos: '+registros.length+'\nAcreditados: '+registros.filter(d=>d.estado==='Acreditado').length+'\nPendientes/Revisar: '+registros.filter(d=>d.estado!=='Acreditado').length+'\nRequisitos activos: '+(requisitosFaena[f]||[]).length;
+   const acciones=document.createElement('div');acciones.className='file-actions';
+   const ver=document.createElement('button');ver.className='mini blue';ver.textContent='Ver trabajadores';ver.onclick=()=>verTrabajadoresFaena(encodeURIComponent(f));
+   const borrar=document.createElement('button');borrar.className='mini red';borrar.textContent='Eliminar faena';
+   borrar.setAttribute('onclick','eliminarFaena('+JSON.stringify(encodeURIComponent(f))+')');acciones.append(ver,borrar);card.append(titulo,meta,acciones);grid.append(card);
+ }
+ const panel=document.getElementById('trabajadoresFaena');if(panel?.dataset.faena&&!panel.hidden)verTrabajadoresFaena(encodeURIComponent(panel.dataset.faena));
+ pintarPermisosMiner();
 }
 
 function renderizarAcreditacion(){
@@ -3536,7 +3593,7 @@ function crearGrafico(){
 let usuarioActual=null;
 let tokenMiner=sessionStorage.getItem('minercontrol_session')||'';
 let sesionPendiente=false;
-const accionesAdministrador=['crearFaenaRequisito','toggleRequisitoFaena','eliminarFaenaRequisito'];
+const accionesAdministrador=['crearFaena','eliminarFaena','crearFaenaRequisito','toggleRequisitoFaena','eliminarFaenaRequisito'];
 function baseDatosMiner(){
  if(!usuarioActual)throw new Error('Inicia sesión');
  return usuarioActual.username==='admin'?'minercontrol_data':`minercontrol_data_${usuarioActual.id}`;
@@ -3557,7 +3614,8 @@ function cambiarDiaMiner(dia){
  if(revisionExcelLeyendo){mostrarToast('Espera a que termine la lectura del Excel.','warn');document.getElementById('diaMiner').value=diaSeleccionadoMiner;return;}
  guardarLocal(false);
  diaSeleccionadoMiner=dia;
- trabajadores=[];docs=[];archivos=[];errores=[];carpetasTrabajadores=[];historialOperacional=[];
+ trabajadores=[];docs=[];archivos=[];errores=[];carpetasTrabajadores=[];historialOperacional=[];requisitosFaena=requisitosDefault();
+ const panelFaena=document.getElementById('trabajadoresFaena');panelFaena.hidden=true;delete panelFaena.dataset.faena;
  archivoSeleccionado=null;filtroEstadoAcreditacion='todos';
  for(const id of ['buscarArchivo','buscarTrabajador','buscarAcreditacion','buscarCarpeta','buscarHistorial','filtroFechaHistorial']){const campo=document.getElementById(id);if(campo)campo.value='';}
  document.getElementById('filtrarSemaforoTrabajador').value='todos';document.getElementById('filtroAccionHistorial').value='todos';
