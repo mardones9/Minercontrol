@@ -765,12 +765,12 @@ button{transition:.15s ease}
 <section id="usuarios" class="module">
   <h2>Gestión de usuarios</h2>
   <p id="usuariosEstado" role="status"></p>
-  <p class="meta" style="margin-top:10px">Prueba gratis de 21 días. Con el control apagado no hay vencimientos. Administradores exentos.</p>
+  <p class="meta" style="margin-top:10px">Elige el plan y los días de cada usuario. Con el control apagado no hay vencimientos.</p>
   <div class="card" style="margin:16px 0">
     <h3>Control de suscripciones</h3>
     <p id="estadoControlSuscripciones" class="meta" style="margin-top:10px">Consultando configuración...</p>
     <div class="actions" style="margin-bottom:0">
-      <label for="duracionAccesoPagado">Duración del acceso pagado (días)</label>
+      <label for="duracionAccesoPagado">Duración predeterminada del pago (días)</label>
       <input id="duracionAccesoPagado" type="number" min="1" max="3650" placeholder="Sin definir" style="padding:12px;border-radius:12px;width:150px;background:#081726;color:white;border:1px solid var(--line)">
       <button id="guardarControlSuscripciones" class="blue" onclick="guardarControlSuscripcionesMiner(false)">Guardar duración</button>
       <button id="alternarControlSuscripciones" class="yellow" onclick="guardarControlSuscripcionesMiner(true)" disabled>Consultar estado</button>
@@ -782,6 +782,7 @@ button{transition:.15s ease}
     <input name="name" aria-label="Nombre" placeholder="Nombre" maxlength="80" required>
     <input name="password" aria-label="Contraseña nueva" placeholder="Contraseña (mín. 12 caracteres)" type="password" minlength="12" maxlength="72" required autocomplete="new-password">
     <select name="role" aria-label="Rol"><option>Usuario</option><option>Administrador</option></select>
+    <label style="display:flex;align-items:center;gap:8px">Días de prueba <input name="trial_days" type="number" min="1" max="3650" value="21" aria-label="Días de prueba gratis" style="min-width:90px;width:100px;flex:none"></label>
     <button class="green" type="submit">Crear usuario</button>
   </form>
   <div class="card" style="overflow-x:auto"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado de cuenta</th><th>Suscripción</th><th>Acciones</th></tr></thead><tbody id="usuariosFilas"></tbody></table></div>
@@ -3719,13 +3720,14 @@ function fechaSuscripcionMiner(iso){
  if(!iso)return 'Sin fecha';const partes=iso.split('-');return partes.length===3?partes.reverse().join('/'):iso;
 }
 function textoSuscripcionMiner(s){
+ if(s?.mode==='free')return 'Gratis indefinido · sin vencimiento';
  if(s?.mode==='paused')return 'Modo de prueba libre · sin bloqueo por vencimiento';
  if(!s||s.mode==='unconfigured')return 'Sin suscripción configurada';
  if(s.mode==='exempt')return 'Administrador · exento';
- const tipo=s.mode==='trial'?'Prueba gratuita':'Suscripción';
+ const tipo=s.mode==='trial'?'Prueba gratuita':s.mode==='free_days'?'Gratis por días':'Suscripción';
  if(s.blocked)return tipo+' vencida · acceso suspendido';
- if(s.days_remaining===1)return 'Mañana vence tu '+(s.mode==='trial'?'prueba gratuita':'suscripción');
- if(s.days_remaining<=2)return 'En '+s.days_remaining+' días vence tu '+(s.mode==='trial'?'prueba gratuita':'suscripción');
+ if(s.days_remaining===1)return 'Mañana vence tu '+(s.mode==='trial'||s.mode==='free_days'?'acceso gratuito':'suscripción');
+ if(s.days_remaining<=2)return 'En '+s.days_remaining+' días vence tu '+(s.mode==='trial'||s.mode==='free_days'?'acceso gratuito':'suscripción');
  return tipo+' · quedan '+s.days_remaining+' días · vence '+fechaSuscripcionMiner(s.next_due);
 }
 function pintarSuscripcionMiner(s){
@@ -3735,7 +3737,7 @@ function pintarSuscripcionMiner(s){
  const dialog=document.getElementById('bloqueoSuscripcion');
  suscripcionBloqueada=Boolean(s?.blocked);
  if(suscripcionBloqueada){
-  document.getElementById('mensajeBloqueoSuscripcion').textContent=s.mode==='trial'?'Terminó tu prueba gratuita de 21 días. Activa la mensualidad para continuar.':'Tu suscripción venció por falta de pago el '+fechaSuscripcionMiner(s.next_due)+'.';
+  document.getElementById('mensajeBloqueoSuscripcion').textContent=['trial','free_days'].includes(s.mode)?'Terminó tu período de acceso gratuito. Contacta al administrador para continuar.':'Tu suscripción venció por falta de pago el '+fechaSuscripcionMiner(s.next_due)+'.';
   if(!dialog.open)dialog.showModal();
  }else if(dialog.open)dialog.close();
 }
@@ -3823,6 +3825,25 @@ async function cargarUsuariosMiner(){
      const sub=suscripciones.get(u.id),subCell=document.createElement('td');
      subCell.append(textoCuenta('p',textoSuscripcionMiner(sub)));
      if(sub?.mode!=='exempt'){
+      const plan=document.createElement('select');plan.setAttribute('aria-label','Plan de '+u.username);plan.className='search';plan.style.minWidth='230px';
+      for(const [valor,nombre] of [['free','Gratis indefinido'],['monthly','Suscripción por X días'],['free_days','Gratis por X días'],['trial','Prueba gratis por X días']]){
+       const opcion=textoCuenta('option',nombre);opcion.value=valor;plan.append(opcion);
+      }
+      plan.value=sub?.enrollment_mode||sub?.mode||'trial';
+      const diasPlan=document.createElement('input');diasPlan.type='number';diasPlan.min='1';diasPlan.max='3650';diasPlan.placeholder='Días';diasPlan.style.width='110px';diasPlan.setAttribute('aria-label','Días del plan de '+u.username);diasPlan.value=sub?.access_days||sub?.days_remaining||'';
+      const ajustarDias=()=>{diasPlan.hidden=!['monthly','free_days','trial'].includes(plan.value);};plan.onchange=ajustarDias;ajustarDias();
+      const asignar=textoCuenta('button','Aplicar plan');asignar.className='mini blue';
+      asignar.onclick=async()=>{
+       const dias=['monthly','free_days','trial'].includes(plan.value)?Number(diasPlan.value):null;
+       if(dias!==null&&(!Number.isInteger(dias)||dias<1||dias>3650)){mostrarToast('Indica de 1 a 3650 días.','warn');return;}
+       const nombre=plan.options[plan.selectedIndex].textContent;
+       if(!confirm('¿Asignar '+nombre+(dias!==null?' ('+dias+' días)':'')+' a '+u.username+'? Esto reemplaza su plan actual y no registra un pago.'))return;
+       asignar.disabled=true;
+       try{await cuentaRPC('miner_subscription_plan',{p_token:tokenMiner,p_id:u.id,p_mode:plan.value,p_days:dias});await cargarUsuariosMiner();await refrescarAvisosCobroMiner();}
+       catch(error){estado.textContent=error.message;asignar.disabled=false;}
+      };
+      const controles=document.createElement('div');controles.className='file-actions';controles.append(plan,diasPlan,asignar);subCell.append(controles);
+
       const fecha=document.createElement('input');fecha.type='date';fecha.setAttribute('aria-label','Próximo vencimiento de '+u.username);fecha.value=sub?.next_due||sub?.planned_due||'';fecha.disabled=!control.enabled;
       const aplicar=textoCuenta('button','Guardar vencimiento');aplicar.className='mini blue';aplicar.disabled=!control.enabled;
       aplicar.onclick=async()=>{
@@ -3832,7 +3853,7 @@ async function cargarUsuariosMiner(){
        try{await cuentaRPC('miner_subscriptions',{p_token:tokenMiner,p_action:'configure',p_id:u.id,p_due:fecha.value,p_billing_day:30});await cargarUsuariosMiner();await refrescarAvisosCobroMiner();}
        catch(error){estado.textContent=error.message;}finally{aplicar.disabled=false;}
       };
-      const pago=textoCuenta('button','Pago recibido · renovar');pago.className='mini green';pago.disabled=!control.enabled||!sub||sub.mode==='unconfigured';
+      const pago=textoCuenta('button','Pago recibido · renovar');pago.className='mini green';pago.disabled=!control.enabled||!sub||sub.mode==='unconfigured'||sub.enrollment_mode==='free';
       let solicitudPago=crypto.randomUUID();
       pago.onclick=async()=>{
        if(!confirm('¿Confirmas que recibiste la mensualidad de '+u.username+'? Se registrará el pago y se renovará su acceso.'))return;
@@ -3840,7 +3861,7 @@ async function cargarUsuariosMiner(){
        try{await cuentaRPC('miner_subscriptions',{p_token:tokenMiner,p_action:'paid',p_id:u.id,p_request_id:solicitudPago});solicitudPago=crypto.randomUUID();await cargarUsuariosMiner();await refrescarAvisosCobroMiner();}
        catch(error){estado.textContent=error.message;pago.disabled=false;}
       };
-      subCell.append(fecha,aplicar,pago);
+      if(sub?.enrollment_mode!=='free')subCell.append(fecha,aplicar,pago);
       if(!u.active)subCell.append(textoCuenta('p','Cuenta bloqueada manualmente: un pago no cambia ese bloqueo.'));
      }
      row.append(subCell);
@@ -3865,8 +3886,10 @@ async function cargarUsuariosMiner(){
 async function crearUsuarioMiner(event){
  event.preventDefault();const form=event.currentTarget;const submit=form.querySelector('button');submit.disabled=true;
  try{
-   await cuentaRPC('miner_users',{p_token:tokenMiner,p_action:'create',p_username:form.elements.username.value,
-     p_name:form.elements.name.value,p_password:form.elements.password.value,p_role:form.elements.role.value});
+   const diasPrueba=Number(form.elements.trial_days.value);
+   if(form.elements.role.value==='Usuario'&&(!Number.isInteger(diasPrueba)||diasPrueba<1||diasPrueba>3650))throw new Error('Indica de 1 a 3650 días de prueba');
+   await cuentaRPC('miner_create_trial_user',{p_token:tokenMiner,p_username:form.elements.username.value,
+     p_name:form.elements.name.value,p_password:form.elements.password.value,p_days:diasPrueba,p_role:form.elements.role.value});
    form.reset();await cargarUsuariosMiner();await refrescarAvisosCobroMiner();
  }catch(error){document.getElementById('usuariosEstado').textContent=error.message;}
  finally{submit.disabled=false;}
