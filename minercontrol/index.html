@@ -296,28 +296,11 @@ button{transition:.15s ease}
 .import-review{margin:auto;width:min(700px,calc(100% - 32px));max-height:85vh;overflow:auto;padding:24px;border:1px solid var(--line);border-radius:24px;background:var(--panel);color:var(--text)}
 .import-review::backdrop{background:rgba(6,17,31,.8)}
 .import-review h2{margin-bottom:16px}.import-review p{margin:8px 0;line-height:1.5}.import-review ul{margin:10px 0 0 20px;line-height:1.6}.import-review button:disabled{opacity:.5;cursor:not-allowed}
-
 #usuarios td{vertical-align:top}#usuarios td:nth-child(5){min-width:320px}#usuarios td:nth-child(5) p{margin-bottom:10px;line-height:1.4}#usuarios td:nth-child(5) button{margin:6px 6px 0 0}#usuarios td:nth-child(5) input{padding:10px;background:#081726;color:white;border:1px solid var(--line);border-radius:10px}#avisoSuscripcion,#avisoCobrosAdministrador{margin-bottom:16px}#avisoSuscripcion[hidden],#avisoCobrosAdministrador[hidden]{display:none}
 #crearUsuarioForm input,#crearUsuarioForm select{padding:12px;border:1px solid var(--line);border-radius:12px;background:#081726;color:var(--text);font-size:14px;min-width:170px;flex:1}
 #crearUsuarioForm input[name="password"]{min-width:255px}
 #crearUsuarioForm button{padding:12px 18px;border-radius:12px;color:white}
 #usuarios button:disabled,#usuarios select:disabled{opacity:.5;cursor:not-allowed;transform:none}
-/* Simplified navigation and guided home */
-.sidebar{overflow-y:auto;width:260px;flex-shrink:0}
-.nav-tools summary{color:var(--muted);padding:14px 4px;cursor:pointer}
-.nav-tools button{width:100%;margin-top:8px}
-.nav .logout-button{background:transparent;color:var(--muted);border:1px solid var(--line);margin-top:14px}
-.hero{padding:22px;margin-bottom:16px}.hero h1{font-size:30px}
-.day-panel{margin-bottom:16px;padding:18px}.day-panel details summary{cursor:pointer;color:var(--muted)}
-.day-panel input,.day-panel select{padding:10px;border-radius:10px;border:1px solid var(--line);background:#081726;color:white}
-.start-grid{margin-top:18px;margin-bottom:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
-#carga .start-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.start-card{padding:20px;display:flex;flex-direction:column;gap:12px;background:var(--panel2)}
-.start-card small{color:var(--orange);font-weight:800}.start-card h3{font-size:21px}
-.start-card p{color:var(--muted);font-size:15px;line-height:1.5;flex:1}.start-card button{width:100%}
-.home-summary>summary{padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-bottom:18px;cursor:pointer;font-weight:800}
-@media(max-width:1100px){.start-grid,#carga .start-grid{grid-template-columns:1fr}.sidebar{width:220px}.main{padding:16px}.hero h1{font-size:24px}}
-@media(max-width:650px){body{overflow:auto}.layout{display:block;height:auto}.sidebar{width:100%;padding:14px}.sidebar .logo{font-size:24px;margin-bottom:14px}.nav{display:grid;grid-template-columns:1fr 1fr}.nav-tools{grid-column:1/-1}.main{overflow:visible}.hero{align-items:flex-start;gap:12px}.hero h1{font-size:21px}#appView{height:auto}.search{min-width:0;max-width:100%}}
 
 </style>
 </head>
@@ -339,28 +322,27 @@ button{transition:.15s ease}
 
 <aside class="sidebar">
   <button type="button" id="logoHome" class="logo logo-home" title="Volver al inicio">MinerControl<br><span>Enterprise</span></button>
-  <nav class="nav" aria-label="Menú principal">
-    <button class="active" data-modulo="dashboard" onclick="mostrarModulo('dashboard',this)">🏠 Inicio</button>
-    <button data-modulo="carga" onclick="mostrarModulo('carga',this)">📤 Cargar información</button>
-    <button data-modulo="trabajadores" onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
-    <button data-modulo="faenas" onclick="mostrarModulo('faenas',this)">🏗️ Faenas</button>
-    <button data-modulo="acreditacion" onclick="irAcreditacionFiltro('porGestionar')">⚠️ Revisar pendientes</button>
-    <details id="herramientasNav" class="nav-tools">
-      <summary>Más herramientas</summary>
-      <button data-modulo="administracion" onclick="mostrarModulo('administracion',this)">⚙️ Administración</button>
-      <button data-modulo="reportes" onclick="mostrarModulo('reportes',this)">📈 Reportes</button>
-      <button data-modulo="historial" onclick="mostrarModulo('historial',this)">📜 Historial</button>
-    </details>
-    <button class="logout-button" onclick="cerrarSesion()">Cerrar sesión</button>
-  </nav>
+  <div class="nav">
+    <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Dashboard</button>
+    <button onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
+    <button onclick="mostrarModulo('documentos',this)">📁 Documentos</button>
+    <button onclick="mostrarModulo('faenas',this)">🏗️ Faenas</button>
+    <button onclick="mostrarModulo('requisitos',this)">📋 Requisitos</button>
+    <button onclick="mostrarModulo('acreditacion',this)">✅ Acreditación</button>
+    <button onclick="mostrarModulo('carpetas',this)">📦 Carpetas</button>
+    <button onclick="mostrarModulo('reportes',this)">📈 Reportes</button>
+    <button onclick="mostrarModulo('historial',this)">📜 Historial</button>
+    <button id="navUsuarios" hidden onclick="mostrarModulo('usuarios',this)">👥 Usuarios</button>
+    <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
+  </div>
 </aside>
 
 <main class="main">
 
 <div class="hero">
   <div>
-    <h1>Bienvenido a MinerControl</h1>
-    <p id="contextoModulo">Carga tu información, consulta trabajadores y revisa lo que falta.</p>
+    <h1>Bienvenido Dylan 👋</h1>
+    <p>Carga archivos y consulta trabajadores por faena.</p>
   </div>
   <div>
     <div id="fechaActual"></div>
@@ -370,41 +352,45 @@ button{transition:.15s ease}
 
 <div id="avisoSuscripcion" class="alert" role="status" hidden></div>
 <div id="avisoCobrosAdministrador" class="alert" role="status" hidden></div>
-<div class="card day-panel">
-  <div class="head" style="margin-bottom:8px">
-    <label for="diaMiner">Día de trabajo</label>
+<div class="card" style="margin-bottom:16px">
+  <div class="actions history-filters">
+    <button class="blue" onclick="moverDiaMiner(-1)" aria-label="Día anterior">◀</button>
+    <label for="diaMiner">Documentación del día</label>
     <input id="diaMiner" type="date" onchange="cambiarDiaMiner(this.value)">
-    <button class="mini blue" onclick="cambiarDiaMiner(hoyMiner())">Hoy</button>
+    <button class="blue" onclick="moverDiaMiner(1)" aria-label="Día siguiente">▶</button>
+    <button class="blue" onclick="cambiarDiaMiner(hoyMiner())">Hoy</button>
+    <select id="diasGuardadosMiner" aria-label="Días guardados" onchange="if(this.value)cambiarDiaMiner(this.value)"></select>
   </div>
-  <p class="meta" style="margin-bottom:8px">Tu información se guarda en este navegador, por usuario y día. Al entrar desde otro computador debes cargarla allí.</p>
-  <details><summary>Consultar otro día o gestionar archivos cargados</summary>
-    <div class="actions" style="margin-top:12px">
-      <button class="blue" onclick="moverDiaMiner(-1)" aria-label="Día anterior">◀ Día anterior</button>
-      <button class="blue" onclick="moverDiaMiner(1)" aria-label="Día siguiente">Día siguiente ▶</button>
-      <select id="diasGuardadosMiner" aria-label="Días guardados" onchange="if(this.value)cambiarDiaMiner(this.value)"></select>
-    </div>
-    <p class="meta">Los archivos físicos deben volver a seleccionarse para abrirlos.</p>
-    <div id="recientesMiner"></div>
-  </details>
+  <p>Datos guardados en este navegador, por cuenta y día.</p>
+  <details><summary>Archivos y carpetas del día · eliminar o revisar</summary><div id="recientesMiner"></div></details>
 </div>
+
+<div class="actions">
+  <label class="blue primary-upload" for="inputExcelPro">Subir Excel</label>
+  <button class="green" onclick="exportarExcel()">Exportar Excel</button>
+</div>
+
+<details class="extra-options">
+  <summary>Más opciones</summary>
+  <div class="extra-options-grid">
+    <div><button class="purple mini" onclick="guardarLocal()">Guardar datos en este navegador</button><p>Guarda los datos actuales para recuperarlos en este mismo navegador. Los archivos físicos no se guardan.</p></div>
+    <div><button class="yellow mini" onclick="cargarLocal()">Recuperar datos guardados</button><p>Abre los datos que guardaste anteriormente en este navegador.</p></div>
+    <div><button class="blue mini" onclick="diagnosticarSistema()">Diagnóstico</button><p>Revisa los datos cargados y muestra posibles problemas.</p></div>
+    <div><button class="blue mini" onclick="cargarDemo()">Cargar demo</button><p>Carga datos de ejemplo para explorar el sistema.</p></div>
+    <div><button class="red mini" onclick="borrarVista()">Borrar vista</button><p>Elimina los registros del día seleccionado; conserva los otros días. Pide confirmación antes de hacerlo.</p></div>
+  </div>
+  <div class="status-strip">
+    <span class="status-pill ok">🟢 Sistema local activo</span>
+    <span class="status-pill" id="estadoGuardado">💾 Esperando datos</span>
+  </div>
+</details>
+
 <div class="status-strip">
   <span class="status-pill" id="ultimaSubida">📁 Sin archivos subidos</span>
   <span class="status-pill warn" id="estadoCritico">⚠️ Sin revisión todavía</span>
 </div>
 
 <section id="dashboard" class="module active">
-  <div class="section">
-    <h2>¿Qué necesitas hacer?</h2>
-    <p class="meta" style="margin-top:8px">Si es tu primera vez, empieza por cargar un Excel. Después revisa sus trabajadores y pendientes.</p>
-    <div class="grid start-grid">
-      <div class="card start-card"><small>PASO 1</small><h3>Cargar información</h3><p>Sube un Excel o documentos. Revisa lo detectado antes de confirmar.</p><button class="mini green" onclick="irModuloRapido('carga')">Cargar información</button></div>
-      <div class="card start-card"><small>PASO 2</small><h3>Consultar trabajadores</h3><p>Busca una persona por nombre o RUT, o consulta los trabajadores de una faena.</p><button class="mini blue" onclick="irModuloRapido('trabajadores')">Ver trabajadores</button></div>
-      <div class="card start-card"><small>PASO 3</small><h3>Revisar pendientes</h3><p>Consulta documentos pendientes, vencidos, por vencer y datos que necesitan revisión.</p><button class="mini yellow" onclick="irAcreditacionFiltro('porGestionar')">Revisar pendientes</button></div>
-    </div>
-    <p id="guiaInicioEstado" class="alert" role="status"></p>
-  </div>
-  <details class="home-summary"><summary>Ver resumen, indicadores y alertas</summary>
-
   <div class="grid">
     <div class="card kpi-pro nav-card" onclick="irModuloRapido('trabajadores')" title="Abrir módulo Trabajadores"><small>Trabajadores</small><h2 id="kTrabajadores">0</h2></div>
     <div class="card kpi-pro nav-card" onclick="irModuloRapido('documentos')" title="Abrir módulo Documentos / Archivos"><small>Archivos</small><h2 id="kArchivos">0</h2></div>
@@ -464,70 +450,25 @@ button{transition:.15s ease}
       </table>
     </div>
   </div>
-
-  </details>
-</section>
-
-
-<section id="carga" class="module">
-  <div class="section">
-    <h2>Cargar información</h2>
-    <p class="meta" style="margin-top:8px">Elige el tipo de archivo que tienes. La información se incorpora al día seleccionado.</p>
-    <div class="grid start-grid">
-      <div class="card start-card"><h3>Tengo un Excel</h3><p>Para nóminas de trabajadores y registros documentales. Incluye nombre, RUT y una columna Faena con el destino de cada fila.</p><button class="mini green" onclick="irModuloRapido('documentos')">Subir Excel o CSV</button></div>
-      <div class="card start-card"><h3>Tengo carpetas o documentos</h3><p>Para PDF, fotos y documentos individuales. Revisa los nombres, RUT y faenas detectados antes de enviarlos a acreditación.</p><button class="mini blue" onclick="irModuloRapido('carpetas')">Subir carpetas o documentos</button></div>
-    </div>
-    <div class="alert">En un Excel, cada trabajador se asigna según la columna <b>Faena</b>. Estar dentro de una faena no asigna automáticamente el archivo a ella. Si aparece “Sin faena”, corrige el archivo antes de confirmar.</div>
-    <button class="mini blue" onclick="irModuloRapido('documentos')">Ver archivos Excel ya cargados</button>
-  </div>
-</section>
-<section id="administracion" class="module">
-  <div class="section">
-    <h2>Administración y herramientas</h2>
-    <p class="meta" style="margin-top:8px">Configura requisitos y conserva una copia de tu información. Las acciones de administración mantienen sus permisos actuales.</p>
-    <div class="actions">
-      <button class="blue" onclick="irModuloRapido('requisitos')">Requisitos por faena</button>
-      <button id="navUsuarios" hidden onclick="mostrarModulo('usuarios',botonModulo('administracion'))">Gestionar usuarios</button>
-      <button class="green" onclick="exportarExcel()">Exportar Excel</button>
-    </div>
-
-
-<details class="extra-options">
-  <summary>Opciones de guardado y mantenimiento</summary>
-  <div class="extra-options-grid">
-    <div><button class="purple mini" onclick="guardarLocal()">Guardar datos en este navegador</button><p>Guarda los datos actuales para recuperarlos en este mismo navegador. Los archivos físicos no se guardan.</p></div>
-    <div><button class="yellow mini" onclick="cargarLocal()">Recuperar datos guardados</button><p>Abre los datos que guardaste anteriormente en este navegador.</p></div>
-    <div><button class="blue mini" onclick="diagnosticarSistema()">Diagnóstico</button><p>Revisa los datos cargados y muestra posibles problemas.</p></div>
-    <div><button class="blue mini" onclick="cargarDemo()">Cargar demo</button><p>Carga datos de ejemplo para explorar el sistema.</p></div>
-    <div><button class="red mini" onclick="borrarVista()">Borrar vista</button><p>Elimina los registros del día seleccionado; conserva los otros días. Pide confirmación antes de hacerlo.</p></div>
-  </div>
-  <div class="status-strip">
-    <span class="status-pill ok">🟢 Sistema local activo</span>
-    <span class="status-pill" id="estadoGuardado">💾 Esperando datos</span>
-  </div>
-</details>
-
-
-  </div>
 </section>
 
 <section id="documentos" class="module">
   <div class="section">
     <div class="head">
       <div>
-        <h2>Excel y archivos cargados</h2>
-        <p style="color:#9eb3cb;margin-top:6px">Lee todas las hojas, detecta encabezados y separa por archivo → faena → trabajador.</p>
+        <h2>Gestor Documental Pro</h2>
+        <p style="color:#9eb3cb;margin-top:6px">Organiza los archivos por faena y trabajador.</p>
       </div>
       <input class="search" id="buscarArchivo" placeholder="Buscar archivo, trabajador, RUT, faena..." oninput="renderizarDocumentos()">
     </div>
 
     <div class="upload-zone upload-zone-excel">
       <label for="inputExcelPro">📊 Subir Excel / CSV de trabajadores y documentos</label>
-      <p style="color:#9eb3cb;margin-top:8px">Puedes subir uno o varios archivos. El sistema intenta detectar trabajador, RUT, faena, contratista, documento, estado y vencimiento.</p>
+      <p style="color:#9eb3cb;margin-top:8px">Incluye nombre, RUT y la columna Faena. Revisa la carga antes de confirmar.</p>
       <input id="inputExcelPro" type="file" multiple accept=".xlsx,.xls,.csv" onchange="importarExcelPro(event)">
     </div>
     <div class="help-box">
-      <b>Tip:</b> si un Excel queda mal separado, aprieta <b>Columnas</b> para ver qué encabezados detectó. Si no detecta nombre, RUT o faena, el sistema lo manda a alertas críticas.
+      <b>Ayuda:</b> la columna <b>Faena</b> indica el destino de cada trabajador. Usa <b>Columnas</b> para revisar la detección.
     </div>
     <div id="resumenImportacion"></div>
     <div id="fileGrid" class="file-grid"></div>
@@ -637,8 +578,8 @@ button{transition:.15s ease}
 <section id="acreditacion" class="module">
   <div class="section">
     <div class="head">
-      <h2>Revisión de documentos</h2>
-      <input class="search" id="buscarAcreditacion" placeholder="Buscar acreditación..." oninput="renderizarAcreditacion()">
+      <h2>Acreditación Documental</h2>
+      <input class="search" id="buscarAcreditacion" placeholder="Buscar acreditación..." oninput="filtroEstadoAcreditacion='todos';renderizarAcreditacion()">
     </div>
     <div id="filtroAcreditacionActivo" class="filter-banner"></div>
     <div class="table-wrap">
@@ -669,7 +610,7 @@ button{transition:.15s ease}
   <div class="section">
     <div class="head">
       <div>
-        <h2>Carpetas y documentos</h2>
+        <h2>Importador Automático Nivel Dios</h2>
         <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl detecta trabajador, RUT, faena, empresa, tipo documental, vencimientos, duplicados y arma checklist automáticamente.</p>
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
@@ -824,13 +765,13 @@ button{transition:.15s ease}
 <section id="usuarios" class="module">
   <h2>Gestión de usuarios</h2>
   <p id="usuariosEstado" role="status"></p>
-  <p class="meta" style="margin-top:10px">Los nuevos clientes tienen 21 días de prueba. Mientras el control esté apagado, la prueba queda pausada y no hay bloqueos ni avisos de cobro. Actívalo cuando MinerControl esté listo y hayas definido la duración del acceso pagado. Tu cuenta Administrador está exenta.</p>
+  <p class="meta" style="margin-top:10px">Prueba gratis de 21 días. Con el control apagado no hay vencimientos. Administradores exentos.</p>
   <div class="card" style="margin:16px 0">
     <h3>Control de suscripciones</h3>
     <p id="estadoControlSuscripciones" class="meta" style="margin-top:10px">Consultando configuración...</p>
     <div class="actions" style="margin-bottom:0">
       <label for="duracionAccesoPagado">Duración del acceso pagado (días)</label>
-      <input id="duracionAccesoPagado" type="number" min="1" max="3650" placeholder="Definir cuando esté listo" style="padding:12px;border-radius:12px">
+      <input id="duracionAccesoPagado" type="number" min="1" max="3650" placeholder="Sin definir" style="padding:12px;border-radius:12px;width:150px;background:#081726;color:white;border:1px solid var(--line)">
       <button id="guardarControlSuscripciones" class="blue" onclick="guardarControlSuscripcionesMiner(false)">Guardar duración</button>
       <button id="alternarControlSuscripciones" class="yellow" onclick="guardarControlSuscripcionesMiner(true)" disabled>Consultar estado</button>
     </div>
@@ -981,19 +922,38 @@ function mostrarModulo(id,btn){
   document.querySelectorAll(".module").forEach(m=>m.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
-  const seleccionado=botonModulo(id)||btn;
-  if(seleccionado){seleccionado.classList.add("active");const grupo=seleccionado.closest('details');if(grupo)grupo.open=true;}
-  const contexto={dashboard:'Carga tu información, consulta trabajadores y revisa lo que falta.',carga:'Paso 1 · Elige Excel o documentos para comenzar.',documentos:'Paso 1 · Sube tu Excel y revisa lo detectado.',carpetas:'Paso 1 · Selecciona documentos y revisa su identificación.',trabajadores:'Paso 2 · Busca una persona y abre su perfil.',faenas:'Paso 2 · Consulta los trabajadores de cada faena.',acreditacion:'Paso 3 · Revisa los documentos que necesitan atención.'};
-  document.getElementById('contextoModulo').textContent=contexto[id]||MODULOS_TITULOS[id]||'';
+  if(btn)btn.classList.add("active");
   const main=document.querySelector(".main");
   if(main)main.scrollTo({top:0,behavior:"smooth"});
   renderizar();
 }
 
-const MODULOS_TITULOS={dashboard:'Inicio',carga:'Cargar información',trabajadores:'Trabajadores',documentos:'Excel y archivos',faenas:'Faenas',requisitos:'Requisitos por faena',acreditacion:'Revisar pendientes',carpetas:'Carpetas y documentos',reportes:'Reportes',historial:'Historial',administracion:'Administración',usuarios:'Usuarios'};
+const MODULOS_NAV={
+  dashboard:0,
+  trabajadores:1,
+  documentos:2,
+  faenas:3,
+  requisitos:4,
+  acreditacion:5,
+  carpetas:6,
+  reportes:7,
+  historial:8,
+  usuarios:9
+};
+const MODULOS_TITULOS={
+  dashboard:"Dashboard",
+  trabajadores:"Trabajadores",
+  documentos:"Documentos / Archivos",
+  faenas:"Faenas",
+  requisitos:"Requisitos",
+  acreditacion:"Acreditación",
+  carpetas:"Carpetas",
+  reportes:"Reportes",
+  historial:"Historial"
+};
 function botonModulo(id){
- const principal={documentos:'carga',carpetas:'carga',requisitos:'administracion',usuarios:'administracion'}[id]||id;
- return document.querySelector('.nav [data-modulo="'+principal+'"]');
+  const botones=document.querySelectorAll(".nav button");
+  return botones[MODULOS_NAV[id]] || null;
 }
 function limpiarFiltrosModulo(id){
   if(id==="trabajadores"){
@@ -1021,7 +981,6 @@ function irModuloRapido(id){
 }
 function etiquetaFiltroAcreditacion(filtro){
   const nombres={
-    porGestionar:"Documentos que necesitan atención",
     todos:"Todos los documentos",
     criticos:"Vencidos / críticos",
     Acreditado:"Acreditados",
@@ -1033,7 +992,6 @@ function etiquetaFiltroAcreditacion(filtro){
   return nombres[filtro] || filtro;
 }
 function coincideFiltroAcreditacion(d){
-  if(filtroEstadoAcreditacion==='porGestionar')return d.estado!=='Acreditado';
   if(filtroEstadoAcreditacion==="todos")return true;
   if(filtroEstadoAcreditacion==="criticos"){
     return d.estado==="Vencido" || d.estado==="Pendiente" || d.estado==="Revisar" || d.prioridad==="Alta" || d.semaforo==="Rojo";
@@ -1634,10 +1592,6 @@ function agruparPorFaenaYTrabajador(items){
 
 function renderizar(){
   reconstruirTrabajadores();
-  const guia=document.getElementById('guiaInicioEstado');
-  if(guia)guia.textContent=docs.length||carpetasTrabajadores.length?
-    'Información disponible: '+trabajadores.length+' trabajadores y '+documentosReales().length+' documentos. Continúa con Trabajadores o Revisar pendientes.':
-    'Aún no hay información cargada para este día. Empieza por Cargar información.';
   renderizarDashboard();
   renderizarDocumentos();
   renderizarTrabajadores();
@@ -2376,7 +2330,7 @@ function verTrabajadoresFaena(cod){
  for(const t of lista){
    const fila=document.createElement('div');fila.className='head';
    const abrir=document.createElement('button');abrir.className='mini blue';abrir.textContent=t.trabajador+' · '+t.rut;
-   abrir.onclick=()=>{mostrarModulo('trabajadores',botonModulo('trabajadores'));abrirPerfilTrabajador(idTrabajador(t));};
+   abrir.onclick=()=>{mostrarModulo('trabajadores',document.querySelector('.nav button[onclick*="trabajadores"]'));abrirPerfilTrabajador(idTrabajador(t));};
    const datos=document.createElement('span');datos.className='meta';datos.textContent=(t.contratista||'Sin empresa')+' · '+(t.documentos||0)+' documentos';fila.append(abrir,datos);panel.append(fila);
  }
 }
@@ -2424,7 +2378,7 @@ function renderizarAcreditacion(){
 
   acreditacionBody.innerHTML=filtrados.length?filtrados.map(d=>`
     <tr>
-      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',botonModulo('trabajadores'))">${trabajadorDeRegistro(d).trabajador}</a></td>
+      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',document.querySelectorAll('.nav button')[1])">${trabajadorDeRegistro(d).trabajador}</a></td>
       <td>${d.rut}</td>
       <td>${d.faena}</td>
       <td>${d.documento}</td>
@@ -3776,7 +3730,7 @@ function textoSuscripcionMiner(s){
 }
 function pintarSuscripcionMiner(s){
  const aviso=document.getElementById('avisoSuscripcion');
- aviso.hidden=!s||s.mode==='exempt'||s.mode==='unconfigured';
+ aviso.hidden=!s||s.mode==='exempt'||s.mode==='unconfigured'||s.mode==='paused';
  aviso.textContent=textoSuscripcionMiner(s);aviso.classList.toggle('problem',Boolean(s?.warning||s?.blocked));
  const dialog=document.getElementById('bloqueoSuscripcion');
  suscripcionBloqueada=Boolean(s?.blocked);
@@ -3792,7 +3746,7 @@ async function comprobarRenovacionMiner(){
 function pintarControlSuscripcionesMiner(config){
  controlSuscripcionesMiner=config;
  const estado=document.getElementById('estadoControlSuscripciones');
- estado.textContent=config.enabled?'Control ACTIVADO: los vencimientos pueden bloquear el acceso. Cada pago renueva '+config.paid_days+' días.':'Control DESACTIVADO: pruebas sin bloqueo ni avisos de cobro. Los días de prueba quedan pausados. La duración de pago se definirá cuando estés listo.';
+ estado.textContent=config.enabled?'Control ACTIVADO: los vencimientos pueden bloquear el acceso. Cada pago renueva '+config.paid_days+' días.':'Control desactivado · sin bloqueos ni cobros. Pruebas pausadas.';
  const input=document.getElementById('duracionAccesoPagado');if(document.activeElement!==input)input.value=config.paid_days||'';
  const boton=document.getElementById('alternarControlSuscripciones');boton.textContent=config.enabled?'Desactivar control':'Activar cuando esté listo';boton.disabled=false;
 }
@@ -3856,7 +3810,7 @@ async function cargarUsuariosMiner(){
    const [users,subscriptions,control]=await Promise.all([cuentaRPC('miner_users',{p_token:tokenMiner}),cuentaRPC('miner_subscriptions',{p_token:tokenMiner}),cuentaRPC('miner_subscription_control',{p_token:tokenMiner})]);
    pintarControlSuscripcionesMiner(control);
    const suscripciones=new Map(subscriptions.map(s=>[s.id,s]));
-   document.getElementById('resumenSuscripciones').textContent=!control.enabled?'Modo de prueba libre: no hay cuentas bloqueadas por vencimiento.':subscriptions.filter(s=>s.blocked).length+' cuentas vencidas · '+subscriptions.filter(s=>s.warning).length+' próximas a vencer · '+subscriptions.filter(s=>s.mode==='trial'&&!s.blocked).length+' pruebas gratuitas activas.';
+   document.getElementById('resumenSuscripciones').textContent=!control.enabled?'Suscripciones desactivadas.':subscriptions.filter(s=>s.blocked).length+' cuentas vencidas · '+subscriptions.filter(s=>s.warning).length+' próximas a vencer · '+subscriptions.filter(s=>s.mode==='trial'&&!s.blocked).length+' pruebas gratuitas activas.';
    const body=document.getElementById('usuariosFilas');body.replaceChildren();
    for(const u of users){
      const row=document.createElement('tr');
@@ -3905,7 +3859,7 @@ async function cargarUsuariosMiner(){
      if(u.username==='admin'){save.disabled=remove.disabled=true;role.disabled=true;}
      cell.append(save,block,remove);row.append(cell);body.append(row);
    }
-   estado.textContent='Cuentas permanentes. Tú decides cuándo activar el control y la duración del acceso pagado. Los pagos quedan registrados al activar las suscripciones.';
+   estado.textContent='';
  }catch(error){estado.textContent=error.message;}
 }
 async function crearUsuarioMiner(event){
