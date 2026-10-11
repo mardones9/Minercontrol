@@ -1206,35 +1206,25 @@ function extraerFechaVencimiento(row,mapa){
 }
 
 function normalizarFecha(valor){
-  if(!valor)return "";
-  const txt=String(valor).trim();
+  const txt=String(valor??"").trim();
   if(!txt)return "";
-
-  const excelNum=Number(txt);
-  if(!isNaN(excelNum) && excelNum>25000 && excelNum<80000){
-    const fecha=new Date(Math.round((excelNum-25569)*86400*1000));
-    return fecha.toISOString().slice(0,10);
+  function fechaValida(y,m,d){
+    const fecha=new Date(Date.UTC(y,m-1,d));
+    return fecha.getUTCFullYear()===y && fecha.getUTCMonth()===m-1 && fecha.getUTCDate()===d
+      ?fecha.toISOString().slice(0,10):"";
   }
-
-  const partes=txt.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+  // Formatos completos: ISO primero, luego día/mes/año.
+  const iso=txt.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:[T ](?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?)?$/);
+  if(iso)return fechaValida(Number(iso[1]),Number(iso[2]),Number(iso[3]));
+  const partes=txt.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})$/);
   if(partes){
-    let d=Number(partes[1]);
-    let m=Number(partes[2])-1;
-    let y=Number(partes[3]);
-    if(y<100)y+=2000;
-    const fecha=new Date(y,m,d);
-    if(!isNaN(fecha.getTime()))return fecha.toISOString().slice(0,10);
+    let y=Number(partes[3]);if(y<100)y+=2000;
+    return fechaValida(y,Number(partes[2]),Number(partes[1]));
   }
-
-  const iso=txt.match(/(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
-  if(iso){
-    const fecha=new Date(Number(iso[1]),Number(iso[2])-1,Number(iso[3]));
-    if(!isNaN(fecha.getTime()))return fecha.toISOString().slice(0,10);
+  const excelNum=Number(txt);
+  if(/^\d+(?:\.\d+)?$/.test(txt) && excelNum>25000 && excelNum<80000){
+    return new Date(Math.floor(excelNum-25569)*86400000).toISOString().slice(0,10);
   }
-
-  const fecha=new Date(txt);
-  if(!isNaN(fecha.getTime()))return fecha.toISOString().slice(0,10);
-
   return "";
 }
 
@@ -1296,49 +1286,19 @@ function enriquecerDocumento(item){
 }
 
 function detectarEstado(d){
-  const texto=(d.documento+" "+d.estadoOriginal+" "+(d.tipoDocumento||"")).toLowerCase();
-  const dias=diasHasta(d.fechaVencimiento);
-
+  const texto=String(d.estadoOriginal||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+  const fecha=normalizarFecha(d.fechaVencimiento);
+  const dias=diasHasta(fecha);
   if(d.trabajador==="Sin nombre" || d.rut==="Sin RUT" || d.faena==="Faena")return "Revisar";
-
-  if(typeof dias==="number"){
-    if(dias<0)return "Vencido";
-    if(dias<=30)return "Por vencer";
-  }
-
-  if(
-    texto.includes("por vencer") ||
-    texto.includes("proximo vencer") ||
-    texto.includes("próximo vencer") ||
-    texto.includes("vence pronto")
-  ){
-    return "Por vencer";
-  }
-
-  if(
-    texto.includes("vencido") ||
-    texto.includes("vencida") ||
-    texto.includes("caduc") ||
-    texto.includes("expir") ||
-    texto.includes("rechaz") ||
-    texto.includes("no cumple") ||
-    texto.includes("pendiente") ||
-    texto.includes("falt")
-  ){
-    return "Pendiente";
-  }
-
-  if(
-    texto.includes("vigente") ||
-    texto.includes("vig") ||
-    texto.includes("apro") ||
-    texto.includes("cumple") ||
-    texto.includes("ok") ||
-    texto.includes("valid")
-  ){
-    return "Acreditado";
-  }
-
+  // Ninguna fecha próxima convierte un rechazo o pendiente en documento válido.
+  if(/rechaz|no\s+(?:aprob|acredit|valid|vigente|cumple)|inval|pendiente|falt|no\s*ok/.test(texto))return "Pendiente";
+  if(/vencid|caduc|expir/.test(texto) || (typeof dias==="number" && dias<0))return "Vencido";
+  if(d.fechaVencimientoInvalida || (d.fechaVencimiento && !fecha))return "Revisar";
+  if(/revis|observ|desconoc|sin\s+(?:estado|valid)/.test(texto))return "Revisar";
+  const positivo=/^(?:acreditad[oa]|aprobad[oa]|vigente|vig|valid[oa]|ok|cumple)(?:\s*[.!])?$/.test(texto);
+  const aviso=/^(?:por vencer|proximo a?\s*vencer|vence pronto)$/.test(texto);
+  if(!positivo && !aviso)return "Revisar";
+  if(aviso || (typeof dias==="number" && dias<=30))return "Por vencer";
   return "Acreditado";
 }
 
@@ -1383,6 +1343,7 @@ function leerExcelParaRevision(file,contenido){
             cargo:obtenerValor(row,mapa.cargo) || "-",
             estadoOriginal:obtenerValor(row,mapa.estado) || "",
             fechaVencimiento:extraerFechaVencimiento(row,mapa),
+            fechaVencimientoInvalida:!!obtenerValor(row,mapa.vencimiento) && !extraerFechaVencimiento(row,mapa),
             archivo:file.name,
             hoja:nombreHoja,
             filaExcel:row.__filaExcel,
@@ -1392,6 +1353,10 @@ function leerExcelParaRevision(file,contenido){
 
           enriquecerDocumento(item);
           itemsArchivo.push(item);
+
+          if(item.fechaVencimientoInvalida){
+            erroresArchivo.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"Fecha de vencimiento inválida: "+obtenerValor(row,mapa.vencimiento)});
+          }
 
           if(item.trabajador==="Sin nombre"){
             erroresArchivo.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó nombre de trabajador"});
