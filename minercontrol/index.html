@@ -3948,12 +3948,14 @@ async function cargarRevisionTemporal(input){
   try{
     for(let i=0;i<files.length;i++){
       const file=files[i],ruta=file.webkitRelativePath||file.name;
-      const rut=extraerRutTexto(ruta),faena=detectarFaenaTexto(ruta);
+      const match=ruta.match(/\b(?:\d{1,2}\.\d{3}\.\d{3}|\d{7,8})-[0-9kK]\b/);
+      const rut=match?match[0].toUpperCase():'Sin RUT',faena=detectarFaenaTexto(ruta);
       const key=JSON.stringify([rut==='Sin RUT'?ruta.split('/').slice(0,-1).join('/')||file.name:rut,faena]);
       if(!revision.grupos.has(key))revision.grupos.set(key,{rut,faena,trabajador:formatearNombreDetectado(ruta.split('/').slice(-2,-1)[0]||file.name),documentos:[]});
       const det=detectarDocumentoArchivo(file.name,ruta);
-      const d={tipo:det.tipo,estado:det.estado,nombre:file.name};revision.grupos.get(key).documentos.push(d);
-      revision.detalle.push({RUT:rut,Faena:faena,Archivo:file.name,Ruta:ruta,Tipo:det.tipoNombre,EstadoDetectado:det.estado,Vencimiento:det.fechaVencimiento||'',Verificacion:'Requiere revisión del contenido'});
+      const tipo=requisitoDeDocumento({documento:file.name})||"otro";
+      const d={tipo,estado:det.estado,nombre:file.name};revision.grupos.get(key).documentos.push(d);
+      revision.detalle.push({RUT:rut,Faena:faena,Archivo:file.name,Ruta:ruta,Tipo:tipo==="otro"?"Sin identificar":nombreReq(tipo),EstadoDetectado:det.estado,Vencimiento:det.fechaVencimiento||'',Verificacion:'Requiere revisión del contenido'});
       if(i%100===0){estado.textContent=`Procesando ${i+1} de ${files.length} archivos…`;await new Promise(resolve=>setTimeout(resolve,0));}
     }
     revision.resumen=Array.from(revision.grupos.values(),diagnosticoTemporal);
