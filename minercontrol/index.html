@@ -321,7 +321,7 @@ button{transition:.15s ease}
 <div class="layout">
 
 <aside class="sidebar">
-  <button type="button" id="logoHome" class="logo logo-home" title="Volver al inicio">MinerControl<br><span>Enterprise</span></button>
+  <button type="button" id="logoHome" class="logo logo-home" title="Volver al ingreso y cerrar sesión">MinerControl<br><span>Enterprise</span></button>
   <div class="nav">
     <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Dashboard</button>
     <button onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
@@ -922,7 +922,7 @@ function activarLogoInicio(){
   const logo=document.getElementById("logoHome");
   if(logo){
     logo.onclick=function(){
-      irModuloRapido("dashboard");
+      cerrarSesion();
     };
   }
 }
@@ -3806,6 +3806,11 @@ function abrirSesionMiner(){
  pintarSuscripcionMiner(usuarioActual.subscription);if(usuarioActual.role==='Administrador')refrescarAvisosCobroMiner();
 }
 async function cerrarSesion(){
+ if(typeof revisionTemporal!=="undefined" && revisionTemporal){
+   if(revisionTemporal.leyendo){mostrarToast('Espera a que termine la revisión antes de salir.','warn');return;}
+   if(!confirm('Hay una revisión temporal abierta. ¿Volver al ingreso y descartarla? Exporta primero si deseas conservar el resultado.'))return;
+   revisionTemporal=null;
+ }
  try{if(tokenMiner)await cuentaRPC('miner_logout',{p_token:tokenMiner});}
  finally{limpiarSesionMiner();}
 }
