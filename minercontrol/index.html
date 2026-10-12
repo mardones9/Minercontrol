@@ -330,6 +330,7 @@ button{transition:.15s ease}
     <button onclick="mostrarModulo('requisitos',this)">📋 Requisitos</button>
     <button onclick="mostrarModulo('acreditacion',this)">✅ Acreditación</button>
     <button onclick="mostrarModulo('carpetas',this)">📦 Carpetas</button>
+    <button onclick="mostrarModulo('revisionTemporal',this)">🧪 Revisión temporal</button>
     <button onclick="mostrarModulo('reportes',this)">📈 Reportes</button>
     <button onclick="mostrarModulo('historial',this)">📜 Historial</button>
     <button id="navUsuarios" hidden onclick="mostrarModulo('usuarios',this)">👥 Usuarios</button>
@@ -605,6 +606,15 @@ button{transition:.15s ease}
   </div>
 </section>
 
+
+<section id="revisionTemporal" class="module">
+<div class="section"><h2>Revisión temporal · prueba</h2><p>Sube una carpeta, revisa el diagnóstico, exporta y finaliza antes de subir la siguiente. La revisión se conserva solo mientras esta pestaña siga abierta.</p>
+<p class="meta">Se detectan nombres y rutas. El contenido de PDF e imágenes requiere revisión; no se acredita automáticamente.</p>
+<div class="smart-import-panel"><div class="smart-drop"><label for="inputRevisionTemporal">📂 Subir carpeta para revisar</label><input id="inputRevisionTemporal" type="file" webkitdirectory directory multiple onchange="cargarRevisionTemporal(this)"></div><div class="smart-drop"><label for="inputRevisionTemporalArchivos">Subir archivos de prueba</label><input id="inputRevisionTemporalArchivos" type="file" multiple onchange="cargarRevisionTemporal(this)"></div></div>
+<p id="revisionTemporalEstado" role="status">Sin revisión activa.</p>
+<div class="file-actions"><button class="mini green" id="exportarRevisionTemporal" onclick="exportarRevisionTemporal()" disabled>Exportar diagnóstico Excel</button><button class="mini blue" id="finalizarRevisionTemporal" onclick="finalizarRevisionTemporal()" disabled>Finalizar revisión y liberar espacio</button></div>
+<p id="revisionTemporalLimite" class="meta"></p><div style="overflow:auto"><table><thead><tr><th>Trabajador</th><th>RUT</th><th>Faena</th><th>Estado</th><th>Motivos</th></tr></thead><tbody id="revisionTemporalFilas"></tbody></table></div></div>
+</section>
 
 <section id="carpetas" class="module">
   <div class="section">
@@ -3912,6 +3922,65 @@ document.getElementById('loginPass').addEventListener('keydown',event=>{if(event
 setInterval(()=>{if(tokenMiner)verificarSesionMiner().catch(()=>{});},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tokenMiner)verificarSesionMiner().catch(()=>{});});
 if(tokenMiner)verificarSesionMiner().then(abrirSesionMiner).catch(()=>{});
+
+</script>
+<script>
+let revisionTemporal=null;
+function diagnosticoTemporal(grupo){
+  const requisitos=requisitosFaena[grupo.faena]||[];
+  const motivos=[];
+  if(grupo.rut==='Sin RUT')motivos.push('No se pudo identificar el RUT');
+  if(grupo.faena==='Sin faena')motivos.push('No se pudo identificar la faena');
+  if(!requisitos.length)motivos.push('Faena sin requisitos configurados');
+  for(const key of requisitos){
+    const encontrados=grupo.documentos.filter(d=>d.tipo===key);
+    if(!encontrados.length)motivos.push('Requisito sin documento detectado: '+nombreReq(key));
+    else if(encontrados.every(d=>d.estado==='Vencido'||d.estado==='Pendiente'))motivos.push('Requisito con documento vencido o pendiente: '+nombreReq(key));
+  }
+  return {Trabajador:grupo.trabajador,RUT:grupo.rut,Faena:grupo.faena,Estado:requisitos.length&&motivos.some(m=>m.startsWith('Requisito'))?'Bloqueado':'Requiere revisión',Motivos:motivos.join(' | ')||'Documentos detectados por nombre; falta verificar su contenido',Archivos:grupo.documentos.length,Alcance:'Detección por nombres y rutas; contenido no verificado'};
+}
+async function cargarRevisionTemporal(input){
+  if(revisionTemporal?.leyendo)return;
+  if(revisionTemporal&&!confirm('¿Reemplazar la revisión temporal? Exporta su resultado antes.'))return;
+  const files=Array.from(input.files||[]);input.value='';if(!files.length)return;
+  const revision={id:Date.now(),leyendo:true,exportado:false,grupos:new Map(),detalle:[]};revisionTemporal=revision;
+  const estado=document.getElementById('revisionTemporalEstado');
+  try{
+    for(let i=0;i<files.length;i++){
+      const file=files[i],ruta=file.webkitRelativePath||file.name;
+      const rut=extraerRutTexto(ruta),faena=detectarFaenaTexto(ruta);
+      const key=JSON.stringify([rut==='Sin RUT'?ruta.split('/').slice(0,-1).join('/')||file.name:rut,faena]);
+      if(!revision.grupos.has(key))revision.grupos.set(key,{rut,faena,trabajador:formatearNombreDetectado(ruta.split('/').slice(-2,-1)[0]||file.name),documentos:[]});
+      const det=detectarDocumentoArchivo(file.name,ruta);
+      const d={tipo:det.tipo,estado:det.estado,nombre:file.name};revision.grupos.get(key).documentos.push(d);
+      revision.detalle.push({RUT:rut,Faena:faena,Archivo:file.name,Ruta:ruta,Tipo:det.tipoNombre,EstadoDetectado:det.estado,Vencimiento:det.fechaVencimiento||'',Verificacion:'Requiere revisión del contenido'});
+      if(i%100===0){estado.textContent=`Procesando ${i+1} de ${files.length} archivos…`;await new Promise(resolve=>setTimeout(resolve,0));}
+    }
+    revision.resumen=Array.from(revision.grupos.values(),diagnosticoTemporal);
+    estado.textContent=`Revisión temporal: ${revision.resumen.length} trabajadores/grupos · ${revision.detalle.length} archivos. Sin guardar archivos originales ni mezclar con otras cargas.`;
+    const tbody=document.getElementById('revisionTemporalFilas');tbody.replaceChildren();
+    for(const r of revision.resumen.slice(0,200)){
+      const row=document.createElement('tr');for(const key of ['Trabajador','RUT','Faena','Estado','Motivos']){const td=document.createElement('td');td.textContent=r[key];row.append(td);}tbody.append(row);
+    }
+    document.getElementById('revisionTemporalLimite').textContent=revision.resumen.length>200?'Se muestran los primeros 200; el Excel incluye todos los resultados.':'';
+  }catch(error){estado.textContent='No se completó la revisión: '+error.message;}
+  finally{revision.leyendo=false;document.getElementById('exportarRevisionTemporal').disabled=!revision.resumen;document.getElementById('finalizarRevisionTemporal').disabled=false;}
+}
+function exportarRevisionTemporal(){
+  if(!revisionTemporal?.resumen)return;
+  try{
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(revisionTemporal.resumen),'Diagnostico');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(revisionTemporal.detalle),'Documentos');
+    XLSX.writeFile(wb,'MinerControl_Revision_'+revisionTemporal.id+'.xlsx');revisionTemporal.exportado=true;
+    document.getElementById('revisionTemporalEstado').textContent+=' · Excel solicitado: comprueba la descarga antes de finalizar.';
+  }catch(error){alert('No se pudo exportar: '+error.message);}
+}
+function finalizarRevisionTemporal(){
+  if(!revisionTemporal||revisionTemporal.leyendo)return;
+  if(!confirm(revisionTemporal.exportado?'¿Confirmas que conservaste el Excel? Se liberará esta revisión temporal.':'No has exportado esta revisión. ¿Descartarla y liberar su resultado temporal?'))return;
+  revisionTemporal=null;document.getElementById('revisionTemporalFilas').replaceChildren();document.getElementById('revisionTemporalLimite').textContent='';document.getElementById('revisionTemporalEstado').textContent='Revisión finalizada. Puedes subir la siguiente carpeta.';
+  document.getElementById('exportarRevisionTemporal').disabled=true;document.getElementById('finalizarRevisionTemporal').disabled=true;
+}
+window.addEventListener('beforeunload',event=>{if(revisionTemporal){event.preventDefault();event.returnValue='';}});
 
 </script>
 </body>
