@@ -602,10 +602,10 @@ button{transition:.15s ease}
 </section>
 
 
-<dialog id="lectorContenidoModal" aria-label="Leer contenido de la cédula" style="margin:auto;width:min(900px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;background:var(--panel);color:var(--text)">
+<dialog id="lectorContenidoModal" aria-label="Leer contenido de documento chileno" style="margin:auto;width:min(900px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;background:var(--panel);color:var(--text)">
 <div class="section" style="margin-bottom:0">
 <button class="mini blue" onclick="cerrarLectorContenido()" style="float:right">Cerrar</button>
-  <h2>Leer contenido de una cédula</h2>
+  <h2 id="tituloLectorContenido">Leer contenido de una cédula chilena</h2>
   <p class="meta">Selecciona una imagen JPG/PNG o un PDF (hasta 12 MB). Se lee el contenido, independientemente del nombre del archivo. En PDF se revisan hasta 4 páginas.</p>
   <div class="actions">
     <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150" oninput="invalidarLecturaContenido()">
@@ -2284,7 +2284,7 @@ function renderTarjetaRequisito(item,trabajador){
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
     return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}</div>`;
   }).join('');
-  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${item.key==='cedula'?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+')')}">Leer contenido de la cédula</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
+  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${visual?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(item.key)+')')}">Leer ${item.key==='licencia'?'licencia de conducir':'cédula de identidad'}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
 
 function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
@@ -4146,9 +4146,12 @@ window.addEventListener('beforeunload',event=>{if(revisionTemporal){event.preven
 <script>
 let lecturaContenidoActiva=false;
 let motorContenidoPromesa=null;
-function abrirLectorContenido(nombre,rut){
+let tipoDocumentoContenido='cedula';
+function abrirLectorContenido(nombre,rut,tipo='cedula'){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
   limpiarLecturaContenido();
+  tipoDocumentoContenido=tipo==='licencia'?'licencia':'cedula';
+  document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':'Leer cédula de identidad chilena';
   document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
   document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
   document.getElementById('lectorContenidoModal').showModal();
@@ -4180,19 +4183,50 @@ function rutValidoContenido(rut){
   const dv=11-suma%11;
   return limpio.slice(-1)===(dv===11?'0':dv===10?'K':String(dv));
 }
-function analizarTextoCedula(texto,nombreEsperado='',rutEsperado=''){
+function fechaDocumentoChileno(texto,tipo){
+  const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  const etiqueta=tipo==='licencia'?/FECHA\s*(?:DE\s*)?CONTROL\b/g:/FECHA\s*(?:DE\s*)?VENCIMIENTO\b/g;
+  const fechas=[];
+  const meses={ENE:1,ENERO:1,FEB:2,FEBRERO:2,MAR:3,MARZO:3,ABR:4,ABRIL:4,MAY:5,MAYO:5,JUN:6,JUNIO:6,JUL:7,JULIO:7,AGO:8,AGOSTO:8,SEP:9,SEPT:9,SET:9,SEPTIEMBRE:9,SETIEMBRE:9,OCT:10,OCTUBRE:10,NOV:11,NOVIEMBRE:11,DIC:12,DICIEMBRE:12};
+  for(const coincidencia of normal.matchAll(etiqueta)){
+    // No tomar nacimiento, emisión ni último control como vencimiento.
+    const ventana=normal.slice(coincidencia.index+coincidencia[0].length,coincidencia.index+coincidencia[0].length+90).split(/FECHA\s*(?:DE\s*)?(?:NACIMIENTO|EMISION|VENCIMIENTO|CONTROL|ULTIMO)|NUMERO\s*(?:DE\s*)?DOCUMENTO|FIRMA\s*DEL\s*TITULAR/)[0];
+    const formato=/\b(\d{1,2})\s*(?:[/.\-]\s*(\d{1,2})\s*[/.\-]|\s+([A-Z]{3,10})\.?\s+)\s*(\d{4})\b/g;
+    const valores=[...ventana.matchAll(formato)];
+    // Varios valores cercanos exigen revisión de la posición en el original.
+    if(valores.length!==1)return {fecha:'',motivo:valores.length?'Hay varias fechas junto a la etiqueta.':'No se pudo leer la fecha junto a su etiqueta.'};
+    const f=valores[0],dia=Number(f[1]),mes=f[2]?Number(f[2]):meses[f[3]],anio=Number(f[4]);
+    const prueba=new Date(Date.UTC(anio,(mes||0)-1,dia));
+    if(!mes||anio<1900||anio>2199||prueba.getUTCFullYear()!==anio||prueba.getUTCMonth()+1!==mes||prueba.getUTCDate()!==dia)return {fecha:'',motivo:'La fecha detectada no es válida.'};
+    fechas.push(prueba.toISOString().slice(0,10));
+  }
+  const unicas=[...new Set(fechas)];
+  return unicas.length===1?{fecha:unicas[0],motivo:''}:{fecha:'',motivo:unicas.length?'Hay fechas distintas en el documento.':'No se encontró la etiqueta de vencimiento o próximo control.'};
+}
+function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsperado='cedula',hoy=hoyMiner()){
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const ruts=[...new Set((normal.match(/\b(?:\d{1,2}\.\d{3}\.\d{3}|\d{7,8})\s*-\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s-]/g,'')))];
   const validos=ruts.filter(rutValidoContenido);
-  const indicios=[/CEDULA\s+(?:DE\s+)?IDENTIDAD/.test(normal),/REPUBLICA\s+DE\s+CHILE|REGISTRO\s+CIVIL/.test(normal),/APELLIDOS?/.test(normal)&&/NOMBRES?/.test(normal),/NACIONALIDAD|FECHA\s+DE\s+NACIMIENTO/.test(normal)];
-  const compatible=indicios.every(Boolean)&&validos.length===1;
+  const esCedula=/CEDULA\s*(?:DE\s*)?IDENTIDAD/.test(normal);
+  const esLicencia=/LICENCIA\s*(?:DE\s*)?(?:CONDUCTOR|CONDUCIR)/.test(normal);
+  const tipo=esCedula&&!esLicencia?'cedula':esLicencia&&!esCedula?'licencia':'sin identificar';
+  const indicios=[tipo!=='sin identificar',/REPUBLICA\s*DE\s*CHILE|REGISTRO\s*CIVIL/.test(normal),/APELLIDOS?/.test(normal)&&/NOMBRES?/.test(normal),tipo==='licencia'?/MUNICIPALIDAD|CLASE/.test(normal):/NACIONALIDAD|FECHA\s*(?:DE\s*)?NACIMIENTO/.test(normal)];
+  const compatible=indicios.every(Boolean)&&validos.length===1&&ruts.length===1;
   const tokens=String(nombreEsperado).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().match(/[A-Z]+/g)||[];
-  const palabras=new Set(normal.match(/[A-Z]+/g)||[]);
-  const esperado=String(rutEsperado).toUpperCase().replace(/[.\s-]/g,'');
-  return {compatible,ruts,validos,indicios,
+  const palabras=new Set(normal.match(/[A-Z]+/g)||[]),esperado=String(rutEsperado).toUpperCase().replace(/[.\s-]/g,'');
+  const lecturaFecha=tipo!=='sin identificar'?fechaDocumentoChileno(normal,tipo):{fecha:'',motivo:'No se pudo identificar un único tipo de documento.'};
+  const fecha=lecturaFecha.fecha;
+  const dias=fecha?Math.round((Date.parse(fecha+'T12:00:00Z')-Date.parse(hoy+'T12:00:00Z'))/86400000):null;
+  const estado=compatible&&tipo===tipoEsperado&&fecha?(dias<0?'Vencido':dias<=30?'Por vencer':'Vigente'):'Revisar';
+  return {tipo,compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,fechaMotivo:lecturaFecha.motivo,estado,
+    etiquetaFecha:tipo==='licencia'?'Fecha de control':'Fecha de vencimiento',
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
 }
+function analizarTextoCedula(texto,nombreEsperado='',rutEsperado=''){
+  return analizarDocumentoChileno(texto,nombreEsperado,rutEsperado,'cedula');
+}
+
 function invalidarLecturaContenido(){
   if(lecturaContenidoActiva)return;
   document.getElementById('resultadoContenido').replaceChildren();
@@ -4213,7 +4247,7 @@ async function revisarContenidoCedula(){
   const esPDF=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
   if(!esPDF&&!/image\/(jpeg|png)/.test(archivo.type)){mostrarToast('Usa JPG, PNG o PDF.','warn');return;}
   if(archivo.size>12*1024*1024){mostrarToast('El archivo supera 12 MB. Usa una copia de menor tamaño.','warn');return;}
-  const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value;
+  const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value,tipo=tipoDocumentoContenido;
   const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido'])document.getElementById(id).disabled=true;
@@ -4245,18 +4279,23 @@ async function revisarContenidoCedula(){
     }else{
       const imagen=await createImageBitmap(archivo);
       try{
-        const escala=Math.min(1,3000/Math.max(imagen.width,imagen.height)),canvas=document.createElement('canvas');
+        const escala=Math.min(3,2400/Math.max(imagen.width,imagen.height)),canvas=document.createElement('canvas');
         canvas.width=Math.ceil(imagen.width*escala);canvas.height=Math.ceil(imagen.height*escala);
         try{canvas.getContext('2d').drawImage(imagen,0,0,canvas.width,canvas.height);texto=await reconocer(canvas);}finally{canvas.width=0;canvas.height=0;}
       }finally{imagen.close();}
     }
-    const analisis=analizarTextoCedula(texto,nombre,rut);
-    const lineas=[limitado?'Lectura parcial: solo se revisaron las primeras 4 páginas.':analisis.compatible?'Contenido compatible con una cédula chilena. Revisión visual pendiente.':'No hay evidencia suficiente para identificar una cédula. Puede ser otro documento o una lectura incompleta.',
-      'RUT detectados: '+(analisis.ruts.join(', ')||'Ninguno'),
-      'RUT con dígito verificador válido: '+(analisis.validos.join(', ')||'Ninguno'),
+    const analisis=analizarDocumentoChileno(texto,nombre,rut,tipo);
+    const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':'documento sin identificar';
+    const lineas=[limitado?'Lectura parcial: solo se revisaron las primeras 4 páginas.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':'No hay evidencia suficiente para identificar el documento. Puede ser otro documento o una lectura incompleta.',
+      'Tipo leído: '+tipoLeido,
+      'Comparación de tipo: '+(analisis.coincideTipo?'Coincide con la tarjeta seleccionada':'No coincide con la tarjeta; revisar antes de asociar'),
+      'RUN/RUT detectados: '+(analisis.ruts.join(', ')||'Ninguno'),
+      'RUN/RUT con dígito verificador válido: '+(analisis.validos.join(', ')||'Ninguno'),
       'Comparación de RUT: '+analisis.rut,'Comparación de nombre: '+analisis.nombre,
-      'Indicios de cédula encontrados: '+analisis.indicios.filter(Boolean).length+' de 4.',
-      'Esto no confirma autenticidad, vigencia ni acreditación. No modifica tus registros.'];
+      analisis.etiquetaFecha+': '+(analisis.fecha?analisis.fecha.split('-').reverse().join('/'):'No confirmada. '+analisis.fechaMotivo),
+      'Estado por fecha detectada: '+(limitado?'Revisar (lectura parcial)':analisis.estado),
+      'Indicios del formato chileno: '+analisis.indicios.filter(Boolean).length+' de 4.',
+      'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
     for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
     estado.textContent='Lectura terminada · '+paginas+' página(s). Resultado temporal; se descarta al recargar o salir.';
