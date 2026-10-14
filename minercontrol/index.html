@@ -618,6 +618,24 @@ button{transition:.15s ease}
 
 
 <section id="revisionTemporal" class="module">
+<div class="section">
+  <h2>Leer contenido de una cédula</h2>
+  <p class="meta">Selecciona una imagen JPG/PNG o un PDF (hasta 12 MB). Se lee el contenido, independientemente del nombre del archivo. En PDF se revisan hasta 4 páginas.</p>
+  <div class="actions">
+    <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150">
+    <input class="search" id="rutContenido" aria-label="RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20">
+  </div>
+  <p class="meta">Nombre y RUT son opcionales. Para comparar con un trabajador, copia esos datos desde su ficha.</p>
+  <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf" aria-label="Archivo para leer contenido">
+  <div class="file-actions" style="margin-top:14px">
+    <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
+    <button class="mini yellow" id="limpiarContenido" onclick="limpiarLecturaContenido()">Descartar resultado</button>
+  </div>
+  <p class="meta">Lectura local en este navegador. Se descargan los motores de lectura; el archivo no se envía a un servicio de análisis. No acredita automáticamente ni comprueba autenticidad.</p>
+  <p id="estadoContenido" role="status" aria-live="polite">Sin archivo leído.</p>
+  <div id="resultadoContenido" class="alert"></div>
+  <details><summary>Ver texto extraído</summary><pre id="textoContenido" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px"></pre></details>
+</div>
 <div class="section"><h2>Revisión temporal · prueba</h2><p>Sube una carpeta, revisa el diagnóstico, exporta y finaliza antes de subir la siguiente. La revisión se conserva solo mientras esta pestaña siga abierta.</p>
 <p class="meta">Se detectan nombres y rutas. El contenido de PDF e imágenes requiere revisión; no se acredita automáticamente.</p>
 <div class="smart-import-panel"><div class="smart-drop"><label for="inputRevisionTemporal">📂 Subir carpeta para revisar</label><input id="inputRevisionTemporal" type="file" webkitdirectory directory multiple onchange="cargarRevisionTemporal(this)"></div><div class="smart-drop"><label for="inputRevisionTemporalArchivos">Subir archivos de prueba</label><input id="inputRevisionTemporalArchivos" type="file" multiple onchange="cargarRevisionTemporal(this)"></div></div>
@@ -631,6 +649,7 @@ button{transition:.15s ease}
     <div class="head">
       <div>
         <h2>Importador Automático Nivel Dios</h2>
+        <button class="mini blue" onclick="mostrarModulo('revisionTemporal',this)">Leer contenido de una cédula</button>
         <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl detecta trabajador, RUT, faena, empresa, tipo documental, vencimientos, duplicados y arma checklist automáticamente.</p>
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
@@ -4097,6 +4116,112 @@ function finalizarRevisionTemporal(){
   document.getElementById('exportarRevisionTemporal').disabled=true;document.getElementById('finalizarRevisionTemporal').disabled=true;
 }
 window.addEventListener('beforeunload',event=>{if(revisionTemporal){event.preventDefault();event.returnValue='';}});
+
+</script>
+<script>
+let lecturaContenidoActiva=false;
+let motorContenidoPromesa=null;
+async function cargarMotorContenido(){
+  if(!motorContenidoPromesa)motorContenidoPromesa=(async()=>{
+    const [ocr,pdf]=await Promise.all([
+      import('https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.esm.min.js'),
+      import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs')
+    ]);
+    pdf.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+    return {ocr:ocr.default||ocr,pdf};
+  })().catch(error=>{motorContenidoPromesa=null;throw error;});
+  return motorContenidoPromesa;
+}
+function rutValidoContenido(rut){
+  const limpio=String(rut||'').toUpperCase().replace(/[.\s-]/g,'');
+  if(!/^\d{7,8}[0-9K]$/.test(limpio))return false;
+  let suma=0,m=2;
+  for(const n of limpio.slice(0,-1).split('').reverse()){suma+=Number(n)*m;m=m===7?2:m+1;}
+  const dv=11-suma%11;
+  return limpio.slice(-1)===(dv===11?'0':dv===10?'K':String(dv));
+}
+function analizarTextoCedula(texto,nombreEsperado='',rutEsperado=''){
+  const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  const ruts=[...new Set((normal.match(/\b(?:\d{1,2}\.\d{3}\.\d{3}|\d{7,8})\s*-\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s-]/g,'')))];
+  const validos=ruts.filter(rutValidoContenido);
+  const indicios=[/CEDULA\s+(?:DE\s+)?IDENTIDAD/.test(normal),/REPUBLICA\s+DE\s+CHILE|REGISTRO\s+CIVIL/.test(normal),/APELLIDOS?/.test(normal)&&/NOMBRES?/.test(normal),/NACIONALIDAD|FECHA\s+DE\s+NACIMIENTO/.test(normal)];
+  const compatible=indicios.every(Boolean)&&validos.length===1;
+  const tokens=String(nombreEsperado).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().match(/[A-Z]+/g)||[];
+  const palabras=new Set(normal.match(/[A-Z]+/g)||[]);
+  const esperado=String(rutEsperado).toUpperCase().replace(/[.\s-]/g,'');
+  return {compatible,ruts,validos,indicios,
+    nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
+    rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
+}
+function limpiarLecturaContenido(){
+  if(lecturaContenidoActiva)return;
+  document.getElementById('archivoContenido').value='';
+  document.getElementById('resultadoContenido').replaceChildren();
+  document.getElementById('textoContenido').textContent='';
+  document.getElementById('estadoContenido').textContent='Sin archivo leído.';
+}
+async function revisarContenidoCedula(){
+  if(lecturaContenidoActiva)return;
+  const input=document.getElementById('archivoContenido'),archivo=input.files?.[0];
+  if(!archivo){mostrarToast('Selecciona una imagen JPG/PNG o un PDF.','warn');return;}
+  const esPDF=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
+  if(!esPDF&&!/image\/(jpeg|png)/.test(archivo.type)){mostrarToast('Usa JPG, PNG o PDF.','warn');return;}
+  if(archivo.size>12*1024*1024){mostrarToast('El archivo supera 12 MB. Usa una copia de menor tamaño.','warn');return;}
+  const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value;
+  const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
+  lecturaContenidoActiva=true;
+  for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido'])document.getElementById(id).disabled=true;
+  resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
+  let worker=null,pdf=null;
+  try{
+    const motores=await cargarMotorContenido();
+    async function reconocer(imagen){
+      if(!worker)worker=await motores.ocr.createWorker('spa',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',logger:m=>{if(m.status==='recognizing text')estado.textContent='Leyendo contenido: '+Math.round((m.progress||0)*100)+' %';}});
+      const {data}=await worker.recognize(imagen);return data.text||'';
+    }
+    let texto='',paginas=1,limitado=false;
+    if(esPDF){
+      pdf=await motores.pdf.getDocument({data:new Uint8Array(await archivo.arrayBuffer()),isEvalSupported:false}).promise;
+      paginas=Math.min(pdf.numPages,4);limitado=pdf.numPages>paginas;
+      for(let i=1;i<=paginas;i++){
+        estado.textContent='Leyendo página '+i+' de '+paginas+'…';
+        const pagina=await pdf.getPage(i),contenido=await pagina.getTextContent();
+        let parcial=contenido.items.map(x=>x.str||'').join(' ');
+        // Renderizar también PDFs con una capa de texto escasa o irrelevante.
+        if(parcial.replace(/\s/g,'').length<80){
+          const inicial=pagina.getViewport({scale:1}),escala=Math.min(2,2400/Math.max(inicial.width,inicial.height));
+          const viewport=pagina.getViewport({scale:escala}),canvas=document.createElement('canvas');
+          canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+          try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport}).promise;parcial+='\n'+await reconocer(canvas);}finally{canvas.width=0;canvas.height=0;}
+        }
+        texto+='\nPágina '+i+'\n'+parcial;pagina.cleanup();
+      }
+    }else{
+      const imagen=await createImageBitmap(archivo);
+      try{
+        const escala=Math.min(1,3000/Math.max(imagen.width,imagen.height)),canvas=document.createElement('canvas');
+        canvas.width=Math.ceil(imagen.width*escala);canvas.height=Math.ceil(imagen.height*escala);
+        try{canvas.getContext('2d').drawImage(imagen,0,0,canvas.width,canvas.height);texto=await reconocer(canvas);}finally{canvas.width=0;canvas.height=0;}
+      }finally{imagen.close();}
+    }
+    const analisis=analizarTextoCedula(texto,nombre,rut);
+    const lineas=[limitado?'Lectura parcial: solo se revisaron las primeras 4 páginas.':analisis.compatible?'Contenido compatible con una cédula chilena. Revisión visual pendiente.':'No hay evidencia suficiente para identificar una cédula. Puede ser otro documento o una lectura incompleta.',
+      'RUT detectados: '+(analisis.ruts.join(', ')||'Ninguno'),
+      'RUT con dígito verificador válido: '+(analisis.validos.join(', ')||'Ninguno'),
+      'Comparación de RUT: '+analisis.rut,'Comparación de nombre: '+analisis.nombre,
+      'Indicios de cédula encontrados: '+analisis.indicios.filter(Boolean).length+' de 4.',
+      'Esto no confirma autenticidad, vigencia ni acreditación. No modifica tus registros.'];
+    for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
+    textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
+    estado.textContent='Lectura terminada · '+paginas+' página(s). Resultado temporal; se descarta al recargar o salir.';
+  }catch(error){estado.textContent='No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
+  finally{
+    try{if(worker)await worker.terminate();}catch{}
+    try{if(pdf)await pdf.destroy();}catch{}
+    lecturaContenidoActiva=false;
+    for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido'])document.getElementById(id).disabled=false;
+  }
+}
 
 </script>
 </body>
