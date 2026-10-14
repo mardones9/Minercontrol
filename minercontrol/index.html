@@ -323,14 +323,13 @@ button{transition:.15s ease}
 <aside class="sidebar">
   <button type="button" id="logoHome" class="logo logo-home" title="Volver al ingreso y cerrar sesión">MinerControl<br><span>Enterprise</span></button>
   <div class="nav">
-    <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Dashboard</button>
+    <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Inicio</button>
     <button onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
     <button onclick="mostrarModulo('documentos',this)">📁 Documentos</button>
     <button onclick="mostrarModulo('faenas',this)">🏗️ Faenas</button>
     <button onclick="mostrarModulo('requisitos',this)">📋 Requisitos</button>
     <button onclick="mostrarModulo('acreditacion',this)">✅ Acreditación</button>
     <button onclick="mostrarModulo('carpetas',this)">📦 Carpetas</button>
-    <button onclick="mostrarModulo('revisionTemporal',this)">🧪 Revisión temporal</button>
     <button onclick="mostrarModulo('reportes',this)">📈 Reportes</button>
     <button onclick="mostrarModulo('historial',this)">📜 Historial</button>
     <button id="navUsuarios" hidden onclick="mostrarModulo('usuarios',this)">👥 Usuarios</button>
@@ -353,8 +352,8 @@ button{transition:.15s ease}
 
 <div id="avisoSuscripcion" class="alert" role="status" hidden></div>
 <div id="avisoCobrosAdministrador" class="alert" role="status" hidden></div>
-<div class="card" style="margin-bottom:16px">
-  <div class="actions history-filters">
+<details class="card" style="margin-bottom:16px"><summary>Consultar otro día · <span id="diaVisibleMiner"></span></summary>
+  <div class="actions history-filters" style="margin-top:14px">
     <button class="blue" onclick="moverDiaMiner(-1)" aria-label="Día anterior">◀</button>
     <label for="diaMiner">Documentación del día</label>
     <input id="diaMiner" type="date" onchange="cambiarDiaMiner(this.value)">
@@ -362,32 +361,18 @@ button{transition:.15s ease}
     <button class="blue" onclick="cambiarDiaMiner(hoyMiner())">Hoy</button>
     <select id="diasGuardadosMiner" aria-label="Días guardados" onchange="if(this.value)cambiarDiaMiner(this.value)"></select>
   </div>
-  <p>Datos guardados en este navegador, por cuenta y día.</p>
-  <details><summary>Archivos y carpetas del día · eliminar o revisar</summary><div id="recientesMiner"></div></details>
-</div>
-
-<div class="actions">
-  <label class="blue primary-upload" for="inputExcelPro">Subir Excel</label>
-  <button class="green" onclick="exportarExcel()">Exportar Excel</button>
-</div>
-
-<details class="extra-options">
-  <summary>Más opciones</summary>
-  <div class="extra-options-grid">
-    <div><button class="purple mini" onclick="guardarLocal()">Guardar datos en este navegador</button><p>Guarda los datos actuales para recuperarlos en este mismo navegador. Los archivos físicos no se guardan.</p></div>
-    <div><button class="yellow mini" onclick="cargarLocal()">Recuperar datos guardados</button><p>Abre los datos que guardaste anteriormente en este navegador.</p></div>
-    <div><button class="blue mini" onclick="diagnosticarSistema()">Diagnóstico</button><p>Revisa los datos cargados y muestra posibles problemas.</p></div>
-    <div><button class="blue mini" onclick="cargarDemo()">Cargar demo</button><p>Carga datos de ejemplo para explorar el sistema.</p></div>
-    <div><button class="red mini" onclick="borrarVista()">Borrar vista</button><p>Elimina los registros del día seleccionado; conserva los otros días. Pide confirmación antes de hacerlo.</p></div>
-  </div>
-  <div class="status-strip">
-    <span class="status-pill ok">🟢 Sistema local activo</span>
-    <span class="status-pill" id="estadoGuardado">💾 Esperando datos</span>
-  </div>
 </details>
 
+<div class="actions">
+  <label class="blue primary-upload" for="inputExcelPro">Cargar Excel</label>
+  <button class="green" onclick="mostrarModulo('carpetas',this)">Cargar documentos</button>
+  <button class="purple" onclick="mostrarModulo('trabajadores',this)">Ver trabajadores</button>
+</div>
+
+
+
 <div class="status-strip">
-  <span class="status-pill" id="ultimaSubida">📁 Sin archivos subidos</span>
+  <span hidden style="display:none" class="status-pill" id="ultimaSubida">📁 Sin archivos subidos</span>
   <span class="status-pill warn" id="estadoCritico">⚠️ Sin revisión todavía</span>
 </div>
 
@@ -457,7 +442,7 @@ button{transition:.15s ease}
   <div class="section">
     <div class="head">
       <div>
-        <h2>Gestor Documental Pro</h2>
+        <h2>Documentos</h2>
         <p style="color:#9eb3cb;margin-top:6px">Organiza los archivos por faena y trabajador.</p>
       </div>
       <input class="search" id="buscarArchivo" placeholder="Buscar archivo, trabajador, RUT, faena..." oninput="renderizarDocumentos()">
@@ -617,15 +602,16 @@ button{transition:.15s ease}
 </section>
 
 
-<section id="revisionTemporal" class="module">
-<div class="section">
+<dialog id="lectorContenidoModal" aria-label="Leer contenido de la cédula" style="margin:auto;width:min(900px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;background:var(--panel);color:var(--text)">
+<div class="section" style="margin-bottom:0">
+<button class="mini blue" onclick="cerrarLectorContenido()" style="float:right">Cerrar</button>
   <h2>Leer contenido de una cédula</h2>
   <p class="meta">Selecciona una imagen JPG/PNG o un PDF (hasta 12 MB). Se lee el contenido, independientemente del nombre del archivo. En PDF se revisan hasta 4 páginas.</p>
   <div class="actions">
     <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150" oninput="invalidarLecturaContenido()">
     <input class="search" id="rutContenido" aria-label="RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20" oninput="invalidarLecturaContenido()">
   </div>
-  <p class="meta">Nombre y RUT son opcionales. Para comparar con un trabajador, copia esos datos desde su ficha.</p>
+  <p class="meta">El nombre y RUT de la ficha se completan como referencia. Compara el resultado con el documento original.</p>
   <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf" aria-label="Archivo para leer contenido" onchange="invalidarLecturaContenido()">
   <div class="file-actions" style="margin-top:14px">
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
@@ -636,20 +622,13 @@ button{transition:.15s ease}
   <div id="resultadoContenido" class="alert"></div>
   <details><summary>Ver texto extraído</summary><pre id="textoContenido" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px"></pre></details>
 </div>
-<div class="section"><h2>Revisión temporal · prueba</h2><p>Sube una carpeta, revisa el diagnóstico, exporta y finaliza antes de subir la siguiente. La revisión se conserva solo mientras esta pestaña siga abierta.</p>
-<p class="meta">Se detectan nombres y rutas. El contenido de PDF e imágenes requiere revisión; no se acredita automáticamente.</p>
-<div class="smart-import-panel"><div class="smart-drop"><label for="inputRevisionTemporal">📂 Subir carpeta para revisar</label><input id="inputRevisionTemporal" type="file" webkitdirectory directory multiple onchange="cargarRevisionTemporal(this)"></div><div class="smart-drop"><label for="inputRevisionTemporalArchivos">Subir archivos de prueba</label><input id="inputRevisionTemporalArchivos" type="file" multiple onchange="cargarRevisionTemporal(this)"></div></div>
-<p id="revisionTemporalEstado" role="status">Sin revisión activa.</p>
-<div class="file-actions"><button class="mini green" id="exportarRevisionTemporal" onclick="exportarRevisionTemporal()" disabled>Exportar diagnóstico Excel</button><button class="mini blue" id="finalizarRevisionTemporal" onclick="finalizarRevisionTemporal()" disabled>Finalizar revisión y liberar espacio</button></div>
-<p id="revisionTemporalLimite" class="meta"></p><div style="overflow:auto"><table><thead><tr><th>Trabajador</th><th>RUT</th><th>Faena</th><th>Estado</th><th>Motivos</th></tr></thead><tbody id="revisionTemporalFilas"></tbody></table></div></div>
-</section>
+</dialog>
 
 <section id="carpetas" class="module">
   <div class="section">
     <div class="head">
       <div>
-        <h2>Importador Automático Nivel Dios</h2>
-        <button class="mini blue" onclick="mostrarModulo('revisionTemporal',this)">Leer contenido de una cédula</button>
+        <h2>Cargar documentos</h2>
         <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl detecta trabajador, RUT, faena, empresa, tipo documental, vencimientos, duplicados y arma checklist automáticamente.</p>
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
@@ -697,6 +676,13 @@ button{transition:.15s ease}
       <button class="red" onclick="borrarCarpetas()">Borrar carpetas</button>
     </div>
 
+    <details class="extra-options"><summary>Revisar una carpeta sin incorporarla a los registros</summary><div class="section"><h2>Revisar carpeta sin guardar</h2><p>Sube una carpeta, revisa el diagnóstico, exporta y finaliza antes de subir la siguiente. La revisión se conserva solo mientras esta pestaña siga abierta.</p>
+<p class="meta">Se detectan nombres y rutas. El contenido de PDF e imágenes requiere revisión; no se acredita automáticamente.</p>
+<div class="smart-import-panel"><div class="smart-drop"><label for="inputRevisionTemporal">📂 Subir carpeta para revisar</label><input id="inputRevisionTemporal" type="file" webkitdirectory directory multiple onchange="cargarRevisionTemporal(this)"></div><div class="smart-drop"><label for="inputRevisionTemporalArchivos">Subir archivos de prueba</label><input id="inputRevisionTemporalArchivos" type="file" multiple onchange="cargarRevisionTemporal(this)"></div></div>
+<p id="revisionTemporalEstado" role="status">Sin revisión activa.</p>
+<div class="file-actions"><button class="mini green" id="exportarRevisionTemporal" onclick="exportarRevisionTemporal()" disabled>Exportar diagnóstico Excel</button><button class="mini blue" id="finalizarRevisionTemporal" onclick="finalizarRevisionTemporal()" disabled>Finalizar revisión y liberar espacio</button></div>
+<p id="revisionTemporalLimite" class="meta"></p><div style="overflow:auto"><table><thead><tr><th>Trabajador</th><th>RUT</th><th>Faena</th><th>Estado</th><th>Motivos</th></tr></thead><tbody id="revisionTemporalFilas"></tbody></table></div></div>
+</details>
     <div id="resumenCarpetasAuto"></div>
     <div id="carpetasGrid"></div>
   </div>
@@ -705,6 +691,7 @@ button{transition:.15s ease}
 <section id="reportes" class="module">
   <div class="section">
     <h2 style="margin-bottom:18px">Reportes</h2>
+    <div class="actions"><button class="green" onclick="exportarExcel()">Exportar Excel</button></div>
     <div class="grid">
       <div class="card"><small>Total registros</small><h2 id="rRegistros">0</h2></div>
       <div class="card"><small>Contratistas</small><h2 id="rContratistas">0</h2></div>
@@ -802,6 +789,21 @@ button{transition:.15s ease}
 
 
 <section id="usuarios" class="module">
+<details class="extra-options">
+  <summary>Mantenimiento de datos</summary>
+  <div class="extra-options-grid">
+    <div><button class="purple mini" onclick="guardarLocal()">Guardar datos en este navegador</button><p>Guarda los datos actuales para recuperarlos en este mismo navegador. Los archivos físicos no se guardan.</p></div>
+    <div><button class="yellow mini" onclick="cargarLocal()">Recuperar datos guardados</button><p>Abre los datos que guardaste anteriormente en este navegador.</p></div>
+    <div><button class="blue mini" onclick="diagnosticarSistema()">Diagnóstico</button><p>Revisa los datos cargados y muestra posibles problemas.</p></div>
+    <div><button class="blue mini" onclick="cargarDemo()">Cargar demo</button><p>Carga datos de ejemplo para explorar el sistema.</p></div>
+    <div><button class="red mini" onclick="borrarVista()">Borrar vista</button><p>Elimina los registros del día seleccionado; conserva los otros días. Pide confirmación antes de hacerlo.</p></div>
+  </div>
+  <div class="status-strip">
+    <span class="status-pill ok">🟢 Sistema local activo</span>
+    <span class="status-pill" id="estadoGuardado">💾 Esperando datos</span>
+  </div>
+<details><summary>Archivos y carpetas del día seleccionado</summary><div id="recientesMiner"></div></details>
+</details>
   <h2>Gestión de usuarios</h2>
   <p id="usuariosEstado" role="status"></p>
   <p class="meta" style="margin-top:10px">Elige el plan y los días de cada usuario. Con el control apagado no hay vencimientos.</p>
@@ -2282,7 +2284,7 @@ function renderTarjetaRequisito(item,trabajador){
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
     return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}</div>`;
   }).join('');
-  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
+  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${item.key==='cedula'?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+')')}">Leer contenido de la cédula</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
 
 function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
@@ -3824,6 +3826,7 @@ function pintarDiasMiner(){
  if(!usuarioActual)return;
  const input=document.getElementById('diaMiner');if(!input)return;
  input.value=diaSeleccionadoMiner;
+ const diaVisible=document.getElementById('diaVisibleMiner');if(diaVisible)diaVisible.textContent=diaSeleccionadoMiner.split('-').reverse().join('/');
  const select=document.getElementById('diasGuardadosMiner');select.replaceChildren();
  const primer=document.createElement('option');primer.value='';primer.textContent='Ir a un día guardado';select.append(primer);
  const prefijo=baseDatosMiner()+':dia:';
@@ -4143,6 +4146,21 @@ window.addEventListener('beforeunload',event=>{if(revisionTemporal){event.preven
 <script>
 let lecturaContenidoActiva=false;
 let motorContenidoPromesa=null;
+function abrirLectorContenido(nombre,rut){
+  if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
+  limpiarLecturaContenido();
+  document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
+  document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
+  document.getElementById('lectorContenidoModal').showModal();
+}
+function cerrarLectorContenido(){
+  if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura antes de cerrar.','warn');return;}
+  limpiarLecturaContenido();
+  document.getElementById('lectorContenidoModal').close();
+}
+document.getElementById('lectorContenidoModal').addEventListener('cancel',event=>{
+  if(lecturaContenidoActiva)event.preventDefault();else limpiarLecturaContenido();
+});
 async function cargarMotorContenido(){
   if(!motorContenidoPromesa)motorContenidoPromesa=(async()=>{
     const [ocr,pdf]=await Promise.all([
