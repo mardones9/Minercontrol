@@ -622,11 +622,11 @@ button{transition:.15s ease}
   <h2>Leer contenido de una cédula</h2>
   <p class="meta">Selecciona una imagen JPG/PNG o un PDF (hasta 12 MB). Se lee el contenido, independientemente del nombre del archivo. En PDF se revisan hasta 4 páginas.</p>
   <div class="actions">
-    <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150">
-    <input class="search" id="rutContenido" aria-label="RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20">
+    <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150" oninput="invalidarLecturaContenido()">
+    <input class="search" id="rutContenido" aria-label="RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20" oninput="invalidarLecturaContenido()">
   </div>
   <p class="meta">Nombre y RUT son opcionales. Para comparar con un trabajador, copia esos datos desde su ficha.</p>
-  <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf" aria-label="Archivo para leer contenido">
+  <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf" aria-label="Archivo para leer contenido" onchange="invalidarLecturaContenido()">
   <div class="file-actions" style="margin-top:14px">
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
     <button class="mini yellow" id="limpiarContenido" onclick="limpiarLecturaContenido()">Descartar resultado</button>
@@ -4152,6 +4152,12 @@ function analizarTextoCedula(texto,nombreEsperado='',rutEsperado=''){
   return {compatible,ruts,validos,indicios,
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
+}
+function invalidarLecturaContenido(){
+  if(lecturaContenidoActiva)return;
+  document.getElementById('resultadoContenido').replaceChildren();
+  document.getElementById('textoContenido').textContent='';
+  document.getElementById('estadoContenido').textContent='Archivo o datos modificados. Pulsa Leer contenido para revisar.';
 }
 function limpiarLecturaContenido(){
   if(lecturaContenidoActiva)return;
