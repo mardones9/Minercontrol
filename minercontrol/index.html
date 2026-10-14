@@ -1269,6 +1269,7 @@ function clasificarDocumento(nombre){
   if(t.includes("licencia") && /medic/.test(t))return "Licencia médica";
   if(t.includes("licencia") && /conduc|conducc|chofer|clase[abcd]/.test(t))return "Licencia de conducir";
   const reglas=[
+    ["Cédula de identidad",["ceduladeidentidad","cedulaidentidad","carnetdeidentidad","carnetidentidad"]],
     ["Licencia médica",["licenciamedica","licenciamedico"]],
     ["Licencia de conducir",["licenciaconducir","licenciadeconducir","licenciaconduccion","licenciadeconduccion","licenciaconductor","licenciaclase"]],
     ["Contrato",["contrato","contratodetrabajo"]],
@@ -1448,6 +1449,7 @@ async function importarExcelPro(e){
   const sinRut=items.filter(i=>i.rut==="Sin RUT").length;
   const sinFaena=items.filter(i=>i.faena==="Faena").length;
   const problemas=revisionExcelPendiente.flatMap(r=>r.errores);
+  const conflictos=conflictosNombreRut([...docs,...items]);
   contenido.innerHTML=`
     <p>Revisa lo detectado antes de agregarlo a tus datos actuales.</p>
     <div class="alert">
@@ -1458,6 +1460,7 @@ async function importarExcelPro(e){
     </div>
     ${revisionExcelPendiente.map(r=>`<p><b>${escaparPerfilDocumento(r.archivo.nombre)}</b>: ${r.archivo.registros} registros · ${r.archivo.hojas.length} hojas leídas</p>`).join("")}
     ${duplicados?'<div class="alert problem">Hay registros que coinciden con otros del archivo o con datos existentes. Si confirmas, se incorporarán todos; no se eliminarán automáticamente.</div>':""}
+    ${avisoConflictosNombreRut(conflictos)}
     ${problemas.length?`<div class="alert problem"><b>Datos que necesitan revisión</b><ul>${problemas.slice(0,10).map(p=>`<li>${escaparPerfilDocumento(p.archivo)} · ${escaparPerfilDocumento(p.hoja)} · fila ${p.fila}: ${escaparPerfilDocumento(p.problema)}</li>`).join("")}</ul>${problemas.length>10?`<p>Y ${problemas.length-10} avisos más.</p>`:""}</div>`:""}
     ${fallos.length?`<div class="alert problem">No se pudo leer: ${fallos.map(r=>escaparPerfilDocumento(r.fallo)).join(", ")}. Cancela y vuelve a seleccionar los archivos para completar la carga.</div>`:""}
     ${!items.length?'<div class="alert problem">No se detectaron registros para cargar.</div>':""}
@@ -1528,6 +1531,21 @@ function verColumnas(nombreCod){
 function rutIdentidad(rut){
   const valor=String(rut||"").trim().toUpperCase().replace(/[.\s-]/g,"");
   return valor && valor!=="SINRUT"?valor:"";
+}
+function conflictosNombreRut(registros){
+  const grupos=new Map();
+  for(const r of registros){
+    const rut=rutIdentidad(r.rut),nombre=String(r.trabajador||'').trim().replace(/\s+/g,' ');
+    if(!rut||!nombre||nombre==='Sin nombre'||nombre==='Trabajador sin identificar')continue;
+    const clave=nombre.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');
+    if(!grupos.has(rut))grupos.set(rut,new Map());
+    grupos.get(rut).set(clave,nombre);
+  }
+  return [...grupos].filter(([,nombres])=>nombres.size>1).map(([rut,nombres])=>({rut,nombres:[...nombres.values()]}));
+}
+function avisoConflictosNombreRut(conflictos){
+  if(!conflictos.length)return '';
+  return `<div class="alert problem"><b>Revisar identidad: mismo RUT con nombres distintos (${conflictos.length})</b><p>Los documentos se conservan agrupados por RUT y faena. Comprueba el nombre antes de usar la ficha.</p><ul>${conflictos.slice(0,10).map(c=>`<li>RUT ${escaparPerfilDocumento(c.rut)}: ${c.nombres.map(n=>escaparPerfilDocumento(n)).join(' / ')}</li>`).join('')}</ul>${conflictos.length>10?`<p>Y ${conflictos.length-10} RUT adicionales.</p>`:''}</div>`;
 }
 function claveTrabajador(registro){
   return JSON.stringify([rutIdentidad(registro.rut)||String(registro.trabajador||"").trim(),String(registro.faena||"").trim()]);
@@ -1755,6 +1773,7 @@ function pintarDetalleArchivo(nombre){
           <div>
             <b><a href="#perfilDocumentoTrabajador" class="worker-link" data-perfil-documento="${encodeURIComponent(JSON.stringify({rut:g.rut,trabajador:g.trabajador,faena:f.faena}))}" onclick="abrirPerfilDesdeDocumentos(this);return false">👷 ${g.trabajador}</a></b>
             <div class="small">RUT: ${g.rut} · Cargo: ${g.cargo} · Empresa: ${g.contratista}</div>
+            ${avisoConflictosNombreRut(conflictosNombreRut([...docs,...g.items]).filter(c=>c.rut===rutIdentidad(g.rut)))}
           </div>
           <div>${g.items.length} documentos</div>
         </div>
