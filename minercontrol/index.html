@@ -541,6 +541,11 @@ button{transition:.15s ease}
     </div>
     <div class="head">
       <input class="search" id="buscarFaena" placeholder="Buscar faena..." aria-label="Buscar faena" oninput="renderizarFaenas()">
+      <select class="search" id="filtrarFaenas" aria-label="Filtrar faenas" onchange="renderizarFaenas()">
+        <option value="todas">Todas las faenas</option>
+        <option value="conTrabajadores">Con trabajadores</option>
+        <option value="sinTrabajadores">Sin trabajadores</option>
+      </select>
       <select class="search" id="ordenarFaenas" aria-label="Ordenar faenas" onchange="renderizarFaenas()">
         <option value="nombre">Nombre: A → Z</option><option value="nombreDesc">Nombre: Z → A</option>
         <option value="cantidad">Trabajadores: mayor a menor</option><option value="cantidadAsc">Trabajadores: menor a mayor</option>
@@ -2342,14 +2347,18 @@ function verTrabajadoresFaena(cod){
 function renderizarFaenas(){
  const grid=document.getElementById('faenasGrid');if(!grid)return;
  const q=nombreFaenaClave(document.getElementById('buscarFaena')?.value),orden=document.getElementById('ordenarFaenas')?.value||'nombre';
- const faenas=nombresFaenas().filter(f=>nombreFaenaClave(f).includes(q));
+ const filtro=document.getElementById('filtrarFaenas')?.value||'todas';
+ const faenas=nombresFaenas().filter(f=>nombreFaenaClave(f).includes(q)).filter(f=>{
+   const cantidad=trabajadoresDeFaena(f).length;
+   return filtro==='conTrabajadores'?cantidad>0:filtro==='sinTrabajadores'?cantidad===0:true;
+ });
  faenas.sort((a,b)=>{
    const nombre=String(a).localeCompare(String(b),'es');
    if(orden==='cantidad'||orden==='cantidadAsc'){const diferencia=trabajadoresDeFaena(b).length-trabajadoresDeFaena(a).length;return (orden==='cantidadAsc'?-diferencia:diferencia)||nombre;}
    return orden==='nombreDesc'?-nombre:nombre;
  });
  grid.replaceChildren();
- if(!faenas.length){const vacio=document.createElement('div');vacio.className='empty';vacio.textContent='No hay faenas que coincidan con la búsqueda.';grid.append(vacio);}
+ if(!faenas.length){const vacio=document.createElement('div');vacio.className='empty';vacio.textContent='No hay faenas que coincidan con la búsqueda y el filtro.';grid.append(vacio);}
  for(const f of faenas){
    const card=document.createElement('div');card.className='card';
    const titulo=document.createElement('h3');titulo.textContent=f;
