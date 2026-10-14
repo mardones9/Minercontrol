@@ -629,7 +629,7 @@ button{transition:.15s ease}
     <div class="head">
       <div>
         <h2>Cargar documentos</h2>
-        <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl detecta trabajador, RUT, faena, empresa, tipo documental, vencimientos, duplicados y arma checklist automáticamente.</p>
+        <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl organiza los datos por sus nombres y prepara el checklist. Revisa los originales antes de confirmar su aprobación.</p>
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
     </div>
@@ -637,7 +637,7 @@ button{transition:.15s ease}
     <div class="smart-import-panel">
       <div class="smart-drop">
         <label for="inputCarpeta">📂 Subir carpeta completa automática</label>
-        <p style="color:#9eb3cb;margin-top:8px">Ideal: una carpeta por trabajador o subcarpetas con RUT/nombre. Lee PDFs, imágenes, Word, Excel y nombres de archivo.</p>
+        <p style="color:#9eb3cb;margin-top:8px">Ideal: una carpeta por trabajador o subcarpetas con RUT/nombre. Organiza PDF, imágenes, Word y Excel por sus nombres y rutas.</p>
         <input id="inputCarpeta" type="file" webkitdirectory directory multiple onchange="importarCarpetaTrabajador(event)">
       </div>
       <div class="smart-drop">
@@ -648,7 +648,7 @@ button{transition:.15s ease}
     </div>
 
     <div class="ai-note">
-      <b>Formato recomendado para detección perfecta:</b><br>
+      <b>Ejemplos de nombres para organizar los archivos:</b><br>
       <span>12.345.678-9 Juan Perez - Collahuasi - Licencia conducir - vence 2026-12-30.pdf</span><br>
       <span>20.111.333-5 Camila Rojas - Spence - Cedula identidad.jpg</span><br>
       <span>Carpeta: 12345678-9 Juan Perez / contrato.pdf / examen ocupacional.pdf / odi.pdf</span>
@@ -1277,12 +1277,12 @@ function normalizarFecha(valor){
 }
 
 function diasHasta(fechaISO){
+  fechaISO=normalizarFecha(fechaISO);
   if(!fechaISO)return "";
-  const hoy=new Date();
-  hoy.setHours(0,0,0,0);
-  const f=new Date(fechaISO+"T00:00:00");
-  if(isNaN(f.getTime()))return "";
-  return Math.ceil((f-hoy)/(1000*60*60*24));
+  // Días de calendario en Chile, independientes de la zona del navegador y del horario de verano.
+  const hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const f=Date.parse(fechaISO+'T12:00:00Z'),inicio=Date.parse(hoy+'T12:00:00Z');
+  return Number.isFinite(f)?Math.round((f-inicio)/86400000):"";
 }
 
 function clasificarDocumento(nombre){
@@ -1293,8 +1293,8 @@ function clasificarDocumento(nombre){
     ["Cédula de identidad",["ceduladeidentidad","cedulaidentidad","carnetdeidentidad","carnetidentidad"]],
     ["Licencia médica",["licenciamedica","licenciamedico"]],
     ["Licencia de conducir",["licenciaconducir","licenciadeconducir","licenciaconduccion","licenciadeconduccion","licenciaconductor","licenciaclase"]],
-    ["Contrato",["contrato","contratodetrabajo"]],
     ["Anexo",["anexo","anexocontrato"]],
+    ["Contrato",["contrato","contratodetrabajo"]],
     ["ODI / Charla",["odi","charla","obligaciondeinformar","derechoasaber"]],
     ["Examen ocupacional",["examen","ocupacional","preocupacional","altura","psicosensometrico"]],
     ["Seguro",["seguro","mutual","poliza"]],
@@ -1312,6 +1312,7 @@ function clasificarDocumento(nombre){
 }
 
 function calcularPrioridad(d){
+  if(!rutValidoContenido(d.rut))return "Alta";
   if(d.trabajador==="Sin nombre" || d.rut==="Sin RUT" || d.faena==="Faena")return "Alta";
   if(d.estado==="Pendiente" || d.estado==="Vencido")return "Alta";
   if(d.estado==="Por vencer")return "Media";
@@ -1326,6 +1327,7 @@ function aplicarSemaforo(d){
 }
 
 function enriquecerDocumento(item){
+  item.faena=nombreFaenaCanonico(item.faena);
   item.tipoDocumento=clasificarDocumento(item.documento);
   item.diasRestantes=diasHasta(item.fechaVencimiento);
   item.estado=detectarEstado(item);
@@ -1339,11 +1341,14 @@ function detectarEstado(d){
   const fecha=normalizarFecha(d.fechaVencimiento);
   const dias=diasHasta(fecha);
   if(d.trabajador==="Sin nombre" || d.rut==="Sin RUT" || d.faena==="Faena")return "Revisar";
+  if(!rutValidoContenido(d.rut))return "Revisar";
   // Ninguna fecha próxima convierte un rechazo o pendiente en documento válido.
   if(/rechaz|no\s+(?:aprob|acredit|valid|vigente|cumple)|inval|pendiente|falt|no\s*ok/.test(texto))return "Pendiente";
   if(/vencid|caduc|expir/.test(texto) || (typeof dias==="number" && dias<0))return "Vencido";
   if(d.fechaVencimientoInvalida || (d.fechaVencimiento && !fecha))return "Revisar";
   if(/revis|observ|desconoc|sin\s+(?:estado|valid)/.test(texto))return "Revisar";
+  // Los documentos procedentes de carpetas necesitan revisión humana explícita.
+  if((d.origen==='Carpetas Nivel Dios'||d.hoja==='Carpeta automática')&&!d.revisionManual)return "Revisar";
   const positivo=/^(?:acreditad[oa]|aprobad[oa]|vigente|vig|valid[oa]|ok|cumple)(?:\s*[.!])?$/.test(texto);
   const aviso=/^(?:por vencer|proximo a?\s*vencer|vence pronto)$/.test(texto);
   if(!positivo && !aviso)return "Revisar";
@@ -1413,6 +1418,10 @@ function leerExcelParaRevision(file,contenido){
 
           if(item.rut==="Sin RUT"){
             erroresArchivo.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"No se detectó RUT"});
+          }
+
+          if(item.rut!=="Sin RUT"&&!rutValidoContenido(item.rut)){
+            erroresArchivo.push({archivo:file.name,hoja:nombreHoja,fila:row.__filaExcel,problema:"RUT inválido o dígito verificador incorrecto: "+item.rut});
           }
 
           if(item.faena==="Faena"){
@@ -1569,7 +1578,7 @@ function avisoConflictosNombreRut(conflictos){
   return `<div class="alert problem"><b>Revisar identidad: mismo RUT con nombres distintos (${conflictos.length})</b><p>Los documentos se conservan agrupados por RUT y faena. Comprueba el nombre antes de usar la ficha.</p><ul>${conflictos.slice(0,10).map(c=>`<li>RUT ${escaparPerfilDocumento(c.rut)}: ${c.nombres.map(n=>escaparPerfilDocumento(n)).join(' / ')}</li>`).join('')}</ul>${conflictos.length>10?`<p>Y ${conflictos.length-10} RUT adicionales.</p>`:''}</div>`;
 }
 function claveTrabajador(registro){
-  return JSON.stringify([rutIdentidad(registro.rut)||String(registro.trabajador||"").trim(),String(registro.faena||"").trim()]);
+  return JSON.stringify([rutIdentidad(registro.rut)||String(registro.trabajador||"").trim(),nombreFaenaClave(registro.faena)]);
 }
 function esFichaLaboral(registro){
   return ["trabajadores","trabajador","nomina","nominatrabajadores"].includes(normalizar(registro.documento));
@@ -1845,7 +1854,7 @@ function tieneRutPerfilDocumento(rut){
   return Boolean(rutIdentidad(rut));
 }
 function coincidePerfilDocumento(registro,trabajador){
-  if(String(registro.faena||"").trim()!==String(trabajador.faena||"").trim())return false;
+  if(nombreFaenaClave(registro.faena)!==nombreFaenaClave(trabajador.faena))return false;
   return tieneRutPerfilDocumento(trabajador.rut)
     ? rutIdentidad(registro.rut)===rutIdentidad(trabajador.rut)
     : !tieneRutPerfilDocumento(registro.rut) && registro.trabajador===trabajador.trabajador;
@@ -2236,7 +2245,7 @@ function docCumpleRequisito(d,key){
 }
 
 function evaluarRequisitosTrabajador(t){
-  const reqs=requisitosFaena[t.faena] || [];
+  const reqs=requisitosFaena[nombreFaenaCanonico(t.faena)] || [];
   const relacionados=documentosDelTrabajador(t);
   const checklist=reqs.map(key=>{
     const encontrados=relacionados.filter(d=>docCumpleRequisito(d,key));
@@ -2249,7 +2258,7 @@ function evaluarRequisitosTrabajador(t){
   });
   const faltan=checklist.filter(x=>x.estado==="Falta" || x.estado==="Vencido/Pendiente").length;
   const porVencer=checklist.filter(x=>x.estado==="Por vencer").length;
-  const estado=faltan===0 && porVencer===0?"Cumple":faltan<=2?"Observado":"Bloqueado";
+  const estado=!reqs.length?"Sin configurar":faltan===0 && porVencer===0?"Cumple":faltan<=2?"Observado":"Bloqueado";
   const cumplimiento=reqs.length?Math.round((checklist.filter(x=>x.estado==="Cumple" || x.estado==="Por vencer").length/reqs.length)*100):0;
   return {reqs,checklist,estado,cumplimiento,faltan,porVencer};
 }
@@ -2257,6 +2266,7 @@ function evaluarRequisitosTrabajador(t){
 function badgeReqEstado(estado){
   if(estado==="Cumple")return `<span class="badge ok">Cumple</span>`;
   if(estado==="Observado")return `<span class="badge warn">Observado</span>`;
+  if(estado==="Sin configurar")return `<span class="badge warn">Sin configurar</span>`;
   return `<span class="badge bad">Bloqueado</span>`;
 }
 
@@ -2318,7 +2328,7 @@ function renderizarRequisitos(){
 
   grid.innerHTML=faenas.map(f=>{
     const reqs=requisitosFaena[f]||[];
-    const trabFaena=trabajadores.filter(t=>t.faena===f);
+    const trabFaena=trabajadores.filter(t=>nombreFaenaClave(t.faena)===nombreFaenaClave(f));
     const evals=trabFaena.map(t=>evaluarRequisitosTrabajador(t));
     return `
       <div class="file-card">
@@ -2360,6 +2370,10 @@ function renderChecklistRequisitosTrabajador(t){
 }
 
 function nombreFaenaClave(nombre){return String(nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');}
+function nombreFaenaCanonico(nombre){
+  const limpio=String(nombre||'').trim().replace(/\s+/g,' ');
+  return Object.keys(requisitosFaena||{}).find(f=>nombreFaenaClave(f)===nombreFaenaClave(limpio))||limpio;
+}
 function registrosFaena(nombre,lista){return lista.filter(x=>nombreFaenaClave(x.faena)===nombreFaenaClave(nombre));}
 function nombresFaenas(){
  const nombres=new Map();
@@ -2668,14 +2682,13 @@ function cargarLocal(mostrar=true){
     docs=data.docs||[];
     archivos=data.archivos||[];
     errores=data.errores||[];
+    requisitosFaena=data.requisitosFaena||requisitosDefault();
     carpetasTrabajadores=(data.carpetasTrabajadores||[]).map(c=>{
       c.archivos=(c.archivos||[]).map(a=>({...a, previewURL:""}));
-      c.checklist=c.checklist||crearChecklistCarpeta(c.archivos||[]);
       c.confianza=c.confianza||calcularConfianzaCarpeta(c);
       c.duplicados=c.duplicados||duplicadosCarpeta(c);
-      return c;
+      return actualizarRevisionCarpeta(c);
     });
-    requisitosFaena=data.requisitosFaena||requisitosDefault();
     configuracionFaenas=data.configuracionFaenas||{};
     historialOperacional=data.historialOperacional||[];
     docs=docs.map(d=>enriquecerDocumento(d));
@@ -2683,6 +2696,7 @@ function cargarLocal(mostrar=true){
       a.items=(a.items||[]).map(d=>enriquecerDocumento(d));
       return a;
     });
+    reconstruirTrabajadores();
     renderizar();
     if(mostrar)mostrarToast("✅ Datos cargados.","ok");
   }catch(e){
@@ -2849,7 +2863,7 @@ function formatearNombreDetectado(txt){
     .replace(/\s+/g," ")
     .trim();
 
-  FAENAS_CONOCIDAS.forEach(f=>{s=s.replace(new RegExp(f,"ig")," ")});
+  [...new Set([...Object.keys(requisitosFaena||{}),...FAENAS_CONOCIDAS])].forEach(f=>{s=s.replace(new RegExp(f.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),"ig")," ")});
   CARGOS_HINT.forEach(c=>{s=s.replace(new RegExp(c,"ig")," ")});
   s=s.replace(/\s+/g," ").trim();
   if(!s || s.length<4)return "Trabajador sin identificar";
@@ -2883,18 +2897,18 @@ function detectarFechaArchivo(txt){
 }
 
 function detectarEstadoArchivo(txt,fechaISO=""){
-  const n=normalizar(txt);
+  const texto=String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(/rechaz|pendiente|faltante|\bfalta\b|no[ _-]*(?:aprob|valid|vigente|acredit)/.test(texto))return "Pendiente";
   const dias=diasHasta(fechaISO);
-  if(typeof dias==="number"){
-    if(dias<0)return "Vencido";
-    if(dias<=30)return "Por vencer";
-    return "Acreditado";
-  }
-  if(n.includes("vencido") || n.includes("caducado") || n.includes("expirado"))return "Vencido";
-  if(n.includes("rechazado") || n.includes("pendiente") || n.includes("faltante") || n.includes("falta"))return "Pendiente";
-  if(n.includes("porvencer") || n.includes("vencepronto"))return "Por vencer";
-  if(n.includes("vigente") || n.includes("aprobado") || n.includes("ok") || n.includes("validado"))return "Acreditado";
-  return "Acreditado";
+  if(/vencid|caduc|expir/.test(texto)||(typeof dias==='number'&&dias<0))return "Vencido";
+  // Un nombre y una fecha futura son indicios, nunca una aprobación del contenido.
+  return "Revisar";
+}
+function estadoArchivoCarpeta(a){
+  const automatico=detectarEstadoArchivo((a.ruta||'')+' '+(a.nombre||''),a.fechaVencimiento||'');
+  if(automatico!=="Revisar"||!a.revisionManual)return automatico;
+  const dias=diasHasta(a.fechaVencimiento);
+  return typeof dias==='number'&&dias<=30?"Por vencer":"Acreditado";
 }
 
 function detectarDocumentoArchivo(nombre,ruta=""){
@@ -2956,7 +2970,7 @@ function agruparArchivosAutomatico(files,modo="carpeta"){
     const subCarpeta=partes.length>2 ? partes[1] : "";
     const texto=`${ruta} ${file.name}`;
     const rut=extraerRutTexto(texto);
-    const nombreDesdeCarpeta=formatearNombreDetectado(subCarpeta || baseCarpeta);
+    const nombreDesdeCarpeta=modo==="sueltos"?"Trabajador sin identificar":formatearNombreDetectado(subCarpeta || baseCarpeta);
     const nombreDesdeArchivo=formatearNombreDetectado(file.name);
     const trabajador=nombreDesdeCarpeta!=="Trabajador sin identificar" ? nombreDesdeCarpeta : nombreDesdeArchivo;
     const key=rut!=="Sin RUT" ? rut : `${baseCarpeta}|${trabajador}`;
@@ -3001,7 +3015,7 @@ function crearArchivoDetectado(file){
   };
 }
 
-function crearChecklistCarpeta(archivos){
+function crearChecklistCarpeta(archivos,faena=null){
   const encontrados={};
   archivos.forEach(a=>{
     const tipo=a.tipo || detectarTipoArchivo(a.name||a.nombre||"");
@@ -3009,13 +3023,16 @@ function crearChecklistCarpeta(archivos){
     encontrados[tipo].push(a);
   });
 
-  return DOCS_REQUERIDOS.slice(0,8).map(req=>{
+  const requisitos=faena===null?DOCS_REQUERIDOS.slice(0,8):(requisitosFaena[nombreFaenaCanonico(faena)]||[]).map(key=>({key,nombre:nombreReq(key)}));
+  return requisitos.map(req=>{
     const arr=encontrados[req.key]||[];
     const vencidos=arr.filter(a=>a.estado==="Vencido" || a.estado==="Pendiente").length;
     const porVencer=arr.filter(a=>a.estado==="Por vencer").length;
+    const revisar=arr.some(a=>!["Acreditado","Por vencer","Vencido","Pendiente"].includes(a.estado));
     let estado="Falta";
     if(arr.length){
       if(vencidos)estado="Vencido/Pendiente";
+      else if(revisar)estado="Revisar";
       else if(porVencer)estado="Por vencer";
       else estado="Recibido";
     }
@@ -3031,9 +3048,11 @@ function crearChecklistCarpeta(archivos){
 }
 
 function estadoCarpeta(checklist){
+  if(!checklist.length)return "Incompleta";
   const faltan=checklist.filter(x=>x.estado==="Falta" || x.estado==="Vencido/Pendiente").length;
   const porVencer=checklist.filter(x=>x.estado==="Por vencer").length;
-  if(faltan===0 && porVencer===0)return "Lista";
+  const revisar=checklist.some(x=>x.estado==="Revisar");
+  if(faltan===0 && porVencer===0&&!revisar)return "Lista";
   if(faltan<=2)return "Observada";
   return "Incompleta";
 }
@@ -3065,7 +3084,7 @@ function duplicadosCarpeta(c){
 
 function procesarGrupoCarpeta(grupo,filesCarpeta){
   const archivosDetectados=filesCarpeta.map(crearArchivoDetectado);
-  const checklist=crearChecklistCarpeta(archivosDetectados);
+  const checklist=crearChecklistCarpeta(archivosDetectados,grupo.faena);
   const estado=estadoCarpeta(checklist);
   const fotos=archivosDetectados.filter(a=>a.tipo==="cedula" || a.tipo==="foto" || a.esImagen);
   const fecha=new Date().toLocaleString("es-CL");
@@ -3074,7 +3093,7 @@ function procesarGrupoCarpeta(grupo,filesCarpeta){
     trabajador:grupo.trabajador || "Trabajador sin identificar",
     rut:grupo.rut || "Sin RUT",
     empresa:grupo.empresa || "Sin empresa",
-    faena:grupo.faena || "Sin faena",
+    faena:nombreFaenaCanonico(grupo.faena || "Sin faena"),
     cargo:grupo.cargo || "Sin cargo",
     observacion:"",
     estado,
@@ -3217,7 +3236,7 @@ function renderizarCarpetas(){
           <div class="auto-file ${a.tipo&&a.tipo!=="otro"?"ok":"warn"}">
             <b>${a.tipoNombre||nombreTipoDoc(a.tipo)}</b><br>
             ${a.nombre}<br>
-            <span class="small">Estado: ${a.estado||"Acreditado"} · Vence: ${a.fechaVencimiento||"-"} · Confianza: ${a.confianza||0}%</span>
+            <span class="small">Estado: ${a.estado||"Revisar"} · Vence: ${a.fechaVencimiento||"-"} · Confianza: ${a.confianza||0}%</span>
           </div>
         `).join("")}
       </div>
@@ -3227,7 +3246,7 @@ function renderizarCarpetas(){
       <div class="folder-actions">
         <button class="mini green" onclick="integrarCarpetaADocumentos('${c.id}')">Enviar a acreditación</button>
         <button class="mini green" onclick="despacharCarpeta('${c.id}')">Despachar ZIP</button>
-        <button class="mini blue" onclick="marcarCarpetaLista('${c.id}')">Marcar lista</button>
+        <button class="mini blue" onclick="marcarCarpetaLista('${c.id}')">Confirmar revisión</button>
         <button class="mini yellow" onclick="editarDatosCarpeta('${c.id}')">Editar datos</button>
         <button class="mini red" onclick="eliminarCarpeta('${c.id}')">Eliminar</button>
       </div>
@@ -3243,12 +3262,15 @@ function actualizarObservacionCarpeta(id,valor){
 function editarDatosCarpeta(id){
   const c=carpetasTrabajadores.find(x=>x.id===id);
   if(!c)return;
+  const identidadAnterior=JSON.stringify([rutIdentidad(c.rut),normalizar(c.trabajador),nombreFaenaClave(c.faena)]);
   c.trabajador=prompt("Nombre trabajador",c.trabajador)||c.trabajador;
   c.rut=prompt("RUT",c.rut)||c.rut;
   c.empresa=prompt("Empresa contratista",c.empresa)||c.empresa;
   const faenaNueva=prompt("Faena",c.faena)||c.faena;
-  if(nombreFaenaClave(faenaNueva)===nombreFaenaClave(c.faena)||permitirCargaFaenas([{faena:faenaNueva}]))c.faena=faenaNueva;
+  if(nombreFaenaClave(faenaNueva)===nombreFaenaClave(c.faena)||permitirCargaFaenas([{faena:faenaNueva}]))c.faena=nombreFaenaCanonico(faenaNueva);
   c.cargo=prompt("Cargo",c.cargo)||c.cargo;
+  if(identidadAnterior!==JSON.stringify([rutIdentidad(c.rut),normalizar(c.trabajador),nombreFaenaClave(c.faena)]))c.archivos.forEach(a=>{a.revisionManual=false;});
+  actualizarRevisionCarpeta(c);
   c.confianza=calcularConfianzaCarpeta(c);
   guardarLocal(false);
   renderizarCarpetas();
@@ -3257,6 +3279,7 @@ function editarDatosCarpeta(id){
 function integrarCarpetaADocumentos(id){
   const c=carpetasTrabajadores.find(x=>x.id===id);
   if(!c||!permitirCargaFaenas([c]))return;
+  actualizarRevisionCarpeta(c);
   const fecha=new Date().toLocaleString("es-CL");
   const fechaISO=new Date().toISOString();
   const nuevos=(c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro").map((a,idx)=>enriquecerDocumento({
@@ -3266,7 +3289,8 @@ function integrarCarpetaADocumentos(id){
     contratista:c.empresa,
     faena:c.faena,
     cargo:c.cargo,
-    estadoOriginal:a.estado || "Acreditado",
+    estadoOriginal:a.estado || "Revisar",
+    revisionManual:a.revisionManual===true,
     fechaVencimiento:a.fechaVencimiento || "",
     archivo:a.nombre,
     hoja:"Carpeta automática",
@@ -3295,22 +3319,43 @@ function integrarCarpetaADocumentos(id){
   mostrarToast(`✅ ${nuevos.length} documento(s) enviados a acreditación.`,"ok");
 }
 
+function actualizarRevisionCarpeta(c){
+  c.faena=nombreFaenaCanonico(c.faena);
+  c.archivos=(c.archivos||[]).map(a=>({...a,estado:estadoArchivoCarpeta(a)}));
+  c.checklist=crearChecklistCarpeta(c.archivos,c.faena);
+  c.estado=estadoCarpeta(c.checklist);
+  if(!rutValidoContenido(c.rut)||!c.trabajador||['sinnombre','trabajadorsinidentificar','archivossueltos'].includes(normalizar(c.trabajador)))c.estado='Incompleta';
+  return c;
+}
 function marcarCarpetaLista(id){
   const c=carpetasTrabajadores.find(x=>x.id===id);
-  if(!c)return;
-  c.estado="Lista";
-  registrarMovimiento({
-    trabajador:c.trabajador,
-    rut:c.rut,
-    empresa:c.empresa,
-    faena:c.faena,
-    accion:"✅ Carpeta aprobada / lista",
-    estado:"Acreditado",
-    origen:"Carpetas"
-  });
-  guardarLocal(false);
-  renderizarCarpetas();
-  renderizarHistorial();
+  if(!c||!permitirCargaFaenas([c]))return;
+  actualizarRevisionCarpeta(c);
+  if(!rutValidoContenido(c.rut)||!c.trabajador||['sinnombre','trabajadorsinidentificar','archivossueltos'].includes(normalizar(c.trabajador))){
+    mostrarToast('Revisa el nombre y el RUT antes de aprobar la carpeta.','warn');return;
+  }
+  if(!c.checklist.length||c.checklist.some(x=>['Falta','Vencido/Pendiente','Por vencer'].includes(x.estado))){
+    mostrarToast('Completa los requisitos y resuelve los documentos pendientes o vencidos antes de marcar la carpeta lista.','warn');return;
+  }
+  if(!c.archivosFisicos?.length){mostrarToast('Vuelve a cargar los originales para revisarlos antes de aprobar.','warn');return;}
+  if(!confirm('¿Confirmas que revisaste los originales, su titular, contenido y fechas? Esta es una aprobación manual; el nombre del archivo y la lectura automática no acreditan documentos.'))return;
+  const revisados=c.archivos.map(a=>({...a}));
+  for(const a of revisados){
+    if(!a.tipo||a.tipo==='otro')continue;
+    if(['cedula','licencia'].includes(a.tipo)&&!normalizarFecha(a.fechaVencimiento)){
+      const respuesta=prompt('Fecha de vencimiento o próximo control de '+a.nombre+' (AAAA-MM-DD, según el original):','');
+      if(respuesta===null)return;
+      const fecha=normalizarFecha(respuesta);
+      if(!fecha||diasHasta(fecha)<0){mostrarToast('La fecha no es válida o el documento está vencido. Revisa el original.','warn');return;}
+      a.fechaVencimiento=fecha;
+    }
+    a.revisionManual=true;
+  }
+  c.archivos=revisados;
+  actualizarRevisionCarpeta(c);
+  registrarMovimiento({trabajador:c.trabajador,rut:c.rut,empresa:c.empresa,faena:c.faena,accion:'✅ Revisión manual de carpeta',estado:c.estado,origen:'Carpetas'});
+  guardarLocal(false);renderizarCarpetas();renderizarHistorial();
+  mostrarToast('Revisión manual guardada. Estado: '+c.estado,'ok');
 }
 
 function eliminarCarpeta(id){
@@ -3357,7 +3402,7 @@ async function despacharCarpeta(id){
     ...(c.checklist||[]).map(x=>`${x.estado==="Recibido"?"OK":x.estado.toUpperCase()} - ${x.nombre} (${x.cantidad} archivo/s)`),
     "",
     "ARCHIVOS DETECTADOS:",
-    ...(c.archivos||[]).map(a=>`${a.tipoNombre||nombreTipoDoc(a.tipo)} | ${a.estado||"Acreditado"} | ${a.nombre}`),
+    ...(c.archivos||[]).map(a=>`${a.tipoNombre||nombreTipoDoc(a.tipo)} | ${a.estado||"Revisar"} | ${a.nombre}`),
     "",
     "OBSERVACIONES:",
     c.observacion || "Sin observaciones"
@@ -4085,7 +4130,7 @@ if(tokenMiner)verificarSesionMiner().then(abrirSesionMiner).catch(()=>{});
 <script>
 let revisionTemporal=null;
 function diagnosticoTemporal(grupo){
-  const requisitos=requisitosFaena[grupo.faena]||[];
+  const requisitos=requisitosFaena[nombreFaenaCanonico(grupo.faena)]||[];
   const motivos=[];
   if(grupo.rut==='Sin RUT')motivos.push('No se pudo identificar el RUT');
   if(grupo.faena==='Sin faena')motivos.push('No se pudo identificar la faena');
