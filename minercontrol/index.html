@@ -1857,9 +1857,7 @@ function checklistPerfilDocumentos(t,registros){
   if(!reqs.length)return `<div class="alert problem">⚠️ Esta faena no tiene requisitos configurados todavía.</div>`;
   return `<h3 style="margin:18px 0 10px">Acreditación · Requisitos de ${escaparPerfilDocumento(t.faena)}</h3>
     <div class="alert ${estado!=="Cumple"?"problem":""}">Estado requisitos: ${badgeReqEstado(estado)} · Cumplimiento requisitos: <b>${cumplimiento}%</b> · Faltan/pendientes: <b>${faltan}</b></div>
-    <div class="check-grid">${checklist.map(item=>`<div class="check-card ${item.estado==="Cumple"?"ok-doc":item.estado==="Por vencer"?"warn-doc":"bad-doc"}">
-      <b>${escaparPerfilDocumento(item.nombre)}</b><div class="small" style="margin-top:6px">${item.estado}</div>
-      <div class="doc-list">${item.archivos.slice(0,3).map(a=>`<div class="doc-chip"><span>${escaparPerfilDocumento(a)}</span><span>${item.estado}</span></div>`).join("")}</div></div>`).join("")}</div>`;
+    <div class="check-grid">${checklist.map(item=>renderTarjetaRequisito(item,t)).join("")}</div>`;
 }
 function abrirPerfilDesdeDocumentos(enlace){
   const seleccionado=JSON.parse(decodeURIComponent(enlace.dataset.perfilDocumento));
@@ -2181,7 +2179,7 @@ function requisitosDefault(){
 
 const CATALOGO_REQUISITOS=[
   {key:"cedula",nombre:"Cédula de identidad",aliases:["cedula","carnet","identidad","rut","run"]},
-  {key:"licencia",nombre:"Licencia conducir",aliases:["licencia","conducir","claseb","clased","clasea"]},
+  {key:"licencia",nombre:"Licencia de conducir",aliases:["licencia","conducir","claseb","clased","clasea"]},
   {key:"examen",nombre:"Examen ocupacional",aliases:["examenocupacional","ocupacional","preocupacional","examenmedico","medico"]},
   {key:"altura",nombre:"Examen altura física",aliases:["altura","alturafisica","trabajoaltura"]},
   {key:"psicosensometrico",nombre:"Examen psicosensométrico",aliases:["psicosensometrico","psico","sensometrico"]},
@@ -2245,7 +2243,7 @@ function evaluarRequisitosTrabajador(t){
     let estado="Falta";
     if(encontrados.length)estado=encontrados.some(d=>d.estado==="Por vencer")?"Por vencer":"Cumple";
     else if(vencidos.length)estado="Vencido/Pendiente";
-    return {key,nombre:nombreReq(key),estado,archivos:[...encontrados,...vencidos].map(d=>d.documento)};
+    return {key,nombre:nombreReq(key),estado,archivos:[...encontrados,...vencidos].map(d=>d.documento),documentos:[...encontrados,...vencidos]};
   });
   const faltan=checklist.filter(x=>x.estado==="Falta" || x.estado==="Vencido/Pendiente").length;
   const porVencer=checklist.filter(x=>x.estado==="Por vencer").length;
@@ -2258,6 +2256,33 @@ function badgeReqEstado(estado){
   if(estado==="Cumple")return `<span class="badge ok">Cumple</span>`;
   if(estado==="Observado")return `<span class="badge warn">Observado</span>`;
   return `<span class="badge bad">Bloqueado</span>`;
+}
+
+function estadoVisibleRequisito(item){
+  if(item.estado==='Cumple')return 'Vigente';
+  if(item.estado!=='Vencido/Pendiente')return item.estado;
+  const estados=(item.documentos||[]).map(d=>d.estado);
+  if(estados.includes('Pendiente'))return 'Pendiente';
+  if(estados.includes('Revisar'))return 'Revisar';
+  return estados.length?'Vencido':'Revisar';
+}
+function miniaturaRequisito(documento,trabajador){
+  for(const carpeta of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,trabajador))){
+    const archivo=(carpeta.archivos||[]).find(a=>a.nombre===documento.archivo&&a.esImagen&&/^blob:/.test(a.previewURL||''));
+    if(archivo)return archivo.previewURL;
+  }
+  return '';
+}
+function renderTarjetaRequisito(item,trabajador){
+  const estado=estadoVisibleRequisito(item),nombre=escaparPerfilDocumento(item.nombre);
+  const clase=item.estado==='Cumple'?'ok-doc':item.estado==='Por vencer'?'warn-doc':'bad-doc';
+  const documentos=item.documentos||[],visual=item.key==='licencia'||item.key==='cedula';
+  const cuerpo=documentos.slice(0,3).map(d=>{
+    const imagen=visual?miniaturaRequisito(d,trabajador):'';
+    const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
+    return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}</div>`;
+  }).join('');
+  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
 
 function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
@@ -2327,13 +2352,7 @@ function renderChecklistRequisitosTrabajador(t){
       Estado requisitos: ${badgeReqEstado(ev.estado)} · Cumplimiento requisitos: <b>${ev.cumplimiento}%</b> · Faltan/pendientes: <b>${ev.faltan}</b>
     </div>
     <div class="check-grid">
-      ${ev.checklist.map(item=>`
-        <div class="check-card ${item.estado==="Cumple"?"ok-doc":item.estado==="Por vencer"?"warn-doc":"bad-doc"}">
-          <b>${item.estado==="Cumple"?"✅":item.estado==="Por vencer"?"⚠️":"❌"} ${item.nombre}</b>
-          <div class="small" style="margin-top:6px">${item.estado}</div>
-          <div class="doc-list">${(item.archivos||[]).slice(0,3).map(a=>`<div class="doc-chip"><span>${a}</span><span>${item.estado}</span></div>`).join("")}</div>
-        </div>
-      `).join("")}
+      ${ev.checklist.map(item=>renderTarjetaRequisito(item,t)).join("")}
     </div>
   `;
 }
