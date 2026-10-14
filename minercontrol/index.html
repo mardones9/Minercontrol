@@ -2827,7 +2827,10 @@ function extensionArchivo(nombre){
 
 function extraerRutTexto(txt){
   const m=String(txt||"").match(/\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9kK]\b/);
-  return m?m[0].replace(/\./g,"").replace(/(\d{1,2})(\d{3})(\d{3})([0-9kK])/,"$1.$2.$3-$4"):"Sin RUT";
+  if(!m)return 'Sin RUT';
+  const limpio=m[0].replace(/[.-]/g,'').toUpperCase();
+  const cuerpo=limpio.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return cuerpo+'-'+limpio.slice(-1);
 }
 
 function textoSinRut(txt){
@@ -3802,7 +3805,7 @@ function cambiarDiaMiner(dia){
  for(const id of ['buscarArchivo','buscarTrabajador','buscarAcreditacion','buscarCarpeta','buscarHistorial','filtroFechaHistorial']){const campo=document.getElementById(id);if(campo)campo.value='';}
  document.getElementById('filtrarSemaforoTrabajador').value='todos';document.getElementById('filtroAccionHistorial').value='todos';
  document.getElementById('resumenImportacion').replaceChildren();document.getElementById('resumenCarpetasAuto').replaceChildren();
- cancelarRevisionExcel();cerrarDetalle();cerrarPerfilTrabajador();
+ cancelarRevisionExcel();cerrarPerfilDesdeDocumentos();cerrarDetalle();cerrarPerfilTrabajador();
  cargarLocal(false);renderizar();pintarDiasMiner();
 }
 function moverDiaMiner(delta){const d=new Date(diaSeleccionadoMiner+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+delta);cambiarDiaMiner(d.toISOString().slice(0,10));}
