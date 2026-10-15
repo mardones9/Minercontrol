@@ -4567,6 +4567,7 @@ async function restaurarRespaldoMiner(id,dia){
   for(const carpeta of carpetasTrabajadores){
    carpeta.archivosFisicos=originales.filter(f=>f.folder===carpeta.id).map(f=>f.file);
    for(const a of carpeta.archivos||[]){const f=carpeta.archivosFisicos.find(f=>f.name===a.nombre);a.previewURL=f&&a.esImagen?URL.createObjectURL(f):'';}
+   carpeta.fotosPrincipales=(carpeta.fotosPrincipales||[]).map(f=>({...f,previewURL:(carpeta.archivos||[]).find(a=>a.nombre===f.nombre)?.previewURL||''}));
   }
   guardarLocal(false);renderizar();
   estado.textContent='Respaldo del '+dia+' abierto: '+originales.length+' originales recuperados'+(r.backup.payload.faltantes?.length?' · '+r.backup.payload.faltantes.length+' originales pendientes':'')+'.';
