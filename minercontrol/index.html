@@ -713,6 +713,7 @@ button{transition:.15s ease}
 <div class="file-actions"><button class="mini green" id="exportarRevisionTemporal" onclick="exportarRevisionTemporal()" disabled>Exportar diagnóstico Excel</button><button class="mini blue" id="finalizarRevisionTemporal" onclick="finalizarRevisionTemporal()" disabled>Finalizar revisión y liberar espacio</button></div>
 <p id="revisionTemporalLimite" class="meta"></p><div style="overflow:auto"><table><thead><tr><th>Trabajador</th><th>RUT</th><th>Faena</th><th>Estado</th><th>Motivos</th></tr></thead><tbody id="revisionTemporalFilas"></tbody></table></div></div>
 </details>
+    <p id="estadoOriginalesCarpetas" class="meta" role="status">Los originales de nuevas cargas se guardan en este navegador. Descarga un respaldo para conservar otra copia.</p>
     <div id="resumenCarpetasAuto"></div>
     <div id="carpetasGrid"></div>
   </div>
@@ -823,7 +824,7 @@ button{transition:.15s ease}
 <details class="extra-options">
   <summary>Mantenimiento de datos</summary>
   <div class="extra-options-grid">
-    <div><button class="purple mini" onclick="guardarLocal()">Guardar datos en este navegador</button><p>Guarda los datos actuales para recuperarlos en este mismo navegador. Los archivos físicos no se guardan.</p></div>
+    <div><button class="purple mini" onclick="guardarLocal()">Guardar datos en este navegador</button><p>Guarda los datos actuales para recuperarlos en este mismo navegador. Los originales de carpetas se guardan también en este navegador; consulta su estado en Respaldo de mi cuenta.</p></div>
     <div><button class="yellow mini" onclick="cargarLocal()">Recuperar datos guardados</button><p>Abre los datos que guardaste anteriormente en este navegador.</p></div>
     <div><button class="blue mini" onclick="diagnosticarSistema()">Diagnóstico</button><p>Revisa los datos cargados y muestra posibles problemas.</p></div>
     <div><button class="blue mini" onclick="cargarDemo()">Cargar demo</button><p>Carga datos de ejemplo para explorar el sistema.</p></div>
@@ -2742,9 +2743,10 @@ function guardarLocal(mostrar=true){
     actualizado:new Date().toISOString()
   }));
 
+  encolarCarpetasLocales();
   actualizarEstadoSistema();
   pintarDiasMiner();
-  if(mostrar)mostrarToast("💾 Vista guardada en este computador.","ok");
+  if(mostrar)mostrarToast("Datos guardados. Consulta el estado de los originales en Respaldo de mi cuenta.","ok");
 }
 
 function cargarLocal(mostrar=true){
@@ -2777,7 +2779,8 @@ function cargarLocal(mostrar=true){
     });
     reconstruirTrabajadores();
     renderizar();
-    if(mostrar)mostrarToast("✅ Datos cargados.","ok");
+    recuperarCarpetasLocales();
+    if(mostrar)mostrarToast("Datos cargados; recuperando originales locales.","ok");
   }catch(e){
     if(mostrar)mostrarToast("No se pudieron cargar los datos guardados.","error");
   }
@@ -4181,6 +4184,8 @@ function abrirSesionMiner(){
  pintarSuscripcionMiner(usuarioActual.subscription);if(usuarioActual.role==='Administrador')refrescarAvisosCobroMiner();
 }
 async function cerrarSesion(){
+ if(typeof respaldoOcupado!=='undefined'&&respaldoOcupado){mostrarToast('Espera a que termine el respaldo o la restauración.','warn');return;}
+ if(typeof pendientesOriginalesLocales!=='undefined'&&pendientesOriginalesLocales){mostrarToast('Guardando originales locales; espera antes de salir.','warn');return;}
  if(typeof revisionTemporal!=="undefined" && revisionTemporal){
    if(revisionTemporal.leyendo){mostrarToast('Espera a que termine la revisión antes de salir.','warn');return;}
    if(!confirm('Hay una revisión temporal abierta. ¿Volver al ingreso y descartarla? Exporta primero si deseas conservar el resultado.'))return;
@@ -4773,15 +4778,16 @@ async function revisarContenidoCedula(){
 </script>
 <dialog id="respaldoMiner" style="margin:auto;width:min(760px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;background:var(--panel);color:var(--text);padding:24px" aria-label="Respaldo de mi cuenta">
 <button class="mini blue" onclick="cerrarRespaldoMiner()" style="float:right">Cerrar</button><h2>Respaldo de mi cuenta</h2>
-<p class="meta">Guarda una copia privada del día actual en Supabase para abrirla desde otro equipo. Incluye datos y originales disponibles. Los cambios posteriores requieren un nuevo respaldo.</p>
+<div class="section" style="margin-top:18px"><h3>Respaldo en tu equipo</h3><p class="meta">Los originales de carpetas y fichas se conservan en este navegador. Descarga una copia completa del día para protegerlos o llevarlos a otro equipo. No se envían a Supabase.</p><div class="file-actions"><button class="mini green" onclick="descargarRespaldoLocal()">Descargar respaldo completo</button><label class="mini blue" style="cursor:pointer">Seleccionar respaldo ZIP<input type="file" accept=".zip" style="display:none" onchange="prepararRestauracionLocal(this)"></label><button class="mini yellow" id="confirmarRestauracionLocal" hidden onclick="confirmarRestauracionLocal()">Restaurar este día</button><button class="mini blue" onclick="recuperarCopiaAnteriorLocal()">Recuperar copia anterior</button></div><p id="estadoRespaldoLocal" role="status" class="meta" style="margin-top:12px">Solo en este navegador; descarga una segunda copia. Un respaldo abarca el día seleccionado, hasta 200 MB y 1000 archivos.</p></div><details><summary>Respaldo opcional en Supabase</summary><p class="meta">Guarda una copia privada del día actual en Supabase para abrirla desde otro equipo. Incluye datos y originales disponibles. Los cambios posteriores requieren un nuevo respaldo.</p>
 <div class="actions"><button class="mini purple" onclick="guardarRespaldoMiner()">Guardar respaldo del día actual</button></div>
 <label class="meta"><input type="checkbox" id="permitirRespaldoParcial"> Guardar los datos disponibles aunque falten originales.</label>
 <h3 style="margin-top:20px">Abrir un respaldo</h3><label>Día del respaldo <input class="search" type="date" id="respaldoDia"></label>
 <button class="mini blue" onclick="listarRespaldosMiner()">Buscar respaldos</button><div class="actions" id="listaRespaldos" style="margin:12px 0"></div>
 <p class="meta">Abre los respaldos del día seleccionado en el calendario. Puedes recuperar la vista anterior en este equipo.</p><button class="mini yellow" onclick="recuperarAntesRespaldoMiner()">Recuperar vista anterior</button>
-<p id="estadoRespaldo" role="status" style="margin-top:16px"></p></dialog><script>
+<p id="estadoRespaldo" role="status" style="margin-top:16px"></p></details></dialog><script>
 let respaldoOcupado=false;
 function abrirRespaldoMiner(){
+ restauracionLocalPendiente=null;document.getElementById('confirmarRestauracionLocal').hidden=true;
  document.getElementById('respaldoDia').value=diaSeleccionadoMiner;
  document.getElementById('estadoRespaldo').textContent='El respaldo conserva los datos y originales del día seleccionado. Consulta otros días desde el calendario de MinerControl.';
  document.getElementById('listaRespaldos').replaceChildren();
@@ -5007,6 +5013,103 @@ function originalGuardadoEnTarjeta(item,t){
  const pdf=r.tipo==='application/pdf'||/\.pdf$/i.test(r.nombre);
  return `<div style="margin-top:12px"><b>Original guardado en esta ficha</b><p class="small">${esc(r.nombre)} · Revisión humana pendiente</p>${pdf?`<a href="${esc(r.url)}" target="_blank" rel="noopener">Abrir PDF original</a>`:`<img src="${esc(r.url)}" alt="Original guardado de ${esc(item.nombre)}" style="display:block;width:100%;max-height:220px;object-fit:contain">`}${r.lectura?.nombreVisual?.imagen?.startsWith('data:image/jpeg')?renderEvidenciaNombre(r.lectura.nombreVisual):''}<p class="small">Guardado en este navegador. Los datos importados de Excel se muestran por separado.</p></div>`;
 }
+</script>
+<script>
+// Copias locales: ningún archivo se envía a la red.
+let colaOriginalesLocales=Promise.resolve(),pendientesOriginalesLocales=0,errorOriginalesLocales='',restauracionLocalPendiente=null;
+const firmasCarpetasLocales=new Map();
+const LIMITE_RESPALDO_LOCAL=200*1024*1024;
+function mensajeRespaldoLocal(texto){for(const id of ['estadoRespaldoLocal','estadoOriginalesCarpetas']){const n=document.getElementById(id);if(n)n.textContent=texto;}}
+function contextoLocalMiner(){return {clave:claveDatosMiner(),dia:diaSeleccionadoMiner,id:usuarioActual?.id};}
+function sigueContextoLocal(c){return usuarioActual?.id===c.id&&diaSeleccionadoMiner===c.dia&&claveDatosMiner()===c.clave;}
+function abrirDBLocalMiner(){return new Promise((resolve,reject)=>{const r=indexedDB.open('minercontrol-carpetas-local-v1',1);r.onupgradeneeded=()=>{r.result.createObjectStore('carpetas',{keyPath:'key'});r.result.createObjectStore('anteriores',{keyPath:'key'});};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(new Error('No se pudo abrir el almacenamiento local.'));});}
+async function operarDBLocalMiner(store,modo,accion){const db=await abrirDBLocalMiner();try{return await new Promise((resolve,reject)=>{const tx=db.transaction(store,modo);let result;const r=accion(tx.objectStore(store));r.onsuccess=()=>result=r.result;tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(new Error('No se completó el guardado local. Comprueba el espacio del navegador.'));});}finally{db.close();}}
+function keyCarpetaLocal(clave,id){return clave+':carpeta:'+String(id);}
+function encolarCarpetasLocales(){
+ const c=contextoLocalMiner(),carpetas=carpetasTrabajadores.filter(x=>x.archivosFisicos?.length).map(x=>({key:keyCarpetaLocal(c.clave,x.id),files:[...x.archivosFisicos]}));
+ const nuevas=carpetas.filter(x=>{const f=firmasCarpetasLocales.get(x.key);return !f||f.length!==x.files.length||f.some((v,i)=>v!==x.files[i]);});
+ if(!nuevas.length)return colaOriginalesLocales;
+ pendientesOriginalesLocales++;mensajeRespaldoLocal('Guardando originales en este navegador…');
+ colaOriginalesLocales=colaOriginalesLocales.catch(()=>{}).then(async()=>{for(const r of nuevas){await operarDBLocalMiner('carpetas','readwrite',s=>s.put(r));firmasCarpetasLocales.set(r.key,r.files);}errorOriginalesLocales='';if(sigueContextoLocal(c))mensajeRespaldoLocal('Originales de carpetas guardados en este navegador. Descarga un respaldo para conservar otra copia.');}).catch(e=>{errorOriginalesLocales=e.message;if(sigueContextoLocal(c))mensajeRespaldoLocal(e.message+' Conserva los archivos y descarga un respaldo antes de cerrar.');}).finally(()=>pendientesOriginalesLocales--);
+ return colaOriginalesLocales;
+}
+async function recuperarCarpetasLocales(){
+ const c=contextoLocalMiner(),lista=carpetasTrabajadores;let recuperados=0,faltan=0;
+ try{await colaOriginalesLocales;
+ for(const carpeta of lista){
+  if(!sigueContextoLocal(c)||lista!==carpetasTrabajadores)return;
+  if(!carpeta.archivosFisicos?.length){const r=await operarDBLocalMiner('carpetas','readonly',s=>s.get(keyCarpetaLocal(c.clave,carpeta.id)));if(!sigueContextoLocal(c)||lista!==carpetasTrabajadores)return;carpeta.archivosFisicos=r?.files||[];}
+  const files=carpeta.archivosFisicos||[];recuperados+=files.length;
+  faltan+=(carpeta.archivos||[]).filter(a=>!files.some(f=>f.name===a.nombre)).length;
+  for(const a of carpeta.archivos||[]){const f=files.find(f=>f.name===a.nombre);if(f&&a.esImagen&&!a.previewURL)a.previewURL=URL.createObjectURL(f);}
+  carpeta.fotosPrincipales=(carpeta.fotosPrincipales||[]).map(f=>({...f,previewURL:(carpeta.archivos||[]).find(a=>a.nombre===f.nombre)?.previewURL||''}));
+  actualizarRevisionCarpeta(carpeta);
+ }
+ if(sigueContextoLocal(c)&&lista===carpetasTrabajadores){renderizar();mensajeRespaldoLocal(recuperados+' originales de carpetas disponibles en este navegador.'+(faltan?' Faltan '+faltan+' archivos de cargas anteriores: vuelve a cargarlos.':' Descarga un respaldo para conservar otra copia.'));}
+ }catch(e){if(sigueContextoLocal(c))mensajeRespaldoLocal(e.message);}
+}
+async function listarLectoresLocales(clave){const db=await abrirDBOriginalesFicha();try{return await new Promise((resolve,reject)=>{const tx=db.transaction('originales','readonly'),r=tx.objectStore('originales').getAll();let rows=[];r.onsuccess=()=>rows=r.result;tx.oncomplete=()=>resolve(rows.filter(x=>x.key.startsWith(clave+':original:')));tx.onerror=tx.onabort=()=>reject(new Error('No se pudieron leer los originales de las fichas.'));});}finally{db.close();}}
+async function reemplazarLectoresLocales(clave,rows){const db=await abrirDBOriginalesFicha();try{await new Promise((resolve,reject)=>{const tx=db.transaction('originales','readwrite'),s=tx.objectStore('originales'),r=s.openCursor();r.onsuccess=()=>{const cur=r.result;if(cur){if(String(cur.key).startsWith(clave+':original:'))cur.delete();cur.continue();}else for(const row of rows)s.put(row);};tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(new Error('No se pudieron restaurar las lecturas locales.'));});}finally{db.close();}}
+async function capturarDiaLocal(c){
+ await colaOriginalesLocales;if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');
+ guardarLocal(false);await colaOriginalesLocales;
+ const data=JSON.parse(localStorage.getItem(c.clave)),folders=[];
+ for(const carpeta of carpetasTrabajadores){const guardado=await operarDBLocalMiner('carpetas','readonly',s=>s.get(keyCarpetaLocal(c.clave,carpeta.id)));folders.push({id:carpeta.id,files:carpeta.archivosFisicos?.length?[...carpeta.archivosFisicos]:guardado?.files||[]});}
+ const readers=await listarLectoresLocales(c.clave);if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');
+ return {data,folders,readers};
+}
+async function hashArchivoLocal(blob){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))].map(n=>n.toString(16).padStart(2,'0')).join('');}
+async function crearZipLocal(c,copia){
+ const zip=new JSZip(),manifest={format:'MinerControl-local',version:1,day:c.dia,createdAt:new Date().toISOString(),data:copia.data,folders:[],readers:[],files:[]};let bytes=0;
+ async function agregar(file){if(!(file instanceof Blob))throw new Error('Un original no está disponible.');bytes+=file.size;if(bytes>LIMITE_RESPALDO_LOCAL||manifest.files.length>=1000)throw new Error('El respaldo local admite hasta 200 MB y 1000 archivos.');const path='originales/'+manifest.files.length;manifest.files.push({path,name:file.name,type:file.type,size:file.size,lastModified:file.lastModified,sha256:await hashArchivoLocal(file)});zip.file(path,await file.arrayBuffer());return path;}
+ const faltantes=[];
+ for(const f of copia.folders){manifest.folders.push({id:f.id,files:[]});for(const file of f.files)manifest.folders.at(-1).files.push(await agregar(file));const carpeta=copia.data.carpetasTrabajadores.find(x=>x.id===f.id);for(const a of carpeta?.archivos||[])if(!f.files.some(x=>x.name===a.nombre))faltantes.push(a.nombre);}
+ if(faltantes.length)throw new Error('Faltan '+faltantes.length+' originales de carpetas. Vuelve a cargarlos antes de descargar un respaldo completo.');
+ for(const row of copia.readers){const {file,key,...datos}=row;manifest.readers.push({...datos,file:await agregar(file)});}
+ const json=JSON.stringify(manifest);if(new TextEncoder().encode(json).length>5*1024*1024)throw new Error('Las lecturas y datos superan 5 MB. Divide la carga por días.');zip.file('minercontrol.json',json);
+ return {blob:await zip.generateAsync({type:'blob',compression:'STORE'}),count:manifest.files.length};
+}
+async function descargarRespaldoLocal(){if(respaldoOcupado)return;respaldoOcupado=true;const c=contextoLocalMiner();try{mensajeRespaldoLocal('Preparando copia local completa…');const copia=await capturarDiaLocal(c),r=await crearZipLocal(c,copia);if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');const a=document.createElement('a');a.href=URL.createObjectURL(r.blob);a.download='MinerControl_'+c.dia+'_completo.zip';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);mensajeRespaldoLocal('Descarga solicitada: '+r.count+' originales, datos y lecturas. Comprueba que el ZIP quedó guardado en tu equipo. No se subió a Supabase.');}catch(e){mensajeRespaldoLocal(e.message);}finally{respaldoOcupado=false;}}
+function validarDatosLocales(d){
+ if(!d||typeof d!=='object'||Array.isArray(d))throw new Error('Datos del respaldo no válidos.');
+ for(const k of ['docs','archivos','errores','carpetasTrabajadores','historialOperacional','trabajadores'])if(!Array.isArray(d[k]))throw new Error('Falta la lista '+k+'.');
+ if(!d.requisitosFaena||typeof d.requisitosFaena!=='object'||Array.isArray(d.requisitosFaena))throw new Error('Requisitos no válidos.');
+ const revisar=o=>{if(o&&typeof o==='object')for(const k of Object.keys(o)){if(['__proto__','constructor','prototype'].includes(k))throw new Error('El respaldo contiene campos no admitidos.');revisar(o[k]);}};revisar(d);
+ const ids=d.carpetasTrabajadores.map(c=>String(c.id));if(new Set(ids).size!==ids.length||d.carpetasTrabajadores.some(c=>!c.id||!Array.isArray(c.archivos)))throw new Error('Carpetas no válidas o duplicadas.');
+}
+async function leerZipLocal(file,c){
+ if(!file||file.size>LIMITE_RESPALDO_LOCAL+6*1024*1024)throw new Error('Usa un ZIP MinerControl de hasta 206 MB.');
+ const zip=await JSZip.loadAsync(await file.arrayBuffer()),entradas=Object.values(zip.files);if(entradas.length>1105)throw new Error('Demasiados archivos en el respaldo.');
+ const item=zip.file('minercontrol.json');if(!item||item._data?.uncompressedSize>5*1024*1024)throw new Error('No contiene un manifiesto MinerControl válido.');
+ const raw=await item.async('string');if(new TextEncoder().encode(raw).length>5*1024*1024)throw new Error('Manifiesto demasiado grande.');const m=JSON.parse(raw);
+ if(m.format!=='MinerControl-local'||m.version!==1||m.day!==c.dia)throw new Error('Selecciona en el calendario el día del respaldo antes de restaurar.');
+ validarDatosLocales(m.data);if(!Array.isArray(m.files)||!Array.isArray(m.folders)||!Array.isArray(m.readers)||m.files.length>1000)throw new Error('Índice de archivos no válido.');
+ const files=new Map();let total=0;
+ for(const f of m.files){const entry=zip.file(f.path);if(!/^originales\/\d+$/.test(f.path)||files.has(f.path)||!entry||typeof f.name!=='string'||typeof f.type!=='string'||!Number.isSafeInteger(f.size)||f.size<0||!Number.isSafeInteger(entry._data?.uncompressedSize)||entry._data.uncompressedSize!==f.size)throw new Error('Índice de originales no válido.');total+=f.size;if(total>LIMITE_RESPALDO_LOCAL)throw new Error('Los originales superan 200 MB.');files.set(f.path,null);}
+ for(const f of m.files){const bytes=await zip.file(f.path).async('uint8array'),blob=new File([bytes],f.name,{type:f.type,lastModified:f.lastModified});if(blob.size!==f.size||await hashArchivoLocal(blob)!==f.sha256)throw new Error('Un original está incompleto o alterado. No se restauró nada.');files.set(f.path,blob);}
+ const ids=new Set();const usados=new Set();const folders=m.folders.map(f=>{if(ids.has(String(f.id))||!m.data.carpetasTrabajadores.some(x=>x.id===f.id)||!Array.isArray(f.files))throw new Error('Carpeta no válida.');ids.add(String(f.id));return {id:f.id,files:f.files.map(p=>{if(!files.get(p)||usados.has(p))throw new Error('Original ausente o repetido.');usados.add(p);return files.get(p);})};});
+ if(folders.length!==m.data.carpetasTrabajadores.length)throw new Error('Faltan carpetas en el respaldo.');
+ for(const f of folders)for(const a of m.data.carpetasTrabajadores.find(x=>x.id===f.id).archivos)if(!f.files.some(x=>x.name===a.nombre))throw new Error('El respaldo no incluye todos los originales.');
+ const claves=new Set();const readers=m.readers.map(row=>{const {file,...datos}=row;const t={rut:row.rut,trabajador:row.trabajador,faena:row.faena};if(!row.rut||!row.faena||typeof row.requisito!=='string'||!files.get(file)||usados.has(file))throw new Error('Ficha de original no válida.');usados.add(file);const key=c.clave+':original:'+claveTrabajador(t)+':'+row.requisito;if(claves.has(key))throw new Error('Ficha duplicada.');claves.add(key);return {...datos,key,file:files.get(file)};});
+ if(usados.size!==files.size)throw new Error('Hay originales sin asociación.');return {data:m.data,folders,readers};
+}
+async function prepararRestauracionLocal(input){if(respaldoOcupado)return;restauracionLocalPendiente=null;document.getElementById('confirmarRestauracionLocal').hidden=true;respaldoOcupado=true;const c=contextoLocalMiner();try{mensajeRespaldoLocal('Comprobando datos e integridad de los originales…');const copia=await leerZipLocal(input.files?.[0],c);if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');restauracionLocalPendiente={c,copia};document.getElementById('confirmarRestauracionLocal').hidden=false;mensajeRespaldoLocal('Respaldo válido para '+c.dia+': '+copia.folders.length+' carpetas y '+copia.readers.length+' originales de fichas. Restaurar reemplazará este día en tu cuenta actual. Se conservará una copia local anterior.');}catch(e){mensajeRespaldoLocal(e.message);}finally{input.value='';respaldoOcupado=false;}}
+async function aplicarCopiaLocal(c,copia){
+ for(const f of copia.folders)await operarDBLocalMiner('carpetas','readwrite',s=>s.put({key:keyCarpetaLocal(c.clave,f.id),files:f.files}));
+ await reemplazarLectoresLocales(c.clave,copia.readers);localStorage.setItem(c.clave,JSON.stringify(copia.data));
+ for(const r of originalesFichaCache.values())if(r?.url)URL.revokeObjectURL(r.url);originalesFichaCache.clear();consultasOriginalesFicha.clear();firmasCarpetasLocales.clear();
+ cargarLocal(false);await recuperarCarpetasLocales();
+}
+async function confirmarRestauracionLocal(){
+ if(respaldoOcupado||!restauracionLocalPendiente)return;const {c,copia}=restauracionLocalPendiente;if(!sigueContextoLocal(c)){mensajeRespaldoLocal('Cambió la cuenta o el día. Vuelve a seleccionar el ZIP.');return;}
+ respaldoOcupado=true;let anterior=null;
+ try{anterior=await capturarDiaLocal(c);await operarDBLocalMiner('anteriores','readwrite',s=>s.put({key:c.clave,...anterior}));await aplicarCopiaLocal(c,copia);restauracionLocalPendiente=null;document.getElementById('confirmarRestauracionLocal').hidden=true;mensajeRespaldoLocal('Respaldo restaurado y originales guardados en este navegador. Se conserva la copia anterior. No se envió nada a Supabase.');}
+ catch(e){let revertido=false;if(anterior)try{await aplicarCopiaLocal(c,anterior);revertido=true;}catch{}mensajeRespaldoLocal(e.message+(revertido?' Se recuperó la vista anterior.':' No se completó la restauración; conserva el ZIP y usa Recuperar copia anterior.'));}
+ finally{respaldoOcupado=false;}
+}
+async function recuperarCopiaAnteriorLocal(){if(respaldoOcupado)return;const c=contextoLocalMiner();respaldoOcupado=true;try{const anterior=await operarDBLocalMiner('anteriores','readonly',s=>s.get(c.clave));if(!anterior)throw new Error('No hay copia anterior para este día.');if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');await aplicarCopiaLocal(c,anterior);mensajeRespaldoLocal('Copia anterior recuperada con sus originales.');}catch(e){mensajeRespaldoLocal(e.message);}finally{respaldoOcupado=false;}}
+window.addEventListener('beforeunload',event=>{if(pendientesOriginalesLocales||errorOriginalesLocales||respaldoOcupado){event.preventDefault();event.returnValue='';}});
+
 </script>
 </body>
 </html>
