@@ -624,12 +624,16 @@ button{transition:.15s ease}
   <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf" aria-label="Archivo para leer contenido" onchange="invalidarLecturaContenido()">
   <div class="file-actions" style="margin-top:14px">
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
+    <button class="mini blue" id="detectarFotoDocumento" onclick="detectarFotoDocumentoMiner()">Detectar foto de rostro</button>
     <button class="mini yellow" id="limpiarContenido" onclick="limpiarLecturaContenido()">Descartar resultado</button>
   </div>
   <p class="meta">Se usa únicamente el vencimiento, vigencia hasta o próximo control identificado. La emisión, nacimiento y fecha del examen no sustituyen el vencimiento.</p>
   <p class="meta">Lectura local en este navegador. Se descargan los motores de lectura; el archivo no se envía a un servicio de análisis. No acredita automáticamente ni comprueba autenticidad.</p>
   <p id="estadoContenido" role="status" aria-live="polite">Sin archivo leído.</p>
   <div id="vistaOriginalContenido"></div>
+  <p class="meta">Revisa que el documento esté completo, el rostro visible y los datos sin reflejos. Los avisos de calidad son orientativos, no una aprobación ni una norma del Registro Civil.</p>
+  <p id="estadoFotoDocumento" role="status" class="meta">La detección de foto localiza rostros; no identifica a la persona.</p>
+  <div id="resultadoFotoDocumento"></div>
   <div id="resultadoContenido" class="alert"></div>
   <div class="alert" id="confirmacionFechaContenido" hidden>
     <h3>Confirmar vencimiento</h3>
@@ -2839,6 +2843,8 @@ const DOCS_REQUERIDOS=[
   {key:"cedula", nombre:"Cédula de identidad", peso:18, aliases:["cedula","cedulaidentidad","carnet","ci","identidad","rut","run","dni","documentoidentidad","c.i"]},
   {key:"licencia", nombre:"Licencia de conducir", peso:16, aliases:["licencia","conducir","conductor","claseb","clased","clasea","licenciaconducir","licenciachofer"]},
   {key:"examen", nombre:"Examen ocupacional", peso:18, aliases:["examen","ocupacional","preocupacional","medico","salud","altura","alturafisica","psicosensometrico","psico","aptitud"]},
+  {key:"altura", nombre:"Examen altura física", peso:18, aliases:["alturafisica","trabajoaltura"]},
+  {key:"psicosensometrico", nombre:"Examen psicosensométrico", peso:18, aliases:["psicosensometrico","sensometrico"]},
   {key:"contrato", nombre:"Contrato / anexo", peso:16, aliases:["contrato","anexo","contratodetrabajo","adendum","relacionlaboral"]},
   {key:"odi", nombre:"ODI / Derecho a Saber", peso:15, aliases:["odi","derechoasaber","obligaciondeinformar","charla","das","induccionodi"]},
   {key:"antecedentes", nombre:"Certificado antecedentes", peso:13, aliases:["antecedentes","certificadoantecedentes","penales","criminal","registrocivil"]},
@@ -2941,13 +2947,18 @@ function detectarDocumentoArchivo(nombre,ruta=""){
     const senales=[];
     req.aliases.forEach(a=>{
       const an=normalizar(a);
-      if(n.includes(an)){
+      const corta=an.length<=3;
+      const palabras=String(full).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]+/g)||[];
+      if(corta?palabras.includes(an)||(an==="ci"&&/\bc\.i\b/i.test(full)):n.includes(an)){
         score+=req.peso;
         senales.push(a);
       }
     });
     if(score>mejor.peso)mejor={key:req.key,nombre:req.nombre,confianza:Math.min(98,45+score),senales,peso:score};
   });
+
+  const especial=n.includes("psicosensometrico")?"psicosensometrico":n.includes("alturafisica")||n.includes("trabajoaltura")?"altura":"";
+  if(especial){const req=DOCS_REQUERIDOS.find(r=>r.key===especial);mejor={key:req.key,nombre:req.nombre,confianza:85,senales:[especial],peso:85};}
 
   if(mejor.key==="otro"){
     if(["jpg","jpeg","png","webp"].includes(ext))mejor={key:"foto",nombre:"Foto trabajador / imagen",confianza:55,senales:["imagen"],peso:5};
@@ -4279,6 +4290,8 @@ function prepararConfirmacionFechaContenido(){
   mostrarOriginalContenido();
 }
 function mostrarOriginalContenido(){
+  document.getElementById('resultadoFotoDocumento').replaceChildren();
+  document.getElementById('estadoFotoDocumento').textContent='La detección de foto localiza rostros; no identifica a la persona.';
   const panel=document.getElementById('vistaOriginalContenido');panel.replaceChildren();
   if(urlOriginalContenido){URL.revokeObjectURL(urlOriginalContenido);urlOriginalContenido='';}
   document.getElementById('aceptarFechaContenido').checked=false;
@@ -4432,6 +4445,8 @@ function limpiarLecturaContenido(){
   destinosFechaContenido=[];contextoFechaContenido=null;
   if(urlOriginalContenido){URL.revokeObjectURL(urlOriginalContenido);urlOriginalContenido='';}
   document.getElementById('vistaOriginalContenido').replaceChildren();
+  document.getElementById('resultadoFotoDocumento').replaceChildren();
+  document.getElementById('estadoFotoDocumento').textContent='La detección de foto localiza rostros; no identifica a la persona.';
   document.getElementById('confirmacionFechaContenido').hidden=true;
   document.getElementById('resultadoContenido').replaceChildren();
   document.getElementById('textoContenido').textContent='';
@@ -4472,7 +4487,7 @@ async function revisarContenidoCedula(){
   const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value,tipo=tipoDocumentoContenido;
   const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
   lecturaContenidoActiva=true;
-  for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido'])document.getElementById(id).disabled=true;
+  for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
   let worker=null,pdf=null;
   try{
@@ -4528,7 +4543,7 @@ async function revisarContenidoCedula(){
     try{if(worker)await worker.terminate();}catch{}
     try{if(pdf)await pdf.destroy();}catch{}
     lecturaContenidoActiva=false;
-    for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido'])document.getElementById(id).disabled=false;
+    for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
   }
 }
 
@@ -4626,6 +4641,101 @@ function recuperarAntesRespaldoMiner(){
  if(respaldoOcupado)return;const clave=claveDatosMiner(),raw=localStorage.getItem(clave+':antesDeRespaldo');
  if(!raw){document.getElementById('estadoRespaldo').textContent='No hay una vista anterior guardada en este equipo.';return;}
  localStorage.setItem(clave,raw);cargarLocal(false);document.getElementById('estadoRespaldo').textContent='Vista anterior recuperada. Vuelve a cargar los originales que solo estaban en memoria.';
+}
+
+</script>
+<script>
+let detectorFotoPromesa=null;
+async function cargarDetectorFotoMiner(){
+ if(!detectorFotoPromesa)detectorFotoPromesa=(async()=>{
+  const base='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21';
+  const {FilesetResolver,FaceDetector}=await import(base+'/vision_bundle.mjs');
+  const vision=await FilesetResolver.forVisionTasks(base+'/wasm');
+  return FaceDetector.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',delegate:'CPU'},runningMode:'IMAGE',minDetectionConfidence:0.65});
+ })().catch(e=>{detectorFotoPromesa=null;throw e;});
+ return detectorFotoPromesa;
+}
+function rectanguloFotoMiner(box,ancho,alto){
+ if(!box||![box.originX,box.originY,box.width,box.height,ancho,alto].every(Number.isFinite)||box.width<=0||box.height<=0)return null;
+ const x=Math.max(0,box.originX),y=Math.max(0,box.originY),w=Math.min(ancho,box.originX+box.width)-x,h=Math.min(alto,box.originY+box.height)-y;
+ return w>0&&h>0?{x,y,w,h}:null;
+}
+function unirRostrosMiner(lista,nuevo){
+ const repetido=lista.some(a=>{
+  const area=Math.max(0,Math.min(a.x+a.w,nuevo.x+nuevo.w)-Math.max(a.x,nuevo.x))*Math.max(0,Math.min(a.y+a.h,nuevo.y+nuevo.h)-Math.max(a.y,nuevo.y));
+  return area/(a.w*a.h+nuevo.w*nuevo.h-area)>.3;
+ });
+ if(!repetido)lista.push(nuevo);
+}
+function detectarRostrosCanvasMiner(canvas,detector){
+ const zonas=[[0,0,canvas.width,canvas.height],[0,0,Math.round(canvas.width*.60),canvas.height],[Math.round(canvas.width*.40),0,Math.round(canvas.width*.60),canvas.height]],rostros=[];
+ for(const [x,y,w,h] of zonas){
+  const zona=document.createElement('canvas');zona.width=w;zona.height=h;
+  try{
+   zona.getContext('2d').drawImage(canvas,x,y,w,h,0,0,w,h);
+   for(const d of detector.detect(zona).detections||[]){const b=d.boundingBox;const r=rectanguloFotoMiner(b&&{...b,originX:b.originX+x,originY:b.originY+y},canvas.width,canvas.height);if(r)unirRostrosMiner(rostros,r);}
+  }finally{zona.width=0;zona.height=0;}
+ }
+ return rostros.sort((a,b)=>b.w*b.h-a.w*a.h).slice(0,6);
+}
+function indicadoresFotoMiner(rgba,ancho,alto,rostro,anchoDocumento,altoDocumento){
+ const gris=new Float64Array(ancho*alto);let suma=0,extremos=0;
+ for(let i=0;i<gris.length;i++){const j=i*4,v=.299*rgba[j]+.587*rgba[j+1]+.114*rgba[j+2];gris[i]=v;suma+=v;if(v<15||v>245)extremos++;}
+ let lap=0,lap2=0,n=0;
+ for(let y=1;y<alto-1;y++)for(let x=1;x<ancho-1;x++){const i=y*ancho+x,v=gris[i-1]+gris[i+1]+gris[i-ancho]+gris[i+ancho]-4*gris[i];lap+=v;lap2+=v*v;n++;}
+ const varianza=n?Math.max(0,lap2/n-(lap/n)**2):0,media=gris.length?suma/gris.length:0,avisos=[];
+ if(Math.min(rostro.w,rostro.h)<90)avisos.push('Rostro pequeño: usa una imagen de mayor tamaño.');
+ if(rostro.x<4||rostro.y<4||rostro.x+rostro.w>anchoDocumento-4||rostro.y+rostro.h>altoDocumento-4)avisos.push('Rostro junto al borde: comprueba que no esté cortado.');
+ if(varianza<35)avisos.push('Posible desenfoque: comprueba ojos y contornos en el original.');
+ if(media<45)avisos.push('Foto oscura: mejora la iluminación.');else if(media>220||extremos/gris.length>.5)avisos.push('Posible exceso de luz o reflejos: revisa el original.');
+ return {avisos,varianza,media};
+}
+function mostrarRostrosMiner(canvas,rostros,pagina,panel){
+ const titulo=document.createElement('p');titulo.textContent='Página '+pagina+': '+rostros.length+' rostro'+(rostros.length===1?'':'s')+' detectado'+(rostros.length===1?'':'s')+'.';panel.append(titulo);
+ const vista=document.createElement('canvas');vista.width=canvas.width;vista.height=canvas.height;
+ const ctx=vista.getContext('2d');ctx.drawImage(canvas,0,0);ctx.strokeStyle='#22c55e';ctx.lineWidth=Math.max(3,canvas.width/300);
+ for(const r of rostros)ctx.strokeRect(r.x,r.y,r.w,r.h);
+ const img=document.createElement('img');img.src=vista.toDataURL('image/jpeg',.85);img.alt='Documento con las zonas de rostro detectadas';img.style.cssText='width:100%;max-height:340px;object-fit:contain';panel.append(img);vista.width=0;vista.height=0;
+ const galeria=document.createElement('div');galeria.className='actions';
+ for(const [i,r] of rostros.entries()){
+  const margen=Math.min(r.w,r.h)*.25,x=Math.max(0,r.x-margen),y=Math.max(0,r.y-margen),w=Math.min(canvas.width-x,r.w+2*margen),h=Math.min(canvas.height-y,r.h+2*margen);
+  const recorte=document.createElement('canvas');recorte.width=Math.round(w);recorte.height=Math.round(h);recorte.getContext('2d').drawImage(canvas,x,y,w,h,0,0,w,h);
+  const foto=document.createElement('img');foto.src=recorte.toDataURL('image/jpeg',.9);foto.alt='Foto de rostro detectada '+(i+1)+' en página '+pagina;foto.style.cssText='width:150px;height:180px;object-fit:contain;border:1px solid var(--line);border-radius:12px';galeria.append(foto);recorte.width=0;recorte.height=0;
+  const muestra=document.createElement('canvas');muestra.width=128;muestra.height=128;const mctx=muestra.getContext('2d',{willReadFrequently:true});mctx.drawImage(canvas,r.x,r.y,r.w,r.h,0,0,128,128);
+  const indicadores=indicadoresFotoMiner(mctx.getImageData(0,0,128,128).data,128,128,r,canvas.width,canvas.height);muestra.width=0;muestra.height=0;
+  const nota=document.createElement('p');nota.className='meta';nota.textContent='Rostro '+(i+1)+': '+(indicadores.avisos.join(' ')||'Sin avisos básicos de nitidez, tamaño o iluminación. Comprueba visualmente el original.');galeria.append(nota);
+ }
+ panel.append(galeria);
+}
+async function detectarFotoDocumentoMiner(){
+ if(lecturaContenidoActiva)return;
+ const archivo=document.getElementById('archivoContenido').files?.[0]||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
+ const estado=document.getElementById('estadoFotoDocumento'),panel=document.getElementById('resultadoFotoDocumento');panel.replaceChildren();
+ if(!archivo){estado.textContent='Selecciona una imagen JPG/PNG o PDF, o un original cargado en la ficha.';return;}
+ if(archivo.size>12*1024*1024){estado.textContent='Usa un archivo de hasta 12 MB.';return;}
+ const pdf=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
+ if(!pdf&&!/image\/(jpeg|png)/.test(archivo.type)){estado.textContent='Usa JPG, PNG o PDF.';return;}
+ lecturaContenidoActiva=true;
+ const controles=['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido','detectarFotoDocumento','destinoFechaContenido'];controles.forEach(id=>document.getElementById(id).disabled=true);
+ estado.textContent='Preparando detección local de rostro. La primera vez se descarga el modelo…';
+ let documentoPDF=null,total=0,limitado=false;
+ try{
+  const detector=await cargarDetectorFotoMiner();
+  async function procesar(imagen,pagina){
+   const canvas=document.createElement('canvas'),escala=Math.min(1,1600/Math.max(imagen.width,imagen.height));canvas.width=Math.round(imagen.width*escala);canvas.height=Math.round(imagen.height*escala);
+   try{canvas.getContext('2d').drawImage(imagen,0,0,canvas.width,canvas.height);const rostros=detectarRostrosCanvasMiner(canvas,detector);total+=rostros.length;mostrarRostrosMiner(canvas,rostros,pagina,panel);}finally{canvas.width=0;canvas.height=0;}
+  }
+  if(pdf){
+   const motores=await cargarMotorContenido();documentoPDF=await motores.pdf.getDocument({data:new Uint8Array(await archivo.arrayBuffer()),isEvalSupported:false}).promise;
+   limitado=documentoPDF.numPages>4;
+   for(let i=1;i<=Math.min(documentoPDF.numPages,4);i++){
+    estado.textContent='Buscando foto en página '+i+'…';const pagina=await documentoPDF.getPage(i),original=pagina.getViewport({scale:1}),view=pagina.getViewport({scale:Math.min(2,1600/Math.max(original.width,original.height))}),canvas=document.createElement('canvas');canvas.width=Math.ceil(view.width);canvas.height=Math.ceil(view.height);
+    try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport:view}).promise;await procesar(canvas,i);}finally{canvas.width=0;canvas.height=0;pagina.cleanup();}
+   }
+  }else{const bitmap=await createImageBitmap(archivo);try{await procesar(bitmap,1);}finally{bitmap.close();}}
+  estado.textContent=(total?'Se detectó una foto de rostro. Revisa las zonas marcadas y los recortes.':'No se detectó un rostro. Esto no demuestra que falte una foto; prueba con mejor encuadre y nitidez.')+(limitado?' Solo se revisaron las primeras 4 páginas.':'')+' Esta detección no identifica a la persona ni verifica identidad, autenticidad o acreditación.';
+ }catch(e){panel.replaceChildren();estado.textContent='No se pudo analizar la foto. Comprueba la conexión para descargar el modelo y vuelve a intentarlo. No se cambió ningún registro.';}
+ finally{if(documentoPDF)try{await documentoPDF.destroy();}catch{}lecturaContenidoActiva=false;controles.forEach(id=>document.getElementById(id).disabled=false);}
 }
 
 </script>
