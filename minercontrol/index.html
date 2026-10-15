@@ -334,6 +334,7 @@ button{transition:.15s ease}
     <button onclick="mostrarModulo('reportes',this)">📈 Reportes</button>
     <button onclick="mostrarModulo('historial',this)">📜 Historial</button>
     <button id="navUsuarios" hidden onclick="mostrarModulo('usuarios',this)">👥 Usuarios</button>
+    <button id="navRevisionDocumentos" onclick="abrirCentroRevision()">🔎 Revisar documentos</button>
     <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
   </div>
 </aside>
@@ -817,6 +818,7 @@ button{transition:.15s ease}
 </section>
 
 
+<section id="centroRevision" class="module"><h2>Revisar documentos</h2><p class="meta">Selecciona al trabajador y abre el documento. Aquí recuperas sus originales, la lectura por campos y la foto guardada del día seleccionado.</p><label>Buscar trabajador por nombre o RUN<input class="search" id="buscarCentroRevision" oninput="pintarCentroRevision()" placeholder="Nombre o RUN"></label><div id="listaCentroRevision" style="margin-top:16px"></div><div id="documentosCentroRevision" style="margin-top:20px"></div></section>
 <section id="usuarios" class="module">
 <details class="extra-options">
   <summary>Mantenimiento de datos</summary>
@@ -2089,6 +2091,35 @@ function renderizarTrabajadores(){
   `).join(""):`<tr><td colspan="7" class="empty">No hay trabajadores que coincidan con los filtros.</td></tr>`;
 }
 
+function abrirCentroRevision(cod=''){
+ mostrarModulo('centroRevision',document.getElementById('navRevisionDocumentos'));
+ document.getElementById('documentosCentroRevision').replaceChildren();
+ document.getElementById('buscarCentroRevision').value='';pintarCentroRevision();
+ if(cod)seleccionarCentroRevision(cod);
+}
+function personasCentroRevision(){
+ const personas=new Map();for(const t of [...trabajadores,...carpetasTrabajadores])if(t.rut)personas.set(claveTrabajador(t),t);return [...personas.values()];
+}
+function pintarCentroRevision(){
+ const panel=document.getElementById('listaCentroRevision');if(!panel)return;
+ const q=normalizar(document.getElementById('buscarCentroRevision').value);
+ const personas=personasCentroRevision().filter(t=>!q||normalizar(t.trabajador+' '+t.rut+' '+t.faena).includes(q));
+ panel.replaceChildren();
+ for(const t of personas.slice(0,100)){const b=document.createElement('button');b.className='mini blue';b.style='margin:4px';b.textContent=t.trabajador+' · '+t.rut+' · '+t.faena;b.onclick=()=>seleccionarCentroRevision(idTrabajador(t));panel.append(b);}
+ if(!personas.length)panel.textContent='No hay trabajadores para este día. Revisa el calendario o carga sus datos.';
+}
+let trabajadorCentroRevision=null;
+function seleccionarCentroRevision(cod){
+ const t=personasCentroRevision().find(t=>idTrabajador(t)===cod);if(!t)return;trabajadorCentroRevision=t;
+ pintarDocumentosCentroRevision();
+}
+function pintarDocumentosCentroRevision(){
+ const t=trabajadorCentroRevision,panel=document.getElementById('documentosCentroRevision');if(!t||!panel)return;
+ const esc=escaparPerfilDocumento,req=evaluarRequisitosTrabajador(t);
+ const keys=[...new Set(['cedula','licencia',...(req.reqs||[]),'examen'])];
+ panel.innerHTML='<h3>'+esc(t.trabajador)+' · '+esc(t.rut)+'</h3><p class="meta">Abre el documento para ver su original, los campos leídos y la detección de foto. Cada archivo se guarda en el requisito elegido.</p>';
+ for(const key of keys){const item=req.checklist.find(i=>i.key===key)||{key,nombre:nombreReq(key),estado:'Falta',documentos:[]};const c=document.createElement('div');c.className='section';c.innerHTML='<h3>'+esc(item.nombre)+'</h3>'+originalGuardadoEnTarjeta(item,t);const b=document.createElement('button');b.className='mini blue';b.textContent='Abrir '+item.nombre;b.onclick=()=>abrirLectorContenido(t.trabajador,t.rut,key==='cedula'||key==='licencia'?key:'medico',t.faena,key);c.append(b);panel.append(c);}
+}
 function abrirPerfilTrabajador(cod){
   const [rut,nombre,faena]=decodeURIComponent(cod).split("||");
   const t=trabajadores.find(x=>x.rut===rut && x.trabajador===nombre && x.faena===faena) || trabajadores.find(x=>coincidePerfilDocumento(x,{rut,trabajador:nombre,faena}));
@@ -2119,6 +2150,7 @@ function abrirPerfilTrabajador(cod){
           </p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="mini blue" onclick="abrirCentroRevision('${idTrabajador(t)}')">Ver y revisar documentos</button>
           <button class="mini green" onclick="exportarHistorialTrabajador('${idTrabajador(t)}')">Exportar historial</button>
           <button class="mini red" onclick="cerrarPerfilTrabajador()">Cerrar</button>
         </div>
@@ -4553,7 +4585,7 @@ function lineasOCRNombre(datos){
   return (datos.blocks||[]).flatMap(b=>(b.paragraphs||[]).flatMap(p=>(p.lines||[]).map(l=>({texto:l.text||'',palabras:l.words||[],caja:l.bbox}))));
 }
 function localizarNombreOCR(datos){
-  const lineas=lineasOCRNombre(datos),campos=[];
+  const lineas=lineasOCRNombre(datos).sort((a,b)=>(a.caja?.y0||0)-(b.caja?.y0||0)||(a.caja?.x0||0)-(b.caja?.x0||0)),campos=[];
   const normal=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z ]/g,' ').trim();
   const limite=/\b(?:NACIONALIDAD|SEXO|FECHA|NACIMIENTO|NUMERO|DOCUMENTO|FIRMA|DIRECCION|CLASE|MUNICIPALIDAD|RUN|RUT|EMISION|VENCIMIENTO|REPUBLICA|MUESTRA|PRUEBA SIN VALIDEZ)\b/;
   for(const etiqueta of ['NOMBRES','APELLIDOS']){
@@ -4561,13 +4593,14 @@ function localizarNombreOCR(datos){
       const linea=lineas[i],palabras=linea.palabras,indice=palabras.findIndex(w=>normal(w.text)===etiqueta);
       if(indice<0||!palabras[indice].bbox)continue;
       const label=palabras[indice].bbox,altura=Math.max(1,label.y1-label.y0);let valores=[];
-      const resto=palabras.slice(indice+1).filter(w=>normal(w.text));
+      const resto=palabras.slice(indice+1).filter(w=>w.bbox&&w.bbox.x0>=label.x1&&w.bbox.x0<=label.x1+altura*12&&Math.abs(w.bbox.y0-label.y0)<altura&&normal(w.text));
+      if(resto.length&&resto[0].bbox.x0>label.x1+altura*3)resto.length=0;
       if(resto.length&&!limite.test(normal(resto.map(w=>w.text).join(' '))))valores=resto;
-      if(!valores.length)for(let j=i+1;j<Math.min(lineas.length,i+5);j++){
+      if(!valores.length)for(let j=i+1;j<Math.min(lineas.length,i+12);j++){
         const otra=lineas[j],caja=otra.caja;if(!caja)continue;
         if(caja.y0<label.y1-altura*.4)continue;
-        if(caja.y0>label.y1+altura*5)break;
-        const candidatas=otra.palabras.filter(w=>w.bbox&&w.bbox.x0>=label.x0-altura*2&&w.bbox.x0<label.x0+altura*24&&normal(w.text));
+        if(caja.y0>label.y1+altura*7)break;
+        const candidatas=otra.palabras.filter(w=>w.bbox&&w.bbox.x0>=label.x0-altura*2&&w.bbox.x0<label.x0+altura*18&&normal(w.text));
         const texto=normal(candidatas.map(w=>w.text).join(' '));
         if(!texto)continue;
         if(limite.test(texto)||/\b(?:NOMBRES|APELLIDOS)\b/.test(texto))break;
@@ -4575,11 +4608,38 @@ function localizarNombreOCR(datos){
         valores.push(...candidatas);
       }
       valores=valores.filter(w=>w.bbox&&normal(w.text)&&Number(w.confidence)>=45&&!/\d/.test(w.text));
-      const texto=valores.map(w=>w.text).join(' ').trim();if(!texto||limite.test(normal(texto)))continue;
+      const texto=valores.map(w=>w.text).join(' ').trim();if(!texto||limite.test(normal(texto))||/^(?:DN|NN|MN|RN|XX|II|VV)$/i.test(texto)||!/[A-ZÁÉÍÓÚÑ]{3}/i.test(texto))continue;
       campos.push({etiqueta,texto,cajas:valores.map(w=>w.bbox)});break;
     }
   }
   return campos;
+}
+function puntajeCamposCedula(campos){return campos.length+campos.filter(c=>['NOMBRES','APELLIDOS'].includes(c.etiqueta)).length*10;}
+function localizarCamposCedulaOCR(datos){
+ const campos=localizarNombreOCR(datos),palabras=lineasOCRNombre(datos).flatMap(l=>l.palabras).filter(w=>w.bbox&&Number(w.confidence)>=45);
+ const norm=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+ const especificaciones=[['RUN',['RUN','RUT']],['NACIMIENTO',['NACIMIENTO']],['EMISIÓN',['EMISION']],['VENCIMIENTO',['VENCIMIENTO','VENCIMIEN','VENCIMIENT']],['NÚMERO DE DOCUMENTO',['NUMERO']],['NACIONALIDAD',['NACIONALIDAD']],['SEXO',['SEXO']]];
+ for(const [etiqueta,rotulos] of especificaciones){
+  for(const label of palabras.filter(w=>rotulos.includes(norm(w.text)))){
+   const fechaLabel=palabras.find(w=>norm(w.text)==='FECHA'&&Math.abs(w.bbox.y0-label.bbox.y0)<(label.bbox.y1-label.bbox.y0)&&w.bbox.x0<label.bbox.x0&&label.bbox.x0-w.bbox.x0<(label.bbox.y1-label.bbox.y0)*12);
+   const b={...label.bbox,x0:fechaLabel?.bbox.x0??label.bbox.x0},h=Math.max(1,b.y1-b.y0),izquierda=b.x0-h*1.5;
+   const otros=palabras.filter(w=>w!==label&&/^(NACIMIENTO|EMISION|VENCIMIENTO|NUMERO|NACIONALIDAD|SEXO)$/.test(norm(w.text))&&Math.abs(w.bbox.y0-b.y0)<h&&w.bbox.x0>b.x1);
+   const derecha=otros.length?Math.min(...otros.map(w=>w.bbox.x0))-h*.5:b.x0+h*18;
+   let candidatos=palabras.filter(w=>w!==label&&w.bbox.x0>=izquierda&&w.bbox.x1<=derecha&&w.bbox.y0>=b.y1-h*.2&&w.bbox.y0<=b.y1+h*3.5&&!/^(FECHA|DE|DOCUMENTO|DEL|FIRMA|TITULAR|EMISION|VENCIMIENTO|NACIMIENTO|SEXO|NACIONALIDAD)$/.test(norm(w.text)));
+   if(etiqueta==='RUN')candidatos=palabras.filter(w=>w!==label&&w.bbox.y0>=b.y0-h*.5&&w.bbox.y0<=b.y1+h*1.5&&w.bbox.x0>=b.x1&&w.bbox.x0<=b.x1+h*20);
+   candidatos.sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0);
+   if(!candidatos.length)continue;
+   const y=candidatos[0].bbox.y0;candidatos=candidatos.filter(w=>Math.abs(w.bbox.y0-y)<h*1.1).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+   const raw=candidatos.map(w=>w.text).join(' ').trim();let valor=raw;
+   if(['NACIMIENTO','EMISIÓN','VENCIMIENTO'].includes(etiqueta)){valor=fechaDocumentoChileno('FECHA DE VENCIMIENTO '+raw,'cedula').fecha;if(!valor)continue;}
+   else if(etiqueta==='RUN'){const m=raw.match(/(?:\d{1,2}\.\d{3}\.\d{3}|\d{7,8})\s*[-–]\s*[0-9Kk]/);if(!m)continue;valor=m[0];}
+   else if(etiqueta==='NÚMERO DE DOCUMENTO'){if(!/\d{4}/.test(raw.replace(/[. ]/g,'')))continue;}
+   else if(etiqueta==='SEXO'){if(!/^[MFX]$/i.test(raw))continue;}
+   else if(!/^[A-ZÁÉÍÓÚÑ ]{3,30}$/i.test(raw))continue;
+   campos.push({etiqueta,texto:valor,cajas:candidatos.map(w=>w.bbox)});break;
+  }
+ }
+ return campos;
 }
 function dibujarEvidenciaNombre(base,campos,origen,pagina){
   const escala=Math.min(1,1400/base.width),canvas=document.createElement('canvas');canvas.width=Math.round(base.width*escala);canvas.height=Math.round(base.height*escala);
@@ -4592,9 +4652,9 @@ function renderEvidenciaNombre(e){
   const esc=escaparPerfilDocumento;
   if(!e)return '<p class="meta">No se pudo localizar con suficiente claridad el nombre en la imagen. No se dibujó un recuadro estimado.</p>';
   const nombres=e.campos.find(c=>c.etiqueta==='NOMBRES')?.texto,apellidos=e.campos.find(c=>c.etiqueta==='APELLIDOS')?.texto;
-  const completo=nombres&&apellidos?'Nombre completo leído: '+nombres+' '+apellidos:'Nombre parcial leído; revisa el original.';
+  const completo=nombres&&apellidos?'Nombre completo leído: '+nombres+' '+apellidos:'Nombre completo no confirmado; revisa nombres y apellidos por separado.';
   const marcas=e.original?(e.cajas||[]).map(b=>`<span style="position:absolute;left:${b.x*100}%;top:${b.y*100}%;width:${b.w*100}%;height:${b.h*100}%;border:2px solid #ffb000;background:rgba(255,176,0,.16);pointer-events:none"></span>`).join(''):'';
-  return `<div style="margin-top:12px"><b>Nombre leído y su origen visual</b><p class="meta">${esc(completo)}<br>${e.campos.map(c=>esc(c.etiqueta)+': '+esc(c.texto)).join('<br>')}<br>Página ${esc(e.pagina)} · Recuadros amarillos sobre las palabras leídas. Comprueba el original; no verifica identidad.</p><div style="position:relative"><img src="${esc(e.imagen)}" alt="Documento con las palabras del nombre resaltadas" style="display:block;width:100%;height:auto;border-radius:12px">${marcas}</div></div>`;
+  return `<div style="margin-top:12px"><b>Datos leídos y su origen visual</b><p class="meta">${esc(completo)}<br>${['NOMBRES','APELLIDOS','RUN','NACIMIENTO','EMISIÓN','VENCIMIENTO','NÚMERO DE DOCUMENTO','NACIONALIDAD','SEXO'].map(k=>esc(k)+': '+esc(e.campos.find(c=>c.etiqueta===k)?.texto||'No confirmado')).join('<br>')}<br>Página ${esc(e.pagina)} · Recuadros amarillos sobre las palabras leídas. Comprueba el original; no verifica identidad.</p><div style="position:relative"><img src="${esc(e.imagen)}" alt="Documento con los campos leídos resaltados" style="display:block;width:100%;height:auto;border-radius:12px">${marcas}</div></div>`;
 }
 const evidenciasNombreOriginal=new WeakMap();
 function evidenciaNombreEnFicha(d,t){
@@ -4643,14 +4703,14 @@ async function revisarContenidoCedula(){
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
-  let worker=null,pdf=null,evidenciaNombre=null;
+  let worker=null,pdf=null,evidenciaNombre=null,lecturaTerminada=false;
   try{
     const motores=await cargarMotorContenido();
     async function reconocer(imagen,modo='3',origen=null){
       if(!worker)worker=await motores.ocr.createWorker('spa',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',logger:m=>{if(m.status==='recognizing text')estado.textContent='Leyendo contenido: '+Math.round((m.progress||0)*100)+' %';}});
       await worker.setParameters({tessedit_pageseg_mode:modo,preserve_interword_spaces:'1'});
       const {data}=await worker.recognize(imagen,{}, {text:true,blocks:true});
-      if(origen){const campos=localizarNombreOCR(data);if(campos.length&&(!evidenciaNombre||campos.length>evidenciaNombre.campos.length))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
+      if(origen){const campos=localizarCamposCedulaOCR(data);if(campos.length&&(!evidenciaNombre||puntajeCamposCedula(campos)>puntajeCamposCedula(evidenciaNombre.campos)))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
       return data.text||'';
     }
     let texto='',paginas=1,limitado=false;
@@ -4699,7 +4759,7 @@ async function revisarContenidoCedula(){
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
     estado.textContent='Lectura terminada · '+paginas+' página(s).';
     ultimaLecturaGuardable={archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre};
-    await guardarDesdeLector().catch(errorGuardarLector);
+    await guardarDesdeLector().catch(errorGuardarLector);lecturaTerminada=true;
   }catch(error){estado.textContent='No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
   finally{
     try{if(worker)await worker.terminate();}catch{}
@@ -4707,6 +4767,7 @@ async function revisarContenidoCedula(){
     lecturaContenidoActiva=false;
     for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
   }
+  if(lecturaTerminada&&['cedula','licencia'].includes(tipo))await detectarFotoDocumentoMiner();
 }
 
 </script>
@@ -4924,7 +4985,7 @@ async function guardarDesdeLector(){
  const anteriorCache=originalesFichaCache.get(key);if(anteriorCache?.url)URL.revokeObjectURL(anteriorCache.url);
  originalesFichaCache.set(key,{...registro,url:URL.createObjectURL(file)});
  if(contextoFechaContenido===t&&claveOriginalFicha(t,t.requisito)===key){originalRecuperadoLector=registro;document.getElementById('estadoGuardadoLector').textContent=(registro.lectura?'Documento y lectura guardados':'Documento guardado')+' en esta ficha, en este navegador. Puedes cerrar y volver a abrirlos. Este guardado no acredita el documento.';}
- renderizar();return registro;
+ renderizar();if(document.getElementById('centroRevision')?.classList.contains('active'))pintarDocumentosCentroRevision();return registro;
 }
 async function recuperarDocumentoLector(){
  const t=contextoFechaContenido,key=claveOriginalFicha(t,t.requisito);const r=await operarOriginalFicha(key);
@@ -4940,7 +5001,7 @@ function originalGuardadoEnTarjeta(item,t){
  if(typeof usuarioActual==='undefined'||!usuarioActual)return '';
  const key=claveOriginalFicha(t,item.key),r=originalesFichaCache.get(key),esc=escaparPerfilDocumento;
  if(!originalesFichaCache.has(key)&&!consultasOriginalesFicha.has(key)){
-  const consulta=operarOriginalFicha(key).then(r=>{originalesFichaCache.set(key,r?{...r,url:URL.createObjectURL(r.file)}:null);if(r)renderizar();}).catch(()=>{});consultasOriginalesFicha.set(key,consulta);
+  const consulta=operarOriginalFicha(key).then(r=>{originalesFichaCache.set(key,r?{...r,url:URL.createObjectURL(r.file)}:null);if(r){renderizar();if(document.getElementById('centroRevision')?.classList.contains('active'))pintarDocumentosCentroRevision();}}).catch(()=>{});consultasOriginalesFicha.set(key,consulta);
  }
  if(!r)return '';
  const pdf=r.tipo==='application/pdf'||/\.pdf$/i.test(r.nombre);
