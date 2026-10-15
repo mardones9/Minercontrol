@@ -617,9 +617,21 @@ button{transition:.15s ease}
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
     <button class="mini yellow" id="limpiarContenido" onclick="limpiarLecturaContenido()">Descartar resultado</button>
   </div>
+  <p class="meta">Se usa únicamente el vencimiento, vigencia hasta o próximo control identificado. La emisión, nacimiento y fecha del examen no sustituyen el vencimiento.</p>
   <p class="meta">Lectura local en este navegador. Se descargan los motores de lectura; el archivo no se envía a un servicio de análisis. No acredita automáticamente ni comprueba autenticidad.</p>
   <p id="estadoContenido" role="status" aria-live="polite">Sin archivo leído.</p>
+  <div id="vistaOriginalContenido"></div>
   <div id="resultadoContenido" class="alert"></div>
+  <div class="alert" id="confirmacionFechaContenido" hidden>
+    <h3>Confirmar vencimiento</h3>
+    <p class="meta">Compara la fecha con el original. Esta confirmación guarda el vencimiento; la acreditación requiere revisar los demás requisitos.</p>
+    <label>Documento cargado <select class="search" id="destinoFechaContenido" onchange="mostrarOriginalContenido()"></select></label>
+    <label>Fecha de vencimiento <input class="search" type="date" id="fechaConfirmadaContenido" onchange="document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido()"></label>
+    <p id="estadoFechaContenido" role="status"></p>
+    <label><input type="checkbox" id="aceptarFechaContenido"> Revisé la fecha de vencimiento en el documento original.</label>
+    <button class="mini blue" onclick="confirmarFechaContenido()">Guardar vencimiento revisado</button>
+    <p id="guardadoFechaContenido" role="status"></p>
+  </div>
   <details><summary>Ver texto extraído</summary><pre id="textoContenido" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px"></pre></details>
 </div>
 </dialog>
@@ -2288,13 +2300,13 @@ function miniaturaRequisito(documento,trabajador){
 function renderTarjetaRequisito(item,trabajador){
   const estado=estadoVisibleRequisito(item),nombre=escaparPerfilDocumento(item.nombre);
   const clase=item.estado==='Cumple'?'ok-doc':item.estado==='Por vencer'?'warn-doc':'bad-doc';
-  const documentos=item.documentos||[],visual=item.key==='licencia'||item.key==='cedula';
+  const documentos=item.documentos||[],visual=item.key==='licencia'||item.key==='cedula',lector=visual||['examen','altura','psicosensometrico'].includes(item.key);
   const cuerpo=documentos.slice(0,3).map(d=>{
     const imagen=visual?miniaturaRequisito(d,trabajador):'';
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
     return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}</div>`;
   }).join('');
-  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${visual?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(item.key)+')')}">Leer ${item.key==='licencia'?'licencia de conducir':'cédula de identidad'}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
+  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+')')}">Leer ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
 
 function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
@@ -2889,11 +2901,9 @@ function detectarEmpresaTexto(txt){
 }
 
 function detectarFechaArchivo(txt){
-  const s=String(txt||"");
-  const near=s.match(/(?:vence|vencimiento|vto|vigencia|hasta|valido|válido)\s*[-_: ]*([0-9]{1,2}[\/-][0-9]{1,2}[\/-][0-9]{2,4}|[0-9]{4}[\/-][0-9]{1,2}[\/-][0-9]{1,2})/i);
-  if(near)return normalizarFecha(near[1]);
-  const any=s.match(/([0-9]{1,2}[\/-][0-9]{1,2}[\/-][0-9]{2,4}|[0-9]{4}[\/-][0-9]{1,2}[\/-][0-9]{1,2})/);
-  return any?normalizarFecha(any[1]):"";
+  const s=String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const near=s.match(/(?:vence|vencimiento|vto|caducidad|expiracion|vigente\s*hasta|vigencia\s*hasta|valid[oa]\s*hasta|proximo\s*control)\s*[-_: ]*([0-9]{1,2}[\/-][0-9]{1,2}[\/-][0-9]{2,4}|[0-9]{4}[\/-][0-9]{1,2}[\/-][0-9]{1,2})/i);
+  return near?normalizarFecha(near[1]):'';
 }
 
 function detectarEstadoArchivo(txt,fechaISO=""){
@@ -3291,6 +3301,7 @@ function integrarCarpetaADocumentos(id){
     cargo:c.cargo,
     estadoOriginal:a.estado || "Revisar",
     revisionManual:a.revisionManual===true,
+    revisionFecha:a.revisionFecha||null,
     fechaVencimiento:a.fechaVencimiento || "",
     archivo:a.nombre,
     hoja:"Carpeta automática",
@@ -4192,14 +4203,71 @@ window.addEventListener('beforeunload',event=>{if(revisionTemporal){event.preven
 let lecturaContenidoActiva=false;
 let motorContenidoPromesa=null;
 let tipoDocumentoContenido='cedula';
-function abrirLectorContenido(nombre,rut,tipo='cedula'){
+let contextoFechaContenido=null, destinosFechaContenido=[], urlOriginalContenido='';
+function abrirLectorContenido(nombre,rut,tipo='cedula',faena=''){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
   limpiarLecturaContenido();
-  tipoDocumentoContenido=tipo==='licencia'?'licencia':'cedula';
-  document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':'Leer cédula de identidad chilena';
+  tipoDocumentoContenido=tipo==='licencia'?'licencia':tipo==='medico'?'medico':'cedula';
+  document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':tipoDocumentoContenido==='medico'?'Leer documento médico':'Leer cédula de identidad chilena';
   document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
   document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
+  contextoFechaContenido={trabajador:nombre,rut,faena};
+  prepararConfirmacionFechaContenido();
   document.getElementById('lectorContenidoModal').showModal();
+}
+function prepararConfirmacionFechaContenido(){
+  destinosFechaContenido=[];
+  if(contextoFechaContenido?.faena)for(const c of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,contextoFechaContenido))){
+    for(const a of c.archivos||[]){
+      if(!(tipoDocumentoContenido==='medico'?['examen','altura','psicosensometrico'].includes(a.tipo):a.tipo===tipoDocumentoContenido))continue;
+      const originales=(c.archivosFisicos||[]).filter(f=>f.name===a.nombre);
+      if(originales.length===1)destinosFechaContenido.push({c,a,file:originales[0]});
+    }
+  }
+  const select=document.getElementById('destinoFechaContenido');select.replaceChildren();
+  destinosFechaContenido.forEach((d,i)=>{const o=document.createElement('option');o.value=i;o.textContent=d.a.nombre;select.append(o);});
+  document.getElementById('confirmacionFechaContenido').hidden=!destinosFechaContenido.length;
+  mostrarOriginalContenido();
+}
+function mostrarOriginalContenido(){
+  const panel=document.getElementById('vistaOriginalContenido');panel.replaceChildren();
+  if(urlOriginalContenido){URL.revokeObjectURL(urlOriginalContenido);urlOriginalContenido='';}
+  document.getElementById('aceptarFechaContenido').checked=false;
+  document.getElementById('guardadoFechaContenido').textContent='';
+  const d=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];
+  const file=d?.file||document.getElementById('archivoContenido').files?.[0];
+  document.getElementById('fechaConfirmadaContenido').value=d?.a.fechaVencimiento||'';
+  if(file){
+    urlOriginalContenido=URL.createObjectURL(file);
+    const elemento=document.createElement(file.type==='application/pdf'||/\.pdf$/i.test(file.name)?'iframe':'img');
+    elemento.src=urlOriginalContenido;elemento.title='Documento original';elemento.setAttribute('aria-label','Documento original');
+    elemento.style.cssText='width:100%;height:320px;object-fit:contain;border:0;border-radius:12px';panel.append(elemento);
+  }
+  estadoFechaContenido();
+}
+function estadoFechaContenido(){
+  const fecha=document.getElementById('fechaConfirmadaContenido').value;
+  const dias=diasHasta(fecha);
+  document.getElementById('estadoFechaContenido').textContent=typeof dias!=='number'?'Selecciona el vencimiento que aparece en el original.':dias<0?'Vencido':dias<=30?'Por vencer':'Vigente';
+}
+function confirmarFechaContenido(){
+  if(lecturaContenidoActiva)return;
+  const d=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];
+  const fecha=document.getElementById('fechaConfirmadaContenido').value;
+  if(document.getElementById('archivoContenido').files?.length)return;
+  if(!d||!carpetasTrabajadores.includes(d.c)||!d.c.archivos.includes(d.a)||!(d.c.archivosFisicos||[]).includes(d.file)||!coincidePerfilDocumento(d.c,contextoFechaContenido)||!permitirCargaFaenas([d.c]))return;
+  if(typeof diasHasta(fecha)!=='number'||!document.getElementById('aceptarFechaContenido').checked){mostrarToast('Selecciona una fecha válida y confirma su revisión en el original.','warn');return;}
+  if(destinosFechaContenido.filter(x=>x.a.nombre===d.a.nombre).length!==1){mostrarToast('Hay originales con el mismo nombre. Revisa las carpetas duplicadas antes de guardar.','warn');return;}
+  const anterior=d.a.fechaVencimiento||'';
+  const revision={fecha,anterior,usuario:usuarioActual?.username||'',revisadoEn:new Date().toISOString()};
+  d.a.fechaVencimiento=fecha;d.a.revisionFecha=revision;d.a.revisionManual=false;
+  for(const doc of docs.filter(x=>coincidePerfilDocumento(x,d.c)&&x.archivo===d.a.nombre)){
+    doc.fechaVencimiento=fecha;doc.revisionFecha=revision;doc.revisionManual=false;doc.estadoOriginal='Revisar';Object.assign(doc,enriquecerDocumento(doc));
+  }
+  actualizarRevisionCarpeta(d.c);
+  registrarMovimiento({trabajador:d.c.trabajador,rut:d.c.rut,empresa:d.c.empresa,faena:d.c.faena,accion:'Vencimiento revisado: '+(anterior||'sin fecha')+' → '+fecha+' · '+revision.usuario,estado:d.a.estado,origen:'Revisión documental'});
+  guardarLocal(false);reconstruirTrabajadores();renderizar();
+  document.getElementById('guardadoFechaContenido').textContent='Vencimiento guardado por '+revision.usuario+'. La revisión de acreditación sigue pendiente.';
 }
 function cerrarLectorContenido(){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura antes de cerrar.','warn');return;}
@@ -4230,24 +4298,49 @@ function rutValidoContenido(rut){
 }
 function fechaDocumentoChileno(texto,tipo){
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-  const etiqueta=tipo==='licencia'?/FECHA\s*(?:DE\s*)?CONTROL\b/g:/FECHA\s*(?:DE\s*)?VENCIMIENTO\b/g;
-  const fechas=[];
   const meses={ENE:1,ENERO:1,FEB:2,FEBRERO:2,MAR:3,MARZO:3,ABR:4,ABRIL:4,MAY:5,MAYO:5,JUN:6,JUNIO:6,JUL:7,JULIO:7,AGO:8,AGOSTO:8,SEP:9,SEPT:9,SET:9,SEPTIEMBRE:9,SETIEMBRE:9,OCT:10,OCTUBRE:10,NOV:11,NOVIEMBRE:11,DIC:12,DICIEMBRE:12};
-  for(const coincidencia of normal.matchAll(etiqueta)){
-    // No tomar nacimiento, emisión ni último control como vencimiento.
-    const ventana=normal.slice(coincidencia.index+coincidencia[0].length,coincidencia.index+coincidencia[0].length+90).split(/FECHA\s*(?:DE\s*)?(?:NACIMIENTO|EMISION|VENCIMIENTO|CONTROL|ULTIMO)|NUMERO\s*(?:DE\s*)?DOCUMENTO|FIRMA\s*DEL\s*TITULAR|FIN DE LECTURA/)[0];
-    const formato=/\b(\d{1,2})\s*(?:[/.\-]\s*(\d{1,2})\s*[/.\-]|\s+([A-Z]{3,10})\.?\s+)\s*(\d{4})\b/g;
-    const valores=[...ventana.matchAll(formato)];
-    // Varios valores cercanos exigen revisión de la posición en el original.
-    if(valores.length>1)continue;
-    if(!valores.length)continue;
-    const f=valores[0],dia=Number(f[1]),mes=f[2]?Number(f[2]):meses[f[3]],anio=Number(f[4]);
-    const prueba=new Date(Date.UTC(anio,(mes||0)-1,dia));
-    if(!mes||anio<1900||anio>2199||prueba.getUTCFullYear()!==anio||prueba.getUTCMonth()+1!==mes||prueba.getUTCDate()!==dia)return {fecha:'',motivo:'La fecha detectada no es válida.'};
-    fechas.push(prueba.toISOString().slice(0,10));
+  const formato=/\b(\d{1,2})\s*(?:[/.\-]\s*(\d{1,2})\s*[/.\-]\s*|([A-Z]{3,10})\.?\s*)(\d{4})\b|\b(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})\b/g;
+  const etiquetas=/(?:FECHA\s*(?:DE\s*)?)?(?:ULTIMO\s*CONTROL|ULTIMA\s*EVALUACION|NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|VENCIMIENTO|CADUCIDAD|EXPIRACION)|(?:VIGENTE|VALID[OA])\s*HASTA|PROXIMO\s*CONTROL|FECHA\s*(?:DE\s*)?CONTROL/g;
+  const resultados=[],excluidas=new Set();let invalida=false,ambigua=false;
+  function fechas(linea){return [...linea.matchAll(formato)].map(m=>{
+    const dia=Number(m[7]||m[1]),mes=m[6]?Number(m[6]):m[2]?Number(m[2]):meses[m[3]],anio=Number(m[5]||m[4]),d=new Date(Date.UTC(anio,(mes||0)-1,dia));
+    return {x:m.index,fin:m.index+m[0].length,raw:m[0],fecha:mes&&anio>=1900&&anio<=2199&&d.getUTCFullYear()===anio&&d.getUTCMonth()+1===mes&&d.getUTCDate()===dia?d.toISOString().slice(0,10):''};
+  });}
+  for(const pasada of normal.split(/FIN DE LECTURA|\nPAGINA\s+\d+\n/)){
+    const lineas=pasada.split(/\r?\n/);
+    for(let i=0;i<lineas.length;i++){
+      const linea=lineas[i],rotulos=[...linea.matchAll(etiquetas)];
+      for(let j=0;j<rotulos.length;j++){
+        const r=rotulos[j],label=r[0],previo=linea.slice(Math.max(0,r.index-12),r.index);
+        const prohibida=/NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|ULTIMO|ULTIMA/.test(label)||/ULTIM[OA]\s*$/.test(previo);
+        const permitida=!prohibida&&(/VENCIMIENTO|CADUCIDAD|EXPIRACION|HASTA/.test(label)||(tipo==='licencia'&&/CONTROL/.test(label)));
+        const limite=j+1<rotulos.length?rotulos[j+1].index:linea.length;
+        let valores=fechas(linea.slice(r.index+label.length,limite));
+        if(!valores.length){
+          for(let k=i+1;k<Math.min(lineas.length,i+4);k++){
+            if([...lineas[k].matchAll(etiquetas)].length)break;
+            const todas=fechas(lineas[k]);if(!todas.length)continue;
+            if(rotulos.length>1){
+              // Conservar columnas: la fecha de emisión a la izquierda no pertenece al vencimiento de la derecha.
+              valores=todas.filter(f=>f.x>=Math.max(0,r.index-4)&&(j+1===rotulos.length||f.x<rotulos[j+1].index-4));
+            }else if(todas.length===1&&(r.index<8||todas[0].x>=r.index-4))valores=todas;
+            else if(todas.length>1&&permitida)ambigua=true;
+            break;
+          }
+        }
+        if(prohibida){valores.filter(f=>f.fecha).forEach(f=>excluidas.add(f.fecha));continue;}
+        if(!permitida)continue;
+        if(valores.length>1){ambigua=true;continue;}
+        if(valores.length===1){if(!valores[0].fecha)invalida=true;else resultados.push({fecha:valores[0].fecha,etiqueta:label,fragmento:label+' → '+valores[0].raw});}
+      }
+    }
   }
-  const unicas=[...new Set(fechas)];
-  return unicas.length===1?{fecha:unicas[0],motivo:''}:{fecha:'',motivo:unicas.length?'Hay fechas distintas en el documento.':'No se encontró la etiqueta de vencimiento o próximo control.'};
+  const fechasUnicas=[...new Set(resultados.map(r=>r.fecha))];
+  if(invalida)return {fecha:'',motivo:'La fecha junto al vencimiento no es válida.'};
+  if(resultados.some(r=>excluidas.has(r.fecha)))return {fecha:'',motivo:'La lectura mezcla el vencimiento con emisión, nacimiento o realización del examen. Revisa el original.'};
+  if(fechasUnicas.length!==1)return {fecha:'',motivo:fechasUnicas.length?'Las lecturas muestran vencimientos distintos.':ambigua?'No se puede asociar una única fecha al vencimiento.':'No se encontró una fecha inequívoca de vencimiento, vigencia hasta o próximo control.'};
+  const elegido=resultados.find(r=>r.fecha===fechasUnicas[0]);
+  return {...elegido,motivo:''};
 }
 function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsperado='cedula',hoy=hoyMiner()){
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -4255,8 +4348,10 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
   const validos=ruts.filter(rutValidoContenido);
   const esCedula=/CEDULA\s*(?:(?:DE|LE)\s*)?IDENTIDAD/.test(normal);
   const esLicencia=/LICENCIA\s*(?:DE\s*)?(?:CONDUCTOR|CONDUCIR)/.test(normal);
-  const tipo=esCedula&&!esLicencia?'cedula':esLicencia&&!esCedula?'licencia':'sin identificar';
-  const indicios=[tipo!=='sin identificar',/REPUBLICA\s*DE\s*CHILE|REGISTRO\s*CIVIL/.test(normal),/APELLIDOS?/.test(normal)&&/NOMBRES?/.test(normal),tipo==='licencia'?/MUNICIPALIDAD|CLASE/.test(normal):/NACIONALIDAD|FECHA\s*(?:DE\s*)?NACIMIENTO/.test(normal)];
+  const esMedico=/EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL|MEDICO|DE\s*ALTURA|ALTURA|PSICOSENSOMETRICO)|CERTIFICADO\s*(?:DE\s*)?(?:APTITUD|MEDICO)|EVALUACION\s*OCUPACIONAL/.test(normal);
+  const tipos=[esCedula&&'cedula',esLicencia&&'licencia',esMedico&&'medico'].filter(Boolean);
+  const tipo=tipos.length===1?tipos[0]:'sin identificar';
+  const indicios=[tipo!=='sin identificar',/REPUBLICA\s*DE\s*CHILE|REGISTRO\s*CIVIL/.test(normal)||(tipo==='medico'&&/MUTUAL|ACHS|CLINICA|CENTRO\s*MEDICO|MEDICO|\bIST\b|\bISL\b/.test(normal)),/APELLIDOS?/.test(normal)&&/NOMBRES?/.test(normal),tipo==='licencia'?/MUNICIPALIDAD|CLASE/.test(normal):/NACIONALIDAD|FECHA\s*(?:DE\s*)?NACIMIENTO/.test(normal)];
   const tokens=String(nombreEsperado).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().match(/[A-Z]+/g)||[];
   const palabras=new Set(normal.match(/[A-Z]+/g)||[]),esperado=String(rutEsperado).toUpperCase().replace(/[.\s-]/g,'');
   const lecturaFecha=tipo!=='sin identificar'?fechaDocumentoChileno(normal,tipo):{fecha:'',motivo:'No se pudo identificar un único tipo de documento.'};
@@ -4266,7 +4361,7 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
   const dias=fecha?Math.round((Date.parse(fecha+'T12:00:00Z')-Date.parse(hoy+'T12:00:00Z'))/86400000):null;
   const estado=compatible&&tipo===tipoEsperado&&fecha?(dias<0?'Vencido':dias<=30?'Por vencer':'Vigente'):'Revisar';
   return {tipo,compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,fechaMotivo:lecturaFecha.motivo,estado,
-    etiquetaFecha:tipo==='licencia'?'Fecha de control':'Fecha de vencimiento',
+    etiquetaFecha:lecturaFecha.etiqueta|| (tipo==='licencia'?'Vencimiento o próximo control':'Fecha de vencimiento'),evidenciaFecha:lecturaFecha.fragmento||'',
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
 }
@@ -4276,6 +4371,8 @@ function analizarTextoCedula(texto,nombreEsperado='',rutEsperado=''){
 
 function invalidarLecturaContenido(){
   if(lecturaContenidoActiva)return;
+  mostrarOriginalContenido();
+  document.getElementById('confirmacionFechaContenido').hidden=Boolean(document.getElementById('archivoContenido').files?.length)||!destinosFechaContenido.length;
   document.getElementById('resultadoContenido').replaceChildren();
   document.getElementById('textoContenido').textContent='';
   document.getElementById('estadoContenido').textContent='Archivo o datos modificados. Pulsa Leer contenido para revisar.';
@@ -4283,6 +4380,10 @@ function invalidarLecturaContenido(){
 function limpiarLecturaContenido(){
   if(lecturaContenidoActiva)return;
   document.getElementById('archivoContenido').value='';
+  destinosFechaContenido=[];contextoFechaContenido=null;
+  if(urlOriginalContenido){URL.revokeObjectURL(urlOriginalContenido);urlOriginalContenido='';}
+  document.getElementById('vistaOriginalContenido').replaceChildren();
+  document.getElementById('confirmacionFechaContenido').hidden=true;
   document.getElementById('resultadoContenido').replaceChildren();
   document.getElementById('textoContenido').textContent='';
   document.getElementById('estadoContenido').textContent='Sin archivo leído.';
@@ -4314,7 +4415,7 @@ async function leerImagenDocumento(imagen,reconocer,informar){
 }
 async function revisarContenidoCedula(){
   if(lecturaContenidoActiva)return;
-  const input=document.getElementById('archivoContenido'),archivo=input.files?.[0];
+  const input=document.getElementById('archivoContenido'),archivo=input.files?.[0]||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
   if(!archivo){mostrarToast('Selecciona una imagen JPG/PNG o un PDF.','warn');return;}
   const esPDF=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
   if(!esPDF&&!/image\/(jpeg|png)/.test(archivo.type)){mostrarToast('Usa JPG, PNG o PDF.','warn');return;}
@@ -4339,7 +4440,7 @@ async function revisarContenidoCedula(){
       for(let i=1;i<=paginas;i++){
         estado.textContent='Leyendo página '+i+' de '+paginas+'…';
         const pagina=await pdf.getPage(i),contenido=await pagina.getTextContent();
-        let parcial=contenido.items.map(x=>x.str||'').join(' ');
+        let parcial=contenido.items.map(x=>(x.str||'')+(x.hasEOL?'\n':' ')).join('');
         // Renderizar también PDFs con una capa de texto escasa o irrelevante.
         if(parcial.replace(/\s/g,'').length<80){
           const inicial=pagina.getViewport({scale:1}),escala=Math.min(2,2400/Math.max(inicial.width,inicial.height));
@@ -4356,7 +4457,9 @@ async function revisarContenidoCedula(){
       }finally{imagen.close();}
     }
     const analisis=analizarDocumentoChileno(texto,nombre,rut,tipo);
-    const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':'documento sin identificar';
+    document.getElementById('fechaConfirmadaContenido').value=analisis.fecha||'';
+    document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido();
+    const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':'documento sin identificar';
     const lineas=[limitado?'Lectura parcial: solo se revisaron las primeras 4 páginas.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':analisis.tipo!=='sin identificar'?'Tipo de documento reconocido. Falta confirmar el RUN o completar la lectura antes de asociarlo.':'No se pudo identificar el documento. Prueba una foto más nítida y encuadrada.',
       'Tipo leído: '+tipoLeido,
       'Comparación de tipo: '+(analisis.coincideTipo?'Coincide con la tarjeta seleccionada':'No coincide con la tarjeta; revisar antes de asociar'),
@@ -4364,8 +4467,9 @@ async function revisarContenidoCedula(){
       'RUN/RUT con dígito verificador válido: '+(analisis.validos.join(', ')||(analisis.ruts.length?'No coincide el dígito verificador; comprobar el original':'Ninguno')),
       'Comparación de RUT: '+analisis.rut,'Comparación de nombre: '+analisis.nombre,
       analisis.etiquetaFecha+': '+(analisis.fecha?analisis.fecha.split('-').reverse().join('/'):'No confirmada. '+analisis.fechaMotivo),
+      'Origen de la fecha: '+(analisis.evidenciaFecha||'Sin evidencia suficiente'),
       'Estado por fecha detectada: '+(limitado?'Revisar (lectura parcial)':analisis.estado),
-      'Indicios del formato chileno: '+analisis.indicios.filter(Boolean).length+' de 4.',
+      'Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.',
       'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
     for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
