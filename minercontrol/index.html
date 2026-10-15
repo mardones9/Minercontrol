@@ -635,6 +635,7 @@ button{transition:.15s ease}
   <p class="meta">Revisa que el documento esté completo, el rostro visible y los datos sin reflejos. Los avisos de calidad son orientativos, no una aprobación ni una norma del Registro Civil.</p>
   <p id="estadoFotoDocumento" role="status" class="meta">La detección de foto localiza rostros; no identifica a la persona.</p>
   <div id="resultadoFotoDocumento"></div>
+  <button class="mini green" id="guardarOriginalLector" onclick="guardarDesdeLector().catch(errorGuardarLector)">Guardar documento en esta ficha</button><p id="estadoGuardadoLector" role="status" class="meta"></p>
   <div id="resultadoContenido" class="alert"></div>
   <div class="alert" id="confirmacionFechaContenido" hidden>
     <h3>Confirmar vencimiento</h3>
@@ -2334,13 +2335,13 @@ function origenDocumentoRequisito(d){
 function renderTarjetaRequisito(item,trabajador){
   const estado=estadoVisibleRequisito(item),nombre=escaparPerfilDocumento(item.nombre);
   const clase=item.estado==='Cumple'?'ok-doc':item.estado==='Por vencer'?'warn-doc':'bad-doc';
-  const documentos=item.documentos||[],visual=item.key==='licencia'||item.key==='cedula',lector=visual||['examen','altura','psicosensometrico'].includes(item.key);
+  const documentos=item.documentos||[],visual=item.key==='licencia'||item.key==='cedula',lector=true;
   const cuerpo=documentos.slice(0,3).map(d=>{
     const imagen=visual?miniaturaRequisito(d,trabajador):'';
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
-    return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}${origenDocumentoRequisito(d)}${evidenciaNombreEnFicha(d,trabajador)}</div>`;
+    return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Este registro no contiene una imagen. Puedes cargar y guardar el original con el botón de esta ficha.</span>':''}${origenDocumentoRequisito(d)}${evidenciaNombreEnFicha(d,trabajador)}</div>`;
   }).join('');
-  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+')')}">Leer ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
+  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div>${originalGuardadoEnTarjeta(item,trabajador)}<div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+','+JSON.stringify(item.key)+')')}">${['cedula','licencia','examen','altura','psicosensometrico'].includes(item.key)?'Leer':'Ver / cargar'} ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
 
 function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
@@ -4338,22 +4339,28 @@ let motorContenidoPromesa=null;
 let tipoDocumentoContenido='cedula';
 let contextoFechaContenido=null, destinosFechaContenido=[], urlOriginalContenido='';
 let evidenciaLecturaContenido=null;
-function abrirLectorContenido(nombre,rut,tipo='cedula',faena=''){
+async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=''){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
   limpiarLecturaContenido();
   tipoDocumentoContenido=tipo==='licencia'?'licencia':tipo==='medico'?'medico':'cedula';
   document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':tipoDocumentoContenido==='medico'?'Leer documento médico':'Leer cédula de identidad chilena';
   document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
   document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
-  contextoFechaContenido={trabajador:nombre,rut,faena};
+  contextoFechaContenido={trabajador:nombre,rut,faena,requisito:requisito||(tipo==='medico'?'examen':tipo)};
+  document.getElementById('estadoGuardadoLector').textContent='';
+  const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico'].includes(contextoFechaContenido.requisito);
+  document.getElementById('leerContenido').hidden=!admiteLectura;
+  document.getElementById('detectarFotoDocumento').hidden=!['cedula','licencia'].includes(contextoFechaContenido.requisito);
+  if(requisito)document.getElementById('tituloLectorContenido').textContent='Documento · '+nombreReq(requisito);
   prepararConfirmacionFechaContenido();
   document.getElementById('lectorContenidoModal').showModal();
+  await recuperarDocumentoLector().catch(errorGuardarLector);
 }
 function prepararConfirmacionFechaContenido(){
   destinosFechaContenido=[];
   if(contextoFechaContenido?.faena)for(const c of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,contextoFechaContenido))){
     for(const a of c.archivos||[]){
-      if(!(tipoDocumentoContenido==='medico'?['examen','altura','psicosensometrico'].includes(a.tipo):a.tipo===tipoDocumentoContenido))continue;
+      if(contextoFechaContenido.requisito?a.tipo!==contextoFechaContenido.requisito:!(tipoDocumentoContenido==='medico'?['examen','altura','psicosensometrico'].includes(a.tipo):a.tipo===tipoDocumentoContenido))continue;
       const originales=(c.archivosFisicos||[]).filter(f=>f.name===a.nombre);
       if(originales.length===1)destinosFechaContenido.push({c,a,file:originales[0]});
     }
@@ -4371,7 +4378,7 @@ function mostrarOriginalContenido(){
   document.getElementById('aceptarFechaContenido').checked=false;
   document.getElementById('guardadoFechaContenido').textContent='';
   const d=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];
-  const file=d?.file||document.getElementById('archivoContenido').files?.[0];
+  const file=document.getElementById('archivoContenido').files?.[0]||originalRecuperadoLector?.file||d?.file;
   document.getElementById('fechaConfirmadaContenido').value=d?.a.fechaVencimiento||'';
   if(file){
     urlOriginalContenido=URL.createObjectURL(file);
@@ -4529,6 +4536,7 @@ function invalidarLecturaContenido(){
 function limpiarLecturaContenido(){
   if(lecturaContenidoActiva)return;
   evidenciaLecturaContenido=null;
+  originalRecuperadoLector=null;ultimaLecturaGuardable=null;
   document.getElementById('archivoContenido').value='';
   destinosFechaContenido=[];contextoFechaContenido=null;
   if(urlOriginalContenido){URL.revokeObjectURL(urlOriginalContenido);urlOriginalContenido='';}
@@ -4625,7 +4633,7 @@ async function leerImagenDocumento(imagen,reconocer,informar,pagina=1){
 }
 async function revisarContenidoCedula(){
   if(lecturaContenidoActiva)return;
-  const input=document.getElementById('archivoContenido'),archivo=input.files?.[0]||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
+  const input=document.getElementById('archivoContenido'),archivo=input.files?.[0]||originalRecuperadoLector?.file||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
   if(!archivo){mostrarToast('Selecciona una imagen JPG/PNG o un PDF.','warn');return;}
   const esPDF=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
   if(!esPDF&&!/image\/(jpeg|png)/.test(archivo.type)){mostrarToast('Usa JPG, PNG o PDF.','warn');return;}
@@ -4633,8 +4641,8 @@ async function revisarContenidoCedula(){
   const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value,tipo=tipoDocumentoContenido;
   const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
   lecturaContenidoActiva=true;
-  for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
-  evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
+  for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
+  ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
   let worker=null,pdf=null,evidenciaNombre=null;
   try{
     const motores=await cargarMotorContenido();
@@ -4689,13 +4697,15 @@ async function revisarContenidoCedula(){
     const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);
     if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
-    estado.textContent='Lectura terminada · '+paginas+' página(s). Resultado temporal; se descarta al recargar o salir.';
+    estado.textContent='Lectura terminada · '+paginas+' página(s).';
+    ultimaLecturaGuardable={archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre};
+    await guardarDesdeLector().catch(errorGuardarLector);
   }catch(error){estado.textContent='No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
   finally{
     try{if(worker)await worker.terminate();}catch{}
     try{if(pdf)await pdf.destroy();}catch{}
     lecturaContenidoActiva=false;
-    for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
+    for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
   }
 }
 
@@ -4861,14 +4871,14 @@ function mostrarRostrosMiner(canvas,rostros,pagina,panel){
 }
 async function detectarFotoDocumentoMiner(){
  if(lecturaContenidoActiva)return;
- const archivo=document.getElementById('archivoContenido').files?.[0]||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
+ const archivo=document.getElementById('archivoContenido').files?.[0]||originalRecuperadoLector?.file||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
  const estado=document.getElementById('estadoFotoDocumento'),panel=document.getElementById('resultadoFotoDocumento');panel.replaceChildren();
  if(!archivo){estado.textContent='Selecciona una imagen JPG/PNG o PDF, o un original cargado en la ficha.';return;}
  if(archivo.size>12*1024*1024){estado.textContent='Usa un archivo de hasta 12 MB.';return;}
  const pdf=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
  if(!pdf&&!/image\/(jpeg|png)/.test(archivo.type)){estado.textContent='Usa JPG, PNG o PDF.';return;}
  lecturaContenidoActiva=true;
- const controles=['archivoContenido','nombreContenido','rutContenido','leerContenido','detectarFotoDocumento','destinoFechaContenido'];controles.forEach(id=>document.getElementById(id).disabled=true);
+ const controles=['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'];controles.forEach(id=>document.getElementById(id).disabled=true);
  estado.textContent='Preparando detección local de rostro. La primera vez se descarga el modelo…';
  let documentoPDF=null,total=0,limitado=false;
  try{
@@ -4886,10 +4896,56 @@ async function detectarFotoDocumentoMiner(){
    }
   }else{const bitmap=await createImageBitmap(archivo);try{await procesar(bitmap,1);}finally{bitmap.close();}}
   estado.textContent=(total?'Se detectó una foto de rostro. Revisa las zonas marcadas y los recortes.':'No se detectó un rostro. Esto no demuestra que falte una foto; prueba con mejor encuadre y nitidez.')+(limitado?' Solo se revisaron las primeras 4 páginas.':'')+' Esta detección no identifica a la persona ni verifica identidad, autenticidad o acreditación.';
+  await guardarDesdeLector().catch(errorGuardarLector);
  }catch(e){panel.replaceChildren();estado.textContent='No se pudo analizar la foto. Comprueba la conexión para descargar el modelo y vuelve a intentarlo. No se cambió ningún registro.';}
  finally{if(documentoPDF)try{await documentoPDF.destroy();}catch{}lecturaContenidoActiva=false;controles.forEach(id=>document.getElementById(id).disabled=false);}
 }
 
+</script>
+
+<script>
+let originalRecuperadoLector=null,ultimaLecturaGuardable=null;
+const originalesFichaCache=new Map(),consultasOriginalesFicha=new Map();
+function claveOriginalFicha(t,key){return claveDatosMiner()+':original:'+claveTrabajador(t)+':'+key;}
+function abrirDBOriginalesFicha(){return new Promise((resolve,reject)=>{const r=indexedDB.open('minercontrol-originales-ficha-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('originales',{keyPath:'key'});r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(new Error('No se pudo abrir el guardado de documentos de este navegador.'));});}
+async function operarOriginalFicha(key,valor){const db=await abrirDBOriginalesFicha();try{return await new Promise((resolve,reject)=>{const tx=db.transaction('originales',valor?'readwrite':'readonly'),store=tx.objectStore('originales');let result;const r=valor?store.put(valor):store.get(key);r.onsuccess=()=>result=r.result;tx.oncomplete=()=>resolve(valor||result||null);tx.onerror=tx.onabort=()=>reject(new Error('No se pudo guardar el original. Comprueba el espacio disponible del navegador.'));});}finally{db.close();}}
+function errorGuardarLector(e){document.getElementById('estadoGuardadoLector').textContent=e.message||'No se guardó el documento. Conserva el archivo y vuelve a intentarlo.';}
+async function guardarDesdeLector(){
+ const t=contextoFechaContenido;if(!t?.faena||!t.rut)throw new Error('Abre la lectura desde la ficha del trabajador para guardar el documento.');
+ const key=claveOriginalFicha(t,t.requisito),file=document.getElementById('archivoContenido').files?.[0]||originalRecuperadoLector?.file||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
+ if(!file)throw new Error('Selecciona el documento que quieres guardar en esta ficha.');
+ if(file.size>12*1024*1024||!(/image\/(jpeg|png)/.test(file.type)||file.type==='application/pdf'||/\.pdf$/i.test(file.name)))throw new Error('Usa JPG, PNG o PDF de hasta 12 MB.');
+ const lectura=ultimaLecturaGuardable?.archivo===file?ultimaLecturaGuardable:null;
+ const elementosFoto=[...document.getElementById('resultadoFotoDocumento').querySelectorAll('img,p')].map(e=>e.tagName==='IMG'?{imagen:e.src,alt:e.alt}:{texto:e.textContent});
+ const rostros=elementosFoto.length?{elementos:elementosFoto,estado:document.getElementById('estadoFotoDocumento').textContent}:originalRecuperadoLector?.file===file?originalRecuperadoLector.rostros:null;
+ const registro={key,file,rostros,nombre:file.name,tipo:file.type,requisito:t.requisito,trabajador:t.trabajador,rut:t.rut,faena:t.faena,guardadoEn:new Date().toISOString(),lectura:lectura?{lineas:lectura.lineas,texto:lectura.texto,nombreVisual:lectura.nombreVisual}:originalRecuperadoLector?.file===file?originalRecuperadoLector.lectura:null};
+ document.getElementById('estadoGuardadoLector').textContent='Guardando original y lectura en este navegador…';
+ await operarOriginalFicha(key,registro);
+ const anteriorCache=originalesFichaCache.get(key);if(anteriorCache?.url)URL.revokeObjectURL(anteriorCache.url);
+ originalesFichaCache.set(key,{...registro,url:URL.createObjectURL(file)});
+ if(contextoFechaContenido===t&&claveOriginalFicha(t,t.requisito)===key){originalRecuperadoLector=registro;document.getElementById('estadoGuardadoLector').textContent=(registro.lectura?'Documento y lectura guardados':'Documento guardado')+' en esta ficha, en este navegador. Puedes cerrar y volver a abrirlos. Este guardado no acredita el documento.';}
+ renderizar();return registro;
+}
+async function recuperarDocumentoLector(){
+ const t=contextoFechaContenido,key=claveOriginalFicha(t,t.requisito);const r=await operarOriginalFicha(key);
+ if(!r||contextoFechaContenido!==t||claveOriginalFicha(t,t.requisito)!==key)return;
+ originalRecuperadoLector=r;mostrarOriginalContenido();
+ const resultado=document.getElementById('resultadoContenido');resultado.replaceChildren();
+ if(r.lectura){for(const texto of r.lectura.lineas||[]){const p=document.createElement('p');p.className='meta';p.textContent=texto;resultado.append(p);}if(r.lectura.nombreVisual?.imagen?.startsWith('data:image/jpeg')){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(r.lectura.nombreVisual);resultado.prepend(visual);}document.getElementById('textoContenido').textContent=r.lectura.texto||'';}
+ if(r.rostros){const panel=document.getElementById('resultadoFotoDocumento');panel.replaceChildren();for(const item of r.rostros.elementos||[]){if(item.imagen&&/^data:image\/(jpeg|png);base64,/.test(item.imagen)){const img=document.createElement('img');img.src=item.imagen;img.alt=item.alt||'Resultado de detección guardado';img.style.cssText='max-width:100%;max-height:340px;object-fit:contain';panel.append(img);}else if(item.texto){const p=document.createElement('p');p.textContent=item.texto;panel.append(p);}}document.getElementById('estadoFotoDocumento').textContent=r.rostros.estado||'Detección guardada; no verifica identidad.';}
+ document.getElementById('estadoContenido').textContent='Original guardado: '+r.nombre;
+ document.getElementById('estadoGuardadoLector').textContent='Documento recuperado de esta ficha · guardado el '+new Date(r.guardadoEn).toLocaleString('es-CL')+'. Revisa o vuelve a leer el original cuando lo necesites.';
+}
+function originalGuardadoEnTarjeta(item,t){
+ if(typeof usuarioActual==='undefined'||!usuarioActual)return '';
+ const key=claveOriginalFicha(t,item.key),r=originalesFichaCache.get(key),esc=escaparPerfilDocumento;
+ if(!originalesFichaCache.has(key)&&!consultasOriginalesFicha.has(key)){
+  const consulta=operarOriginalFicha(key).then(r=>{originalesFichaCache.set(key,r?{...r,url:URL.createObjectURL(r.file)}:null);if(r)renderizar();}).catch(()=>{});consultasOriginalesFicha.set(key,consulta);
+ }
+ if(!r)return '';
+ const pdf=r.tipo==='application/pdf'||/\.pdf$/i.test(r.nombre);
+ return `<div style="margin-top:12px"><b>Original guardado en esta ficha</b><p class="small">${esc(r.nombre)} · Revisión humana pendiente</p>${pdf?`<a href="${esc(r.url)}" target="_blank" rel="noopener">Abrir PDF original</a>`:`<img src="${esc(r.url)}" alt="Original guardado de ${esc(item.nombre)}" style="display:block;width:100%;max-height:220px;object-fit:contain">`}${r.lectura?.nombreVisual?.imagen?.startsWith('data:image/jpeg')?renderEvidenciaNombre(r.lectura.nombreVisual):''}<p class="small">Guardado en este navegador. Los datos importados de Excel se muestran por separado.</p></div>`;
+}
 </script>
 </body>
 </html>
