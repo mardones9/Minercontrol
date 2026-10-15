@@ -626,7 +626,6 @@ button{transition:.15s ease}
   <div class="file-actions" style="margin-top:14px">
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
     <button class="mini blue" id="detectarFotoDocumento" onclick="detectarFotoDocumentoMiner()">Detectar foto de rostro</button>
-    <button class="mini yellow" id="limpiarContenido" onclick="limpiarLecturaContenido()">Descartar resultado</button>
   </div>
   <p class="meta">Se usa únicamente el vencimiento, vigencia hasta o próximo control identificado. La emisión, nacimiento y fecha del examen no sustituyen el vencimiento.</p>
   <p class="meta">Lectura local en este navegador. Se descargan los motores de lectura; el archivo no se envía a un servicio de análisis. No acredita automáticamente ni comprueba autenticidad.</p>
@@ -4576,7 +4575,7 @@ async function revisarContenidoCedula(){
   const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value,tipo=tipoDocumentoContenido;
   const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
   lecturaContenidoActiva=true;
-  for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
+  for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
   let worker=null,pdf=null;
   try{
@@ -4634,7 +4633,7 @@ async function revisarContenidoCedula(){
     try{if(worker)await worker.terminate();}catch{}
     try{if(pdf)await pdf.destroy();}catch{}
     lecturaContenidoActiva=false;
-    for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
+    for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
   }
 }
 
@@ -4807,7 +4806,7 @@ async function detectarFotoDocumentoMiner(){
  const pdf=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
  if(!pdf&&!/image\/(jpeg|png)/.test(archivo.type)){estado.textContent='Usa JPG, PNG o PDF.';return;}
  lecturaContenidoActiva=true;
- const controles=['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido','detectarFotoDocumento','destinoFechaContenido'];controles.forEach(id=>document.getElementById(id).disabled=true);
+ const controles=['archivoContenido','nombreContenido','rutContenido','leerContenido','detectarFotoDocumento','destinoFechaContenido'];controles.forEach(id=>document.getElementById(id).disabled=true);
  estado.textContent='Preparando detección local de rostro. La primera vez se descarga el modelo…';
  let documentoPDF=null,total=0,limitado=false;
  try{
