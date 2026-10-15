@@ -352,16 +352,19 @@ button{transition:.15s ease}
 
 <div id="avisoSuscripcion" class="alert" role="status" hidden></div>
 <div id="avisoCobrosAdministrador" class="alert" role="status" hidden></div>
-<details class="card" style="margin-bottom:16px"><summary>Consultar otro día · <span id="diaVisibleMiner"></span></summary>
+<div class="card" style="margin-bottom:16px"><h2 style="font-size:20px">Documentación por día · <span id="diaVisibleMiner"></span></h2>
   <div class="actions history-filters" style="margin-top:14px">
     <button class="blue" onclick="moverDiaMiner(-1)" aria-label="Día anterior">◀</button>
     <label for="diaMiner">Documentación del día</label>
     <input id="diaMiner" type="date" onchange="cambiarDiaMiner(this.value)">
     <button class="blue" onclick="moverDiaMiner(1)" aria-label="Día siguiente">▶</button>
+    <button class="blue" onclick="verAyerMiner()">Ayer</button>
     <button class="blue" onclick="cambiarDiaMiner(hoyMiner())">Hoy</button>
     <select id="diasGuardadosMiner" aria-label="Días guardados" onchange="if(this.value)cambiarDiaMiner(this.value)"></select>
   </div>
-</details>
+  <p id="estadoDiaCuentaMiner" class="meta" role="status"></p>
+  <div id="accionesDiaCuentaMiner" class="file-actions"></div>
+</div>
 
 <div class="actions">
   <label class="blue primary-upload" for="inputExcelPro">Cargar Excel</label>
@@ -378,6 +381,11 @@ button{transition:.15s ease}
 </div>
 
 <section id="dashboard" class="module active">
+  <div class="section" id="documentacionDiaPanel">
+    <h2 id="tituloDocumentacionDia">Documentación del día</h2>
+    <p class="meta" id="resumenDocumentacionDia"></p>
+    <div class="table-wrap"><table><thead><tr><th>Carga del día</th><th>Trabajadores</th><th>Documentos</th><th>Consultar</th></tr></thead><tbody id="documentacionDiaFilas"></tbody></table></div>
+  </div>
   <div class="grid">
     <div class="card kpi-pro nav-card" onclick="irModuloRapido('trabajadores')" title="Abrir módulo Trabajadores"><small>Trabajadores</small><h2 id="kTrabajadores">0</h2></div>
     <div class="card kpi-pro nav-card" onclick="irModuloRapido('documentos')" title="Abrir módulo Documentos / Archivos"><small>Archivos</small><h2 id="kArchivos">0</h2></div>
@@ -3854,7 +3862,9 @@ function claveDatosMiner(){
  return base+':dia:'+diaSeleccionadoMiner;
 }
 function cambiarDiaMiner(dia){
- if(!/^\d{4}-\d{2}-\d{2}$/.test(dia)||Number.isNaN(Date.parse(dia)))return;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(dia)||Number.isNaN(Date.parse(dia))||new Date(dia+'T12:00:00Z').toISOString().slice(0,10)!==dia)return;
+ if(typeof respaldoOcupado!=='undefined'&&respaldoOcupado){mostrarToast('Espera a que termine la consulta o el respaldo antes de cambiar de día.','warn');return;}
+ const existeLocal=Boolean(localStorage.getItem(baseDatosMiner()+':dia:'+dia));
  if(revisionExcelLeyendo){mostrarToast('Espera a que termine la lectura del Excel.','warn');document.getElementById('diaMiner').value=diaSeleccionadoMiner;return;}
  guardarLocal(false);
  diaSeleccionadoMiner=dia;
@@ -3865,7 +3875,44 @@ function cambiarDiaMiner(dia){
  document.getElementById('filtrarSemaforoTrabajador').value='todos';document.getElementById('filtroAccionHistorial').value='todos';
  document.getElementById('resumenImportacion').replaceChildren();document.getElementById('resumenCarpetasAuto').replaceChildren();
  cancelarRevisionExcel();cerrarPerfilDesdeDocumentos();cerrarDetalle();cerrarPerfilTrabajador();
- cargarLocal(false);renderizar();pintarDiasMiner();
+ cargarLocal(false);mostrarModulo('dashboard',botonModulo('dashboard'));pintarDiasMiner();
+ consultarRespaldoDiaMiner(!existeLocal);
+}
+function verAyerMiner(){
+ const d=new Date(hoyMiner()+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-1);cambiarDiaMiner(d.toISOString().slice(0,10));
+}
+function resumenDiaMiner(){
+ const carpetas=carpetasTrabajadores||[],registros=docs||[];
+ const personas=new Set([...registros,...carpetas].map(x=>JSON.stringify([rutIdentidad(x.rut)||x.trabajador,nombreFaenaClave(x.faena)])));
+ const adicionales=carpetas.reduce((n,c)=>n+(c.archivos||[]).filter(a=>!registros.some(d=>coincidePerfilDocumento(d,c)&&d.archivo===a.nombre)).length,0);
+ return {trabajadores:personas.size,documentos:registros.length+adicionales,cargas:archivos.length+carpetas.length};
+}
+function pintarDocumentacionDiaMiner(){
+ const titulo=document.getElementById('tituloDocumentacionDia');if(!titulo)return;
+ const fecha=diaSeleccionadoMiner.split('-').reverse().join('/'),resumen=resumenDiaMiner();
+ titulo.textContent='Documentación del '+fecha;
+ document.getElementById('resumenDocumentacionDia').textContent=resumen.documentos?resumen.trabajadores+' trabajador'+(resumen.trabajadores===1?'':'es')+' · '+resumen.documentos+' documento'+(resumen.documentos===1?'':'s')+' de este día.':'No hay documentación cargada en este día.';
+ const tabla=document.getElementById('documentacionDiaFilas');tabla.replaceChildren();
+ const filas=[...archivos.map(a=>({nombre:a.nombre,personas:new Set((a.items||[]).map(claveTrabajador)).size,cantidad:(a.items||[]).length,abrir:()=>{mostrarModulo('documentos',botonModulo('documentos'));verArchivo(encodeURIComponent(a.nombre));}})),...carpetasTrabajadores.map(c=>({nombre:'Carpeta de '+c.trabajador,personas:1,cantidad:(c.archivos||[]).length,abrir:()=>{document.getElementById('buscarCarpeta').value=c.rut||c.trabajador;mostrarModulo('carpetas',botonModulo('carpetas'));}}))];
+ if(!filas.length){const row=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='Selecciona otro día en el calendario para consultar su documentación.';row.append(td);tabla.append(row);}
+ for(const f of filas){const row=document.createElement('tr');for(const valor of [f.nombre,f.personas,f.cantidad]){const td=document.createElement('td');td.textContent=valor;row.append(td);}const td=document.createElement('td'),btn=document.createElement('button');btn.className='mini blue';btn.textContent='Ver documentación';btn.onclick=f.abrir;td.append(btn);row.append(td);tabla.append(row);}
+}
+let consultaDiaMiner=0;
+async function consultarRespaldoDiaMiner(recuperarSiVacio=false){
+ const numero=++consultaDiaMiner,c=contextoRespaldoMiner(),estado=document.getElementById('estadoDiaCuentaMiner'),acciones=document.getElementById('accionesDiaCuentaMiner');
+ acciones.replaceChildren();estado.textContent='Consultando documentación guardada de este día…';
+ try{
+  const r=await pedirRespaldoMiner('list',{},c);if(numero!==consultaDiaMiner)return;comprobarContextoRespaldoMiner(c);
+  if(!r.backups.length){estado.textContent='Sin respaldo en tu cuenta para este día. Las cargas de este equipo se muestran abajo.';return;}
+  const ultimo=r.backups[0];
+  estado.textContent='Respaldo disponible para este día · guardado el '+new Date(ultimo.created_at).toLocaleString('es-CL')+'.';
+  const recuperar=async()=>{
+   if(numero!==consultaDiaMiner)return;comprobarContextoRespaldoMiner(c);
+   await restaurarRespaldoMiner(ultimo.id,c.dia,estado);
+  };
+  if(recuperarSiVacio&&!resumenDiaMiner().cargas&&!resumenDiaMiner().documentos){await recuperar();return;}
+  const btn=document.createElement('button');btn.className='mini blue';btn.textContent='Recuperar documentación de este día';btn.onclick=()=>recuperar().catch(e=>estado.textContent=e.message);acciones.append(btn);
+ }catch(e){if(numero===consultaDiaMiner)estado.textContent='No se pudo consultar el respaldo. Puedes ver las cargas guardadas en este equipo.';}
 }
 function moverDiaMiner(delta){const d=new Date(diaSeleccionadoMiner+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+delta);cambiarDiaMiner(d.toISOString().slice(0,10));}
 function usosMiner(){try{return JSON.parse(localStorage.getItem(baseDatosMiner()+':usos')||'[]');}catch{return [];}}
@@ -3888,6 +3935,7 @@ function pintarDiasMiner(){
  const primer=document.createElement('option');primer.value='';primer.textContent='Ir a un día guardado';select.append(primer);
  const prefijo=baseDatosMiner()+':dia:';
  Object.keys(localStorage).filter(k=>k.startsWith(prefijo)).map(k=>k.slice(prefijo.length)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse().forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;select.append(o);});
+ pintarDocumentacionDiaMiner();
  const lista=document.getElementById('recientesMiner');lista.replaceChildren();
  const filas=[...archivos.map(a=>({nombre:a.nombre,borrar:()=>eliminarArchivo(encodeURIComponent(a.nombre))})),...carpetasTrabajadores.map(c=>({nombre:c.trabajador+' · '+c.archivos.length+' archivos',borrar:()=>eliminarCarpeta(c.id)}))];
  if(!filas.length)lista.textContent='No hay archivos ni carpetas en este día.';
@@ -4012,7 +4060,7 @@ async function iniciarSesion(){
 function abrirSesionMiner(){
  loginView.style.display='none';appView.style.display='block';
  document.querySelector('.main h1').textContent=`Bienvenido ${usuarioActual.name} 👋`;
- activarLogoInicio();actualizarFecha();cargarLocal(false);renderizar();pintarPermisosMiner();pintarDiasMiner();
+ activarLogoInicio();actualizarFecha();cargarLocal(false);renderizar();pintarPermisosMiner();pintarDiasMiner();consultarRespaldoDiaMiner(!localStorage.getItem(claveDatosMiner()));
  pintarSuscripcionMiner(usuarioActual.subscription);if(usuarioActual.role==='Administrador')refrescarAvisosCobroMiner();
 }
 async function cerrarSesion(){
@@ -4492,12 +4540,12 @@ async function revisarContenidoCedula(){
 <label class="meta"><input type="checkbox" id="permitirRespaldoParcial"> Guardar los datos disponibles aunque falten originales.</label>
 <h3 style="margin-top:20px">Abrir un respaldo</h3><label>Día del respaldo <input class="search" type="date" id="respaldoDia"></label>
 <button class="mini blue" onclick="listarRespaldosMiner()">Buscar respaldos</button><div class="actions" id="listaRespaldos" style="margin:12px 0"></div>
-<p class="meta">Abrir un respaldo reemplaza la vista del día actual. Puedes recuperar la vista anterior en este equipo.</p><button class="mini yellow" onclick="recuperarAntesRespaldoMiner()">Recuperar vista anterior</button>
+<p class="meta">Abre los respaldos del día seleccionado en el calendario. Puedes recuperar la vista anterior en este equipo.</p><button class="mini yellow" onclick="recuperarAntesRespaldoMiner()">Recuperar vista anterior</button>
 <p id="estadoRespaldo" role="status" style="margin-top:16px"></p></dialog><script>
 let respaldoOcupado=false;
 function abrirRespaldoMiner(){
  document.getElementById('respaldoDia').value=diaSeleccionadoMiner;
- document.getElementById('estadoRespaldo').textContent='El respaldo conserva los datos y los originales cargados del día seleccionado en tu cuenta.';
+ document.getElementById('estadoRespaldo').textContent='El respaldo conserva los datos y originales del día seleccionado. Consulta otros días desde el calendario de MinerControl.';
  document.getElementById('listaRespaldos').replaceChildren();
  document.getElementById('respaldoMiner').showModal();
 }
@@ -4552,8 +4600,9 @@ async function listarRespaldosMiner(){
   estado.textContent=r.backups.length?'Elige un respaldo. Se conservará una copia local de la vista actual antes de abrirlo.':'No hay respaldos guardados para ese día.';
  }catch(e){estado.textContent=e.message;}finally{respaldoOcupado=false;}
 }
-async function restaurarRespaldoMiner(id,dia){
- if(respaldoOcupado)return;const c=contextoRespaldoMiner(),estado=document.getElementById('estadoRespaldo');respaldoOcupado=true;
+async function restaurarRespaldoMiner(id,dia,estadoDestino=null){
+ if(respaldoOcupado)return;const c=contextoRespaldoMiner(),estado=estadoDestino||document.getElementById('estadoRespaldo');respaldoOcupado=true;
+ if(dia!==c.dia){respaldoOcupado=false;estado.textContent='Selecciona primero el día '+dia.split('-').reverse().join('/')+' en el calendario para abrir su documentación.';return;}
  try{
   estado.textContent='Recuperando datos y originales…';
   const r=await pedirRespaldoMiner('read',{id},{...c,dia});comprobarContextoRespaldoMiner(c);
