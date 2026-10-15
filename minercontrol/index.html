@@ -630,6 +630,7 @@ button{transition:.15s ease}
   <p class="meta">Se usa únicamente el vencimiento, vigencia hasta o próximo control identificado. La emisión, nacimiento y fecha del examen no sustituyen el vencimiento.</p>
   <p class="meta">Lectura local en este navegador. Se descargan los motores de lectura; el archivo no se envía a un servicio de análisis. No acredita automáticamente ni comprueba autenticidad.</p>
   <p id="estadoContenido" role="status" aria-live="polite">Sin archivo leído.</p>
+  <div class="alert" role="note"><h3>Revisión humana</h3><p class="meta" style="margin-top:8px;margin-bottom:0">MinerControl no tiene acceso al Registro Civil y no verifica la identidad ni la autenticidad de la cédula. El encargado debe revisar el documento original, comprobar que los datos correspondan a la ficha y realizar la validación que exija la empresa o faena mediante sus canales autorizados. Confirmar esta revisión no equivale a una validación del Registro Civil.</p></div>
   <div id="vistaOriginalContenido"></div>
   <p class="meta">Revisa que el documento esté completo, el rostro visible y los datos sin reflejos. Los avisos de calidad son orientativos, no una aprobación ni una norma del Registro Civil.</p>
   <p id="estadoFotoDocumento" role="status" class="meta">La detección de foto localiza rostros; no identifica a la persona.</p>
@@ -658,6 +659,8 @@ button{transition:.15s ease}
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
     </div>
+
+<div class="alert" role="note"><h3>Revisión humana</h3><p class="meta" style="margin-top:8px;margin-bottom:0">MinerControl no tiene acceso al Registro Civil y no verifica la identidad ni la autenticidad de la cédula. El encargado debe revisar el documento original, comprobar que los datos correspondan a la ficha y realizar la validación que exija la empresa o faena mediante sus canales autorizados. Confirmar esta revisión no equivale a una validación del Registro Civil.</p></div>
 
     <div class="smart-import-panel">
       <div class="smart-drop">
@@ -3276,7 +3279,7 @@ function renderizarCarpetas(){
       <div class="folder-actions">
         <button class="mini green" onclick="integrarCarpetaADocumentos('${c.id}')">Enviar a acreditación</button>
         <button class="mini green" onclick="despacharCarpeta('${c.id}')">Despachar ZIP</button>
-        <button class="mini blue" onclick="marcarCarpetaLista('${c.id}')">Confirmar revisión</button>
+        <button class="mini blue" onclick="marcarCarpetaLista('${c.id}')">Confirmar revisión humana</button>
         <button class="mini yellow" onclick="editarDatosCarpeta('${c.id}')">Editar datos</button>
         <button class="mini red" onclick="eliminarCarpeta('${c.id}')">Eliminar</button>
       </div>
@@ -3369,7 +3372,7 @@ function marcarCarpetaLista(id){
     mostrarToast('Completa los requisitos y resuelve los documentos pendientes o vencidos antes de marcar la carpeta lista.','warn');return;
   }
   if(!c.archivosFisicos?.length){mostrarToast('Vuelve a cargar los originales para revisarlos antes de aprobar.','warn');return;}
-  if(!confirm('¿Confirmas que revisaste los originales, su titular, contenido y fechas? Esta es una aprobación manual; el nombre del archivo y la lectura automática no acreditan documentos.'))return;
+  if(!confirm('¿Confirmas que realizaste la revisión humana de los originales, su titular, contenido y fechas según el procedimiento de tu empresa o faena? MinerControl no tiene acceso al Registro Civil. Esta confirmación documental no verifica oficialmente la identidad ni reemplaza la validación exigida por la faena.'))return;
   const revisados=c.archivos.map(a=>({...a}));
   for(const a of revisados){
     if(!a.tipo||a.tipo==='otro')continue;
@@ -3384,9 +3387,9 @@ function marcarCarpetaLista(id){
   }
   c.archivos=revisados;
   actualizarRevisionCarpeta(c);
-  registrarMovimiento({trabajador:c.trabajador,rut:c.rut,empresa:c.empresa,faena:c.faena,accion:'✅ Revisión manual de carpeta',estado:c.estado,origen:'Carpetas'});
+  registrarMovimiento({trabajador:c.trabajador,rut:c.rut,empresa:c.empresa,faena:c.faena,accion:'✅ Revisión documental humana de carpeta (sin consulta al Registro Civil)',estado:c.estado,origen:'Carpetas'});
   guardarLocal(false);renderizarCarpetas();renderizarHistorial();
-  mostrarToast('Revisión manual guardada. Estado: '+c.estado,'ok');
+  mostrarToast('Revisión humana guardada. Estado: '+c.estado,'ok');
 }
 
 function eliminarCarpeta(id){
