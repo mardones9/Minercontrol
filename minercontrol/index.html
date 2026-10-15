@@ -2338,7 +2338,7 @@ function renderTarjetaRequisito(item,trabajador){
   const cuerpo=documentos.slice(0,3).map(d=>{
     const imagen=visual?miniaturaRequisito(d,trabajador):'';
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
-    return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}${origenDocumentoRequisito(d)}</div>`;
+    return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}${origenDocumentoRequisito(d)}${evidenciaNombreEnFicha(d,trabajador)}</div>`;
   }).join('');
   return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+')')}">Leer ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
@@ -4540,8 +4540,66 @@ function limpiarLecturaContenido(){
   document.getElementById('textoContenido').textContent='';
   document.getElementById('estadoContenido').textContent='Sin archivo leído.';
 }
+// Coordenadas del texto leído: no se usan los datos esperados para dibujar la evidencia.
+function lineasOCRNombre(datos){
+  return (datos.blocks||[]).flatMap(b=>(b.paragraphs||[]).flatMap(p=>(p.lines||[]).map(l=>({texto:l.text||'',palabras:l.words||[],caja:l.bbox}))));
+}
+function localizarNombreOCR(datos){
+  const lineas=lineasOCRNombre(datos),campos=[];
+  const normal=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z ]/g,' ').trim();
+  const limite=/\b(?:NACIONALIDAD|SEXO|FECHA|NACIMIENTO|NUMERO|DOCUMENTO|FIRMA|DIRECCION|CLASE|MUNICIPALIDAD|RUN|RUT|EMISION|VENCIMIENTO|REPUBLICA|MUESTRA|PRUEBA SIN VALIDEZ)\b/;
+  for(const etiqueta of ['NOMBRES','APELLIDOS']){
+    for(let i=0;i<lineas.length;i++){
+      const linea=lineas[i],palabras=linea.palabras,indice=palabras.findIndex(w=>normal(w.text)===etiqueta);
+      if(indice<0||!palabras[indice].bbox)continue;
+      const label=palabras[indice].bbox,altura=Math.max(1,label.y1-label.y0);let valores=[];
+      const resto=palabras.slice(indice+1).filter(w=>normal(w.text));
+      if(resto.length&&!limite.test(normal(resto.map(w=>w.text).join(' '))))valores=resto;
+      if(!valores.length)for(let j=i+1;j<Math.min(lineas.length,i+5);j++){
+        const otra=lineas[j],caja=otra.caja;if(!caja)continue;
+        if(caja.y0<label.y1-altura*.4)continue;
+        if(caja.y0>label.y1+altura*5)break;
+        const candidatas=otra.palabras.filter(w=>w.bbox&&w.bbox.x0>=label.x0-altura*2&&w.bbox.x0<label.x0+altura*24&&normal(w.text));
+        const texto=normal(candidatas.map(w=>w.text).join(' '));
+        if(!texto)continue;
+        if(limite.test(texto)||/\b(?:NOMBRES|APELLIDOS)\b/.test(texto))break;
+        if(candidatas.some(w=>Number(w.confidence)<45)||candidatas.some(w=>/\d/.test(w.text)))break;
+        valores.push(...candidatas);
+      }
+      valores=valores.filter(w=>w.bbox&&normal(w.text)&&Number(w.confidence)>=45&&!/\d/.test(w.text));
+      const texto=valores.map(w=>w.text).join(' ').trim();if(!texto||limite.test(normal(texto)))continue;
+      campos.push({etiqueta,texto,cajas:valores.map(w=>w.bbox)});break;
+    }
+  }
+  return campos;
+}
+function dibujarEvidenciaNombre(base,campos,origen,pagina){
+  const escala=Math.min(1,1400/base.width),canvas=document.createElement('canvas');canvas.width=Math.round(base.width*escala);canvas.height=Math.round(base.height*escala);
+  const ctx=canvas.getContext('2d');ctx.drawImage(base,0,0,canvas.width,canvas.height);ctx.strokeStyle='#ffb000';ctx.fillStyle='rgba(255,176,0,.16)';ctx.lineWidth=3;
+  for(const campo of campos)for(const b of campo.cajas){const x=(origen.x+b.x0-4)*escala,y=(origen.y+b.y0-4)*escala,w=(b.x1-b.x0+8)*escala,h=(b.y1-b.y0+8)*escala;ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h);}
+  const imagen=canvas.toDataURL('image/jpeg',.85);canvas.width=0;canvas.height=0;
+  return {campos:campos.map(c=>({etiqueta:c.etiqueta,texto:c.texto})),imagen,pagina,cajas:campos.flatMap(c=>c.cajas.map(b=>({x:(origen.x+b.x0)/base.width,y:(origen.y+b.y0)/base.height,w:(b.x1-b.x0)/base.width,h:(b.y1-b.y0)/base.height})))};
+}
+function renderEvidenciaNombre(e){
+  const esc=escaparPerfilDocumento;
+  if(!e)return '<p class="meta">No se pudo localizar con suficiente claridad el nombre en la imagen. No se dibujó un recuadro estimado.</p>';
+  const nombres=e.campos.find(c=>c.etiqueta==='NOMBRES')?.texto,apellidos=e.campos.find(c=>c.etiqueta==='APELLIDOS')?.texto;
+  const completo=nombres&&apellidos?'Nombre completo leído: '+nombres+' '+apellidos:'Nombre parcial leído; revisa el original.';
+  const marcas=e.original?(e.cajas||[]).map(b=>`<span style="position:absolute;left:${b.x*100}%;top:${b.y*100}%;width:${b.w*100}%;height:${b.h*100}%;border:2px solid #ffb000;background:rgba(255,176,0,.16);pointer-events:none"></span>`).join(''):'';
+  return `<div style="margin-top:12px"><b>Nombre leído y su origen visual</b><p class="meta">${esc(completo)}<br>${e.campos.map(c=>esc(c.etiqueta)+': '+esc(c.texto)).join('<br>')}<br>Página ${esc(e.pagina)} · Recuadros amarillos sobre las palabras leídas. Comprueba el original; no verifica identidad.</p><div style="position:relative"><img src="${esc(e.imagen)}" alt="Documento con las palabras del nombre resaltadas" style="display:block;width:100%;height:auto;border-radius:12px">${marcas}</div></div>`;
+}
+const evidenciasNombreOriginal=new WeakMap();
+function evidenciaNombreEnFicha(d,t){
+  for(const c of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,t))){
+    const f=(c.archivosFisicos||[]).filter(f=>f.name===d.archivo);if(f.length!==1)continue;
+    if(evidenciasNombreOriginal.has(f[0]))return renderEvidenciaNombre(evidenciasNombreOriginal.get(f[0]));
+    const a=(c.archivos||[]).find(a=>a.nombre===d.archivo);
+    if(a?.evidenciaNombre&&a.esImagen&&/^blob:/.test(a.previewURL||''))return renderEvidenciaNombre({...a.evidenciaNombre,imagen:a.previewURL,original:true});
+  }
+  return '';
+}
 // Variantes independientes: nunca completar dígitos ausentes ni usar el RUT esperado para corregir OCR.
-async function leerImagenDocumento(imagen,reconocer,informar){
+async function leerImagenDocumento(imagen,reconocer,informar,pagina=1){
   const base=document.createElement('canvas');
   const escala=Math.min(4,2600/Math.max(imagen.width,imagen.height));
   base.width=Math.round(imagen.width*escala);base.height=Math.round(imagen.height*escala);
@@ -4560,7 +4618,7 @@ async function leerImagenDocumento(imagen,reconocer,informar){
     const [zx,zy,zw,zh,filtrar]=zonas[n],c=document.createElement('canvas');c.width=Math.round(w*zw);c.height=Math.round(h*zh);
     try{const cctx=c.getContext('2d',{willReadFrequently:true});cctx.drawImage(base,x+w*zx,y+h*zy,w*zw,h*zh,0,0,c.width,c.height);
       if(filtrar){const d=cctx.getImageData(0,0,c.width,c.height);for(let i=0;i<d.data.length;i+=4){const a=Math.max(d.data[i],d.data[i+1],d.data[i+2]);const gris=Math.max(0,Math.min(255,(a-100)*255/130));d.data[i]=d.data[i+1]=d.data[i+2]=gris;}cctx.putImageData(d,0,0);}
-      textos.push(await reconocer(c,n>=2?'6':'3'));
+      textos.push(await reconocer(c,n>=2?'6':'3',{base,x:x+w*zx,y:y+h*zy,pagina}));
     }finally{c.width=0;c.height=0;}
   }}finally{base.width=0;base.height=0;}
   return textos.join('\n\nFIN DE LECTURA\n\n');
@@ -4577,13 +4635,15 @@ async function revisarContenidoCedula(){
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
-  let worker=null,pdf=null;
+  let worker=null,pdf=null,evidenciaNombre=null;
   try{
     const motores=await cargarMotorContenido();
-    async function reconocer(imagen,modo='3'){
+    async function reconocer(imagen,modo='3',origen=null){
       if(!worker)worker=await motores.ocr.createWorker('spa',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',logger:m=>{if(m.status==='recognizing text')estado.textContent='Leyendo contenido: '+Math.round((m.progress||0)*100)+' %';}});
       await worker.setParameters({tessedit_pageseg_mode:modo,preserve_interword_spaces:'1'});
-      const {data}=await worker.recognize(imagen);return data.text||'';
+      const {data}=await worker.recognize(imagen,{}, {text:true,blocks:true});
+      if(origen){const campos=localizarNombreOCR(data);if(campos.length&&(!evidenciaNombre||campos.length>evidenciaNombre.campos.length))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
+      return data.text||'';
     }
     let texto='',paginas=1,limitado=false;
     if(esPDF){
@@ -4594,11 +4654,11 @@ async function revisarContenidoCedula(){
         const pagina=await pdf.getPage(i),contenido=await pagina.getTextContent();
         let parcial=contenido.items.map(x=>(x.str||'')+(x.hasEOL?'\n':' ')).join('');
         // Renderizar también PDFs con una capa de texto escasa o irrelevante.
-        if(parcial.replace(/\s/g,'').length<80){
+        if(parcial.replace(/\s/g,'').length<80||tipo==='cedula'||tipo==='licencia'){
           const inicial=pagina.getViewport({scale:1}),escala=Math.min(2,2400/Math.max(inicial.width,inicial.height));
           const viewport=pagina.getViewport({scale:escala}),canvas=document.createElement('canvas');
           canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-          try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport}).promise;parcial+='\n'+await leerImagenDocumento(canvas,reconocer,mensaje=>estado.textContent='Página '+i+' · '+mensaje);}finally{canvas.width=0;canvas.height=0;}
+          try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport}).promise;parcial+='\n'+await leerImagenDocumento(canvas,reconocer,mensaje=>estado.textContent='Página '+i+' · '+mensaje,i);}finally{canvas.width=0;canvas.height=0;}
         }
         texto+='\nPágina '+i+'\n'+parcial;pagina.cleanup();
       }
@@ -4626,6 +4686,8 @@ async function revisarContenidoCedula(){
       'Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.',
       'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
     for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
+    const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);
+    if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
     estado.textContent='Lectura terminada · '+paginas+' página(s). Resultado temporal; se descarta al recargar o salir.';
   }catch(error){estado.textContent='No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
