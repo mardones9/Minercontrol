@@ -1426,6 +1426,7 @@ function leerExcelParaRevision(file,contenido){
             cargo:obtenerValor(row,mapa.cargo) || "-",
             estadoOriginal:obtenerValor(row,mapa.estado) || "",
             fechaVencimiento:extraerFechaVencimiento(row,mapa),
+            procedenciaCampos:{documento:{columna:mapa.documento?.key||'',valor:obtenerValor(row,mapa.documento)},vencimiento:{columna:mapa.vencimiento?.key||'',valor:obtenerValor(row,mapa.vencimiento)}},
             fechaVencimientoInvalida:!!obtenerValor(row,mapa.vencimiento) && !extraerFechaVencimiento(row,mapa),
             archivo:file.name,
             hoja:nombreHoja,
@@ -2314,6 +2315,23 @@ function miniaturaRequisito(documento,trabajador){
   }
   return '';
 }
+function origenDocumentoRequisito(d){
+  const esc=escaparPerfilDocumento,carpeta=/Carpetas|Carpeta automática/i.test((d.origen||'')+' '+(d.hoja||''));
+  const fecha=d.fechaVencimiento||'Sin fecha informada',revision=d.revisionFecha?.fecha===d.fechaVencimiento?d.revisionFecha:null;
+  const fuente=carpeta?'Archivo original en carpeta':d.hoja?'Registro importado de Excel':'Registro cargado';
+  const campos=d.procedenciaCampos||null;
+  const lectura=revision?.evidenciaLectura;
+  return `<details style="width:100%;margin-top:8px"><summary style="cursor:pointer">Ver origen de los datos</summary><div class="small" style="margin-top:8px;line-height:1.6;overflow-wrap:anywhere">
+    <b>${esc(fuente)}</b><br>Archivo: ${esc(d.archivo||'No registrado')}
+    ${!carpeta&&d.hoja?`<br>Hoja: ${esc(d.hoja)} · Fila: ${esc(d.filaExcel||'No registrada')}`:''}
+    <br>Documento informado: ${esc(d.documento||'Sin tipo')}
+    <br>RUN de este registro: ${esc(d.rut||'Sin RUN')}
+    <br>Vencimiento informado: ${esc(fecha)}
+    ${campos?`<br>Columna de documento: ${esc(campos.documento?.columna||'No identificada')} · Valor: ${esc(campos.documento?.valor||'Vacío')}<br>Columna de vencimiento: ${esc(campos.vencimiento?.columna||'No identificada')} · Valor original: ${esc(campos.vencimiento?.valor||'Vacío')}`:''}
+    ${revision?`<br><b>Fecha revisada en el original</b><br>Encargado: ${esc(revision.usuario||'No registrado')} · ${esc(revision.revisadoEn||'Sin fecha')}<br>Fecha anterior: ${esc(revision.anterior||'Sin fecha')}`:''}
+    ${lectura?`<br>Texto leído para el vencimiento: «${esc(lectura.fragmento)}»<br>Tipo leído: ${esc(lectura.tipo)} · Página(s) revisadas: ${esc(lectura.paginas)}<br>La fecha fue confirmada por el encargado.`:carpeta?'<br>Sin evidencia de lectura guardada. La organización por nombre de archivo no demuestra su contenido.':'<br>Estos datos proceden del Excel. No demuestran una lectura ni una revisión de la imagen del documento.'}
+    </div></details>`;
+}
 function renderTarjetaRequisito(item,trabajador){
   const estado=estadoVisibleRequisito(item),nombre=escaparPerfilDocumento(item.nombre);
   const clase=item.estado==='Cumple'?'ok-doc':item.estado==='Por vencer'?'warn-doc':'bad-doc';
@@ -2321,7 +2339,7 @@ function renderTarjetaRequisito(item,trabajador){
   const cuerpo=documentos.slice(0,3).map(d=>{
     const imagen=visual?miniaturaRequisito(d,trabajador):'';
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
-    return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}</div>`;
+    return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Sin imagen cargada. El Excel solo contiene datos; carga el archivo original en Carpetas.</span>':''}${origenDocumentoRequisito(d)}</div>`;
   }).join('');
   return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div><div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+')')}">Leer ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
@@ -4320,6 +4338,7 @@ let lecturaContenidoActiva=false;
 let motorContenidoPromesa=null;
 let tipoDocumentoContenido='cedula';
 let contextoFechaContenido=null, destinosFechaContenido=[], urlOriginalContenido='';
+let evidenciaLecturaContenido=null;
 function abrirLectorContenido(nombre,rut,tipo='cedula',faena=''){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
   limpiarLecturaContenido();
@@ -4378,6 +4397,9 @@ function confirmarFechaContenido(){
   if(destinosFechaContenido.filter(x=>x.a.nombre===d.a.nombre).length!==1){mostrarToast('Hay originales con el mismo nombre. Revisa las carpetas duplicadas antes de guardar.','warn');return;}
   const anterior=d.a.fechaVencimiento||'';
   const revision={fecha,anterior,usuario:usuarioActual?.username||'',revisadoEn:new Date().toISOString()};
+  if(typeof evidenciaLecturaContenido!=='undefined'&&evidenciaLecturaContenido?.archivo===d.file&&evidenciaLecturaContenido.fecha===fecha&&evidenciaLecturaContenido.fragmento&&!evidenciaLecturaContenido.limitado){
+    const {tipo,fragmento,paginas}=evidenciaLecturaContenido;revision.evidenciaLectura={tipo,fragmento,paginas};
+  }
   d.a.fechaVencimiento=fecha;d.a.revisionFecha=revision;d.a.revisionManual=false;
   for(const doc of docs.filter(x=>coincidePerfilDocumento(x,d.c)&&x.archivo===d.a.nombre)){
     doc.fechaVencimiento=fecha;doc.revisionFecha=revision;doc.revisionManual=false;doc.estadoOriginal='Revisar';Object.assign(doc,enriquecerDocumento(doc));
@@ -4498,6 +4520,7 @@ function analizarTextoCedula(texto,nombreEsperado='',rutEsperado=''){
 
 function invalidarLecturaContenido(){
   if(lecturaContenidoActiva)return;
+  evidenciaLecturaContenido=null;
   mostrarOriginalContenido();
   document.getElementById('confirmacionFechaContenido').hidden=Boolean(document.getElementById('archivoContenido').files?.length)||!destinosFechaContenido.length;
   document.getElementById('resultadoContenido').replaceChildren();
@@ -4506,6 +4529,7 @@ function invalidarLecturaContenido(){
 }
 function limpiarLecturaContenido(){
   if(lecturaContenidoActiva)return;
+  evidenciaLecturaContenido=null;
   document.getElementById('archivoContenido').value='';
   destinosFechaContenido=[];contextoFechaContenido=null;
   if(urlOriginalContenido){URL.revokeObjectURL(urlOriginalContenido);urlOriginalContenido='';}
@@ -4553,7 +4577,7 @@ async function revisarContenidoCedula(){
   const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
-  resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
+  evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
   let worker=null,pdf=null;
   try{
     const motores=await cargarMotorContenido();
@@ -4586,6 +4610,7 @@ async function revisarContenidoCedula(){
       }finally{imagen.close();}
     }
     const analisis=analizarDocumentoChileno(texto,nombre,rut,tipo);
+    evidenciaLecturaContenido={archivo,fecha:analisis.fecha,tipo:analisis.tipo,fragmento:analisis.evidenciaFecha,paginas,limitado};
     document.getElementById('fechaConfirmadaContenido').value=analisis.fecha||'';
     document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido();
     const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':'documento sin identificar';
