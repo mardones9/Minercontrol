@@ -3274,6 +3274,7 @@ function renderizarCarpetas(){
         `).join("")}
       </div>
 
+      ${resumenRevisionHumana(c)}
       <textarea class="note" placeholder="Observaciones para esta carpeta..." oninput="actualizarObservacionCarpeta('${c.id}',this.value)">${c.observacion||""}</textarea>
 
       <div class="folder-actions">
@@ -3324,6 +3325,7 @@ function integrarCarpetaADocumentos(id){
     cargo:c.cargo,
     estadoOriginal:a.estado || "Revisar",
     revisionManual:a.revisionManual===true,
+    revisionHumana:c.revisionesHumanas?.at(-1)||null,
     revisionFecha:a.revisionFecha||null,
     fechaVencimiento:a.fechaVencimiento || "",
     archivo:a.nombre,
@@ -3361,35 +3363,84 @@ function actualizarRevisionCarpeta(c){
   if(!rutValidoContenido(c.rut)||!c.trabajador||['sinnombre','trabajadorsinidentificar','archivossueltos'].includes(normalizar(c.trabajador)))c.estado='Incompleta';
   return c;
 }
+const pasosRevisionHumana=[
+  'Revisé los originales y comprobé que están completos y legibles.',
+  'Comparé el nombre y RUN de los documentos con la ficha del trabajador.',
+  'Revisé el tipo y contenido de cada documento y la foto cuando corresponde.',
+  'Comprobé las fechas de vencimiento o próximo control; no usé la fecha de emisión.',
+  'Revisé los requisitos y el procedimiento exigido por la empresa o faena.',
+  'Entiendo que esta revisión documental no consulta el Registro Civil ni certifica la identidad.'
+];
+function firmaRevisionHumana(c){return JSON.stringify([c.rut,c.trabajador,c.faena,c.archivos]);}
+function validarCarpetaRevisionHumana(c){
+  if(!c||!permitirCargaFaenas([c]))return false;
+  actualizarRevisionCarpeta(c);
+  if(!rutValidoContenido(c.rut)||!c.trabajador||['sinnombre','trabajadorsinidentificar','archivossueltos'].includes(normalizar(c.trabajador))){mostrarToast('Revisa el nombre y el RUT antes de revisar la carpeta.','warn');return false;}
+  if(!c.checklist.length||c.checklist.some(x=>['Falta','Vencido/Pendiente','Por vencer'].includes(x.estado))){mostrarToast('Completa los requisitos y resuelve los documentos pendientes o vencidos antes de confirmar.','warn');return false;}
+  if(!c.archivosFisicos?.length){mostrarToast('Vuelve a cargar los originales para revisarlos.','warn');return false;}
+  return true;
+}
 function marcarCarpetaLista(id){
   const c=carpetasTrabajadores.find(x=>x.id===id);
-  if(!c||!permitirCargaFaenas([c]))return;
-  actualizarRevisionCarpeta(c);
-  if(!rutValidoContenido(c.rut)||!c.trabajador||['sinnombre','trabajadorsinidentificar','archivossueltos'].includes(normalizar(c.trabajador))){
-    mostrarToast('Revisa el nombre y el RUT antes de aprobar la carpeta.','warn');return;
-  }
-  if(!c.checklist.length||c.checklist.some(x=>['Falta','Vencido/Pendiente','Por vencer'].includes(x.estado))){
-    mostrarToast('Completa los requisitos y resuelve los documentos pendientes o vencidos antes de marcar la carpeta lista.','warn');return;
-  }
-  if(!c.archivosFisicos?.length){mostrarToast('Vuelve a cargar los originales para revisarlos antes de aprobar.','warn');return;}
-  if(!confirm('¿Confirmas que realizaste la revisión humana de los originales, su titular, contenido y fechas según el procedimiento de tu empresa o faena? MinerControl no tiene acceso al Registro Civil. Esta confirmación documental no verifica oficialmente la identidad ni reemplaza la validación exigida por la faena.'))return;
-  const revisados=c.archivos.map(a=>({...a}));
+  if(!validarCarpetaRevisionHumana(c))return;
+  document.getElementById('dialogRevisionHumana')?.remove();
+  const cuenta=typeof usuarioActual!=='undefined'?usuarioActual:null;
+  const responsable=cuenta?.name||cuenta?.nombre||cuenta?.username||'';
+  const dialog=document.createElement('dialog');dialog.id='dialogRevisionHumana';
+  dialog.style.cssText='width:min(720px,94vw);max-height:90vh;overflow:auto;background:#10243b;color:#e7eef8;border:1px solid #24465f;border-radius:20px;padding:24px';
+  const esc=escaparPerfilDocumento;
+  dialog.innerHTML=`<form id="formRevisionHumana"><h2>Revisión documental humana</h2>
+    <p>${esc(c.trabajador)} · ${esc(c.rut)} · ${esc(c.faena)}</p>
+    <p class="meta">MinerControl no tiene acceso al Registro Civil. El encargado debe revisar los originales y aplicar el procedimiento de su empresa o faena.</p>
+    <label>Nombre del encargado<input name="responsable" required maxlength="120" value="${esc(responsable)}" style="display:block;width:100%;margin:8px 0"></label>
+    <p class="meta">La fecha y hora se registrarán automáticamente al confirmar.</p>
+    <h3>Comprobaciones del encargado</h3>
+    ${pasosRevisionHumana.map((p,i)=>`<label style="display:flex;gap:10px;margin:14px 0;align-items:start"><input type="checkbox" name="paso${i}" required><span>${esc(p)}</span></label>`).join('')}
+    <h3>Vencimiento según el original</h3>
+    <p class="meta">Cédula y licencia requieren vencimiento o próximo control. Para los demás documentos conserva la fecha revisada; deja vacío solo si no corresponde.</p>
+    ${c.archivos.map((a,i)=>`<label style="display:block;margin:10px 0">${esc(a.nombre)}<input type="date" name="fecha${i}" value="${esc(normalizarFecha(a.fechaVencimiento)||'')}" ${['cedula','licencia'].includes(a.tipo)?'required':''} style="display:block;margin-top:6px"></label>`).join('')}
+    <label>Observaciones de esta revisión<textarea name="observaciones" maxlength="2000" class="note" placeholder="Hallazgos, comprobaciones o referencia del procedimiento aplicado"></textarea></label>
+    <p role="alert" id="errorRevisionHumana"></p>
+    <div class="folder-actions"><button type="button" class="mini" id="cancelarRevisionHumana">Cancelar</button><button type="submit" class="mini blue">Confirmar revisión documental</button></div>
+    </form>`;
+  document.body.appendChild(dialog);
+  const firma=firmaRevisionHumana(c);
+  const diaRevision=typeof diaSeleccionadoMiner!=='undefined'?diaSeleccionadoMiner:'';
+  dialog.querySelector('#cancelarRevisionHumana').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>dialog.remove());
+  dialog.querySelector('form').onsubmit=e=>{
+    e.preventDefault();const form=e.currentTarget;
+    const actual=carpetasTrabajadores.find(x=>x.id===id);
+    const error=dialog.querySelector('#errorRevisionHumana');
+    if(!actual||(typeof usuarioActual!=='undefined'&&usuarioActual!==cuenta)||(typeof diaSeleccionadoMiner!=='undefined'&&diaSeleccionadoMiner!==diaRevision)||firmaRevisionHumana(actual)!==firma){error.textContent='La carpeta cambió. Cierra y vuelve a abrir la revisión.';return;}
+    const datos={responsable:form.elements.responsable.value,observaciones:form.elements.observaciones.value,pasos:pasosRevisionHumana.map((_,i)=>form.elements['paso'+i].checked),fechas:actual.archivos.map((_,i)=>form.elements['fecha'+i].value)};
+    const resultado=guardarRevisionHumana(actual,datos,cuenta);
+    if(resultado){dialog.close();}else{error.textContent='Revisa las comprobaciones, el encargado y las fechas. No se guardó la aprobación.';}
+  };
+  dialog.showModal();
+}
+function guardarRevisionHumana(c,datos,cuenta){
+  if(!validarCarpetaRevisionHumana(c))return false;
+  if(!datos.responsable?.trim()||datos.responsable.trim().length>120||datos.pasos?.length!==pasosRevisionHumana.length||!datos.pasos.every(x=>x===true))return false;
+  const revisados=c.archivos.map((a,i)=>({...a,fechaVencimiento:datos.fechas?.[i]||''}));
   for(const a of revisados){
-    if(!a.tipo||a.tipo==='otro')continue;
-    if(['cedula','licencia'].includes(a.tipo)&&!normalizarFecha(a.fechaVencimiento)){
-      const respuesta=prompt('Fecha de vencimiento o próximo control de '+a.nombre+' (AAAA-MM-DD, según el original):','');
-      if(respuesta===null)return;
-      const fecha=normalizarFecha(respuesta);
-      if(!fecha||diasHasta(fecha)<0){mostrarToast('La fecha no es válida o el documento está vencido. Revisa el original.','warn');return;}
-      a.fechaVencimiento=fecha;
-    }
-    a.revisionManual=true;
+    const fecha=normalizarFecha(a.fechaVencimiento);
+    if((a.fechaVencimiento&&!fecha)||(['cedula','licencia'].includes(a.tipo)&&!fecha)||(fecha&&diasHasta(fecha)<=30))return false;
+    a.fechaVencimiento=fecha||'';
+    if(a.tipo&&a.tipo!=='otro')a.revisionManual=true;
   }
-  c.archivos=revisados;
+  const revision={id:Date.now()+'_'+Math.random().toString(16).slice(2),responsable:datos.responsable.trim(),cuenta:cuenta?.username||cuenta?.id||'',fechaISO:new Date().toISOString(),observaciones:String(datos.observaciones||'').slice(0,2000),comprobaciones:[...pasosRevisionHumana],documentos:revisados.map(a=>({nombre:a.nombre,tipo:a.tipo,fechaVencimiento:a.fechaVencimiento})),alcance:'Documental humana; sin consulta al Registro Civil'};
+  c.archivos=revisados;c.revisionesHumanas=[...(c.revisionesHumanas||[]),revision];
   actualizarRevisionCarpeta(c);
-  registrarMovimiento({trabajador:c.trabajador,rut:c.rut,empresa:c.empresa,faena:c.faena,accion:'✅ Revisión documental humana de carpeta (sin consulta al Registro Civil)',estado:c.estado,origen:'Carpetas'});
+  revision.firma=firmaRevisionHumana(c);
+  registrarMovimiento({trabajador:c.trabajador,rut:c.rut,empresa:c.empresa,faena:c.faena,accion:'✅ Revisión documental humana de carpeta (sin consulta al Registro Civil)',estado:c.estado,origen:'Carpetas',revisionHumana:revision});
   guardarLocal(false);renderizarCarpetas();renderizarHistorial();
-  mostrarToast('Revisión humana guardada. Estado: '+c.estado,'ok');
+  mostrarToast('Revisión humana guardada. Estado: '+c.estado,'ok');return true;
+}
+function resumenRevisionHumana(c){
+  const r=c.revisionesHumanas?.at(-1);if(!r)return '';
+  const esc=escaparPerfilDocumento;
+  return `<div class="alert"><b>${r.firma===firmaRevisionHumana(c)?'Última revisión documental':'Revisión anterior: la carpeta cambió'}</b><p>${esc(r.responsable)} · ${esc(new Date(r.fechaISO).toLocaleString('es-CL'))}</p><p class="meta">${esc(r.observaciones||'Sin observaciones')}<br>Sin consulta al Registro Civil.</p></div>`;
 }
 
 function eliminarCarpeta(id){
@@ -3626,7 +3677,8 @@ function registrarMovimiento(data){
     faena:data.faena || "Sin faena",
     accion:data.accion || "Movimiento",
     estado:data.estado || "Revisar",
-    origen:data.origen || "Sistema"
+    origen:data.origen || "Sistema",
+    ...(data.revisionHumana?{revisionHumana:data.revisionHumana}:{})
   };
   historialOperacional.unshift(mov);
 }
@@ -3685,7 +3737,7 @@ function renderizarHistorial(){
       <td>${h.rut}</td>
       <td>${h.empresa}</td>
       <td>${h.faena}</td>
-      <td>${h.accion}</td>
+      <td>${h.accion}${h.revisionHumana?`<p class="meta">Encargado: ${escaparPerfilDocumento(h.revisionHumana.responsable)}<br>${escaparPerfilDocumento(h.revisionHumana.observaciones||'Sin observaciones')}</p>`:''}</td>
       <td>${estadoHistorialBadge(h.estado)}</td>
       <td>${h.origen||"Sistema"}</td>
     </tr>
