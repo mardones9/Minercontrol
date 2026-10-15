@@ -3887,7 +3887,7 @@ function pintarDiasMiner(){
  const select=document.getElementById('diasGuardadosMiner');select.replaceChildren();
  const primer=document.createElement('option');primer.value='';primer.textContent='Ir a un día guardado';select.append(primer);
  const prefijo=baseDatosMiner()+':dia:';
- Object.keys(localStorage).filter(k=>k.startsWith(prefijo)).map(k=>k.slice(prefijo.length)).sort().reverse().forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;select.append(o);});
+ Object.keys(localStorage).filter(k=>k.startsWith(prefijo)).map(k=>k.slice(prefijo.length)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse().forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;select.append(o);});
  const lista=document.getElementById('recientesMiner');lista.replaceChildren();
  const filas=[...archivos.map(a=>({nombre:a.nombre,borrar:()=>eliminarArchivo(encodeURIComponent(a.nombre))})),...carpetasTrabajadores.map(c=>({nombre:c.trabajador+' · '+c.archivos.length+' archivos',borrar:()=>eliminarCarpeta(c.id)}))];
  if(!filas.length)lista.textContent='No hay archivos ni carpetas en este día.';
