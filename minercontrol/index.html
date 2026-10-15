@@ -4464,7 +4464,14 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const ruts=[...new Set((normal.match(/\b(?:\d{1,2}[. ]\s*\d{3}[. ]?\s*\d{3}|\d{7,8})\s*[-–—:]\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s–—:-]/g,'')))];
   const validos=ruts.filter(rutValidoContenido);
-  const esCedula=/CEDULA\s*(?:(?:DE|LE)\s*)?IDENTIDAD/.test(normal);
+  // El OCR lee columnas: puede intercalar el encabezado del país entre CÉDULA e IDENTIDAD.
+  // Se exige contexto chileno y varios campos para recuperar un título separado, sin usar el tipo esperado.
+  const lineasTipo=normal.split(/\r?\n/);
+  const contextoCedula=/REPUBLICA\s*DE\s*CHILE|REGISTRO\s*CIVIL/.test(normal);
+  const camposCedula=[/\bRUN\b/,/NACIONALIDAD/,/NUMERO\s*DOCUMENTO/,/FECHA\s*(?:DE\s*)?NACIMIENTO/,/FIRMA\s*(?:DEL\s*)?TITULAR/].filter(r=>r.test(normal)).length;
+  const tituloSeparado=lineasTipo.some((linea,i)=>/\bCED[UÚ]LA\b/.test(linea)&&/\bIDENT[I1L]DAD\b/.test(lineasTipo.slice(i,i+3).join(' ').slice(0,220))&&!/FIN DE LECTURA/.test(lineasTipo.slice(i,i+3).join(' ')));
+  const tituloCedula=/\b(?:CEDULA|DOCUMENTO)\s*(?:(?:DE|LE)\s*)?IDENTIDAD\b/.test(normal);
+  const esCedula=tituloCedula||(tituloSeparado&&contextoCedula&&camposCedula>=3);
   const esLicencia=/LICENCIA\s*(?:DE\s*)?(?:CONDUCTOR|CONDUCIR)/.test(normal);
   const esMedico=/EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL|MEDICO|DE\s*ALTURA|ALTURA|PSICOSENSOMETRICO)|CERTIFICADO\s*(?:DE\s*)?(?:APTITUD|MEDICO)|EVALUACION\s*OCUPACIONAL/.test(normal);
   const tipos=[esCedula&&'cedula',esLicencia&&'licencia',esMedico&&'medico'].filter(Boolean);
@@ -4478,7 +4485,7 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
   const compatible=indicios[0]&&indicios[1]&&validos.length===1&&ruts.length===1&&(Boolean(fecha)||indicios[2]&&indicios[3]);
   const dias=fecha?Math.round((Date.parse(fecha+'T12:00:00Z')-Date.parse(hoy+'T12:00:00Z'))/86400000):null;
   const estado=compatible&&tipo===tipoEsperado&&fecha?(dias<0?'Vencido':dias<=30?'Por vencer':'Vigente'):'Revisar';
-  return {tipo,compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,fechaMotivo:lecturaFecha.motivo,estado,
+  return {tipo,evidenciaTipo:tipo==='cedula'?(tituloCedula?'Título de cédula o documento de identidad leído':'Título separado por columnas, encabezado chileno y '+camposCedula+' campos de cédula'):tipo==='licencia'?'Título de licencia de conductor leído':tipo==='medico'?'Título de documento médico leído':'No se leyó un título inequívoco',compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,fechaMotivo:lecturaFecha.motivo,estado,
     etiquetaFecha:lecturaFecha.etiqueta|| (tipo==='licencia'?'Vencimiento o próximo control':'Fecha de vencimiento'),evidenciaFecha:lecturaFecha.fragmento||'',
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
@@ -4582,6 +4589,7 @@ async function revisarContenidoCedula(){
     const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':'documento sin identificar';
     const lineas=[limitado?'Lectura parcial: solo se revisaron las primeras 4 páginas.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':analisis.tipo!=='sin identificar'?'Tipo de documento reconocido. Falta confirmar el RUN o completar la lectura antes de asociarlo.':'No se pudo identificar el documento. Prueba una foto más nítida y encuadrada.',
       'Tipo leído: '+tipoLeido,
+      'Evidencia del tipo: '+analisis.evidenciaTipo,
       'Comparación de tipo: '+(analisis.coincideTipo?'Coincide con la tarjeta seleccionada':'No coincide con la tarjeta; revisar antes de asociar'),
       'RUN/RUT detectados: '+(analisis.ruts.join(', ')||'Ninguno'),
       'RUN/RUT con dígito verificador válido: '+(analisis.validos.join(', ')||(analisis.ruts.length?'No coincide el dígito verificador; comprobar el original':'Ninguno')),
