@@ -294,6 +294,7 @@ button{transition:.15s ease}
 .extra-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;padding:20px 0}
 .extra-options-grid p{color:var(--muted);font-size:13px;line-height:1.5;margin-top:8px}
 .import-review{margin:auto;width:min(700px,calc(100% - 32px));max-height:85vh;overflow:auto;padding:24px;border:1px solid var(--line);border-radius:24px;background:var(--panel);color:var(--text)}
+#dialogRevisionHumana input:not([type="checkbox"]){padding:10px;background:#081726;color:var(--text);border:1px solid var(--line);border-radius:10px}#dialogRevisionHumana input[type="checkbox"]{flex-shrink:0;width:18px;height:18px;accent-color:var(--blue)}
 .import-review::backdrop{background:rgba(6,17,31,.8)}
 .import-review h2{margin-bottom:16px}.import-review p{margin:8px 0;line-height:1.5}.import-review ul{margin:10px 0 0 20px;line-height:1.6}.import-review button:disabled{opacity:.5;cursor:not-allowed}
 #usuarios td{vertical-align:top}#usuarios td:nth-child(5){min-width:320px}#usuarios td:nth-child(5) p{margin-bottom:10px;line-height:1.4}#usuarios td:nth-child(5) button{margin:6px 6px 0 0}#usuarios td:nth-child(5) input{padding:10px;background:#081726;color:white;border:1px solid var(--line);border-radius:10px}#avisoSuscripcion,#avisoCobrosAdministrador{margin-bottom:16px}#avisoSuscripcion[hidden],#avisoCobrosAdministrador[hidden]{display:none}
@@ -3386,8 +3387,8 @@ function marcarCarpetaLista(id){
   document.getElementById('dialogRevisionHumana')?.remove();
   const cuenta=typeof usuarioActual!=='undefined'?usuarioActual:null;
   const responsable=cuenta?.name||cuenta?.nombre||cuenta?.username||'';
-  const dialog=document.createElement('dialog');dialog.id='dialogRevisionHumana';
-  dialog.style.cssText='width:min(720px,94vw);max-height:90vh;overflow:auto;background:#10243b;color:#e7eef8;border:1px solid #24465f;border-radius:20px;padding:24px';
+  const dialog=document.createElement('dialog');dialog.id='dialogRevisionHumana';dialog.className='import-review';dialog.setAttribute('aria-label','Revisión documental humana');
+  dialog.style.cssText='margin:auto;width:min(720px,94vw);max-height:90vh;overflow:auto;background:#10243b;color:#e7eef8;border:1px solid #24465f;border-radius:20px;padding:24px';
   const esc=escaparPerfilDocumento;
   dialog.innerHTML=`<form id="formRevisionHumana"><h2>Revisión documental humana</h2>
     <p>${esc(c.trabajador)} · ${esc(c.rut)} · ${esc(c.faena)}</p>
