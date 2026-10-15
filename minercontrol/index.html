@@ -4418,7 +4418,7 @@ function fechaDocumentoChileno(texto,tipo){
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const meses={ENE:1,ENERO:1,FEB:2,FEBRERO:2,MAR:3,MARZO:3,ABR:4,ABRIL:4,MAY:5,MAYO:5,JUN:6,JUNIO:6,JUL:7,JULIO:7,AGO:8,AGOSTO:8,SEP:9,SEPT:9,SET:9,SEPTIEMBRE:9,SETIEMBRE:9,OCT:10,OCTUBRE:10,NOV:11,NOVIEMBRE:11,DIC:12,DICIEMBRE:12};
   const formato=/\b(\d{1,2})\s*(?:[/.\-]\s*(\d{1,2})\s*[/.\-]\s*|([A-Z]{3,10})\.?\s*)(\d{4})\b|\b(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})\b/g;
-  const etiquetas=/(?:FECHA\s*(?:DE\s*)?)?(?:ULTIMO\s*CONTROL|ULTIMA\s*EVALUACION|NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|VENCIMIENTO|CADUCIDAD|EXPIRACION)|(?:VIGENTE|VALID[OA])\s*HASTA|PROXIMO\s*CONTROL|FECHA\s*(?:DE\s*)?CONTROL/g;
+  const etiquetas=/(?:FECHA\s*(?:DE\s*)?)?(?:ULTIMO\s*CONTROL|ULTIMA\s*EVALUACION|NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|VENCIMIENTO|CADUCIDAD|EXPIRACION)|(?:VIGENTE|VIGENCIA|VALID[OA])\s*HASTA|PROXIMO\s*CONTROL|FECHA\s*(?:DE\s*)?CONTROL/g;
   const resultados=[],excluidas=new Set();let invalida=false,ambigua=false;
   function fechas(linea){return [...linea.matchAll(formato)].map(m=>{
     const dia=Number(m[7]||m[1]),mes=m[6]?Number(m[6]):m[2]?Number(m[2]):meses[m[3]],anio=Number(m[5]||m[4]),d=new Date(Date.UTC(anio,(mes||0)-1,dia));
@@ -4472,8 +4472,10 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
   const tituloSeparado=lineasTipo.some((linea,i)=>/\bCED[UÚ]LA\b/.test(linea)&&/\bIDENT[I1L]DAD\b/.test(lineasTipo.slice(i,i+3).join(' ').slice(0,220))&&!/FIN DE LECTURA/.test(lineasTipo.slice(i,i+3).join(' ')));
   const tituloCedula=/\b(?:CEDULA|DOCUMENTO)\s*(?:(?:DE|LE)\s*)?IDENTIDAD\b/.test(normal);
   const esCedula=tituloCedula||(tituloSeparado&&contextoCedula&&camposCedula>=3);
-  const esLicencia=/LICENCIA\s*(?:DE\s*)?(?:CONDUCTOR|CONDUCIR)/.test(normal);
-  const esMedico=/EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL|MEDICO|DE\s*ALTURA|ALTURA|PSICOSENSOMETRICO)|CERTIFICADO\s*(?:DE\s*)?(?:APTITUD|MEDICO)|EVALUACION\s*OCUPACIONAL/.test(normal);
+  const tituloLicencia=/\bLICENCIA\s*(?:DE\s*)?(?:CONDUCTOR|CONDUCIR)\b/.test(normal);
+  const licenciaSeparada=lineasTipo.some((linea,i)=>/\bLICENCIA\b/.test(linea)&&/\b(?:CONDUCTOR|CONDUCIR)\b/.test(lineasTipo.slice(i,i+3).join(' ').slice(0,220))&&!/FIN DE LECTURA/.test(lineasTipo.slice(i,i+3).join(' ')));
+  const esLicencia=tituloLicencia||(licenciaSeparada&&/REPUBLICA\s*DE\s*CHILE/.test(normal)&&/MUNICIPALIDAD/.test(normal)&&/\bCLASE\b/.test(normal));
+  const esMedico=/EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL|MEDICO|DE\s*ALTURA|ALTURA|PSICOSENSOMETRICO)|CERTIFICADO\s*(?:DE\s*)?(?:APTITUD|MEDICO)|EVALUACION\s*(?:OCUPACIONAL|PREOCUPACIONAL|PSICOSENSOMETRIC[AO])|CERTIFICADO\s*(?:DE\s*)?SALUD\s*OCUPACIONAL/.test(normal);
   const tipos=[esCedula&&'cedula',esLicencia&&'licencia',esMedico&&'medico'].filter(Boolean);
   const tipo=tipos.length===1?tipos[0]:'sin identificar';
   const indicios=[tipo!=='sin identificar',/REPUBLICA\s*DE\s*CHILE|REGISTRO\s*CIVIL/.test(normal)||(tipo==='medico'&&/MUTUAL|ACHS|CLINICA|CENTRO\s*MEDICO|MEDICO|\bIST\b|\bISL\b/.test(normal)),/APELLIDOS?/.test(normal)&&/NOMBRES?/.test(normal),tipo==='licencia'?/MUNICIPALIDAD|CLASE/.test(normal):/NACIONALIDAD|FECHA\s*(?:DE\s*)?NACIMIENTO/.test(normal)];
@@ -4485,7 +4487,7 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
   const compatible=indicios[0]&&indicios[1]&&validos.length===1&&ruts.length===1&&(Boolean(fecha)||indicios[2]&&indicios[3]);
   const dias=fecha?Math.round((Date.parse(fecha+'T12:00:00Z')-Date.parse(hoy+'T12:00:00Z'))/86400000):null;
   const estado=compatible&&tipo===tipoEsperado&&fecha?(dias<0?'Vencido':dias<=30?'Por vencer':'Vigente'):'Revisar';
-  return {tipo,evidenciaTipo:tipo==='cedula'?(tituloCedula?'Título de cédula o documento de identidad leído':'Título separado por columnas, encabezado chileno y '+camposCedula+' campos de cédula'):tipo==='licencia'?'Título de licencia de conductor leído':tipo==='medico'?'Título de documento médico leído':'No se leyó un título inequívoco',compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,fechaMotivo:lecturaFecha.motivo,estado,
+  return {tipo,evidenciaTipo:tipo==='cedula'?(tituloCedula?'Título de cédula o documento de identidad leído':'Título separado por columnas, encabezado chileno y '+camposCedula+' campos de cédula'):tipo==='licencia'?(tituloLicencia?'Título de licencia de conductor leído':'Título separado por columnas, encabezado chileno, municipalidad y clase'):tipo==='medico'?'Título de documento médico leído':'No se leyó un título inequívoco',compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,fechaMotivo:lecturaFecha.motivo,estado,
     etiquetaFecha:lecturaFecha.etiqueta|| (tipo==='licencia'?'Vencimiento o próximo control':'Fecha de vencimiento'),evidenciaFecha:lecturaFecha.fragmento||'',
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
