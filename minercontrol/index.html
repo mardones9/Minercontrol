@@ -367,6 +367,7 @@ button{transition:.15s ease}
   <label class="blue primary-upload" for="inputExcelPro">Cargar Excel</label>
   <button class="green" onclick="mostrarModulo('carpetas',this)">Cargar documentos</button>
   <button class="purple" onclick="mostrarModulo('trabajadores',this)">Ver trabajadores</button>
+  <button class="purple" onclick="abrirRespaldoMiner()">Respaldo de mi cuenta</button>
 </div>
 
 
@@ -4481,6 +4482,100 @@ async function revisarContenidoCedula(){
     lecturaContenidoActiva=false;
     for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','limpiarContenido'])document.getElementById(id).disabled=false;
   }
+}
+
+</script>
+<dialog id="respaldoMiner" style="margin:auto;width:min(760px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;background:var(--panel);color:var(--text);padding:24px" aria-label="Respaldo de mi cuenta">
+<button class="mini blue" onclick="cerrarRespaldoMiner()" style="float:right">Cerrar</button><h2>Respaldo de mi cuenta</h2>
+<p class="meta">Guarda una copia privada del día actual en Supabase para abrirla desde otro equipo. Incluye datos y originales disponibles. Los cambios posteriores requieren un nuevo respaldo.</p>
+<div class="actions"><button class="mini purple" onclick="guardarRespaldoMiner()">Guardar respaldo del día actual</button></div>
+<label class="meta"><input type="checkbox" id="permitirRespaldoParcial"> Guardar los datos disponibles aunque falten originales.</label>
+<h3 style="margin-top:20px">Abrir un respaldo</h3><label>Día del respaldo <input class="search" type="date" id="respaldoDia"></label>
+<button class="mini blue" onclick="listarRespaldosMiner()">Buscar respaldos</button><div class="actions" id="listaRespaldos" style="margin:12px 0"></div>
+<p class="meta">Abrir un respaldo reemplaza la vista del día actual. Puedes recuperar la vista anterior en este equipo.</p><button class="mini yellow" onclick="recuperarAntesRespaldoMiner()">Recuperar vista anterior</button>
+<p id="estadoRespaldo" role="status" style="margin-top:16px"></p></dialog><script>
+let respaldoOcupado=false;
+function abrirRespaldoMiner(){
+ document.getElementById('respaldoDia').value=diaSeleccionadoMiner;
+ document.getElementById('estadoRespaldo').textContent='El respaldo conserva los datos y los originales cargados del día seleccionado en tu cuenta.';
+ document.getElementById('listaRespaldos').replaceChildren();
+ document.getElementById('respaldoMiner').showModal();
+}
+function cerrarRespaldoMiner(){if(!respaldoOcupado)document.getElementById('respaldoMiner').close();}
+function contextoRespaldoMiner(){return {id:usuarioActual?.id,token:tokenMiner,dia:diaSeleccionadoMiner,clave:claveDatosMiner()};}
+function comprobarContextoRespaldoMiner(c){if(!c.id||usuarioActual?.id!==c.id||tokenMiner!==c.token||diaSeleccionadoMiner!==c.dia)throw new Error('Cambió la cuenta o el día. Vuelve a abrir el respaldo.');}
+async function pedirRespaldoMiner(action,datos,c){
+ const r=await fetch(SUPABASE_URL+'/functions/v1/miner-backup',{method:'POST',signal:AbortSignal.timeout(30000),headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,'x-miner-session':c.token},body:JSON.stringify({action,day:c.dia,...datos})});
+ const b=await r.json();if(!r.ok||b.error)throw new Error(b.error||'No se completó el respaldo.');return b;
+}
+function obtenerOriginalesRespaldoMiner(){
+ const files=[],faltantes=[];
+ for(const c of carpetasTrabajadores){
+  for(const a of c.archivos||[]){
+   const encontrados=(c.archivosFisicos||[]).filter(f=>f.name===a.nombre);
+   if(encontrados.length!==1){faltantes.push(a.nombre);continue;}
+   if(!files.some(x=>x.folder===c.id&&x.name===a.nombre))files.push({folder:c.id,name:a.nombre,size:encontrados[0].size,type:encontrados[0].type,file:encontrados[0]});
+  }
+ }
+ return {files,faltantes};
+}
+async function guardarRespaldoMiner(){
+ if(respaldoOcupado)return;const c=contextoRespaldoMiner(),estado=document.getElementById('estadoRespaldo');
+ respaldoOcupado=true;
+ try{
+  comprobarContextoRespaldoMiner(c);
+  const {files,faltantes}=obtenerOriginalesRespaldoMiner();
+  if(faltantes.length&&!document.getElementById('permitirRespaldoParcial').checked)throw new Error('Faltan '+faltantes.length+' originales. Vuelve a cargarlos o elige guardar solo los datos disponibles.');
+  if(files.length>100||files.some(f=>f.size>12*1024*1024)||files.reduce((n,f)=>n+f.size,0)>100*1024*1024)throw new Error('Este respaldo admite hasta 100 originales, 12 MB por archivo y 100 MB en total.');
+  guardarLocal(false);
+  const payload={schema:1,data:JSON.parse(localStorage.getItem(c.clave)),faltantes};
+  estado.textContent='Preparando respaldo privado…';
+  const preparado=await pedirRespaldoMiner('prepare',{files:files.map(({file,...f})=>f)},c);
+  for(let i=0;i<files.length;i++){
+   comprobarContextoRespaldoMiner(c);estado.textContent='Guardando original '+(i+1)+' de '+files.length+'…';
+   const u=preparado.uploads[i];const r=await supabaseClient.storage.from('miner-originales-v1').uploadToSignedUrl(u.path,u.token,files[i].file,{contentType:files[i].type||'application/octet-stream'});if(r.error)throw new Error('No se pudo guardar un original; el respaldo no se ha completado.');
+  }
+  comprobarContextoRespaldoMiner(c);
+  const r=await pedirRespaldoMiner('save',{id:preparado.id,payload,files:preparado.uploads},c);
+  estado.textContent='Respaldo guardado en tu cuenta: '+files.length+' originales'+(faltantes.length?' · '+faltantes.length+' originales pendientes':'')+'. '+new Date(r.backup.created_at).toLocaleString('es-CL');
+ }catch(e){estado.textContent=e.message+' Tus datos locales se conservan.';}
+ finally{respaldoOcupado=false;}
+}
+async function listarRespaldosMiner(){
+ if(respaldoOcupado)return;const c=contextoRespaldoMiner(),estado=document.getElementById('estadoRespaldo');respaldoOcupado=true;
+ try{
+  estado.textContent='Buscando respaldos privados…';
+  const dia=document.getElementById('respaldoDia').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(dia))throw new Error('Selecciona un día válido.');
+  const r=await pedirRespaldoMiner('list',{}, {...c,dia});comprobarContextoRespaldoMiner(c);
+  const lista=document.getElementById('listaRespaldos');lista.replaceChildren();
+  for(const b of r.backups){const btn=document.createElement('button');btn.className='mini blue';btn.textContent='Abrir respaldo del '+new Date(b.created_at).toLocaleString('es-CL');btn.onclick=()=>restaurarRespaldoMiner(b.id,dia);lista.append(btn);}
+  estado.textContent=r.backups.length?'Elige un respaldo. Se conservará una copia local de la vista actual antes de abrirlo.':'No hay respaldos guardados para ese día.';
+ }catch(e){estado.textContent=e.message;}finally{respaldoOcupado=false;}
+}
+async function restaurarRespaldoMiner(id,dia){
+ if(respaldoOcupado)return;const c=contextoRespaldoMiner(),estado=document.getElementById('estadoRespaldo');respaldoOcupado=true;
+ try{
+  estado.textContent='Recuperando datos y originales…';
+  const r=await pedirRespaldoMiner('read',{id},{...c,dia});comprobarContextoRespaldoMiner(c);
+  const data=r.backup.payload.data;if(!Array.isArray(data.docs)||!Array.isArray(data.carpetasTrabajadores))throw new Error('El respaldo no es compatible.');
+  const originales=[];
+  for(const f of r.backup.files){const res=await fetch(f.url);if(!res.ok)throw new Error('No se pudo recuperar un original. La vista actual se conserva.');const blob=await res.blob();originales.push({...f,file:new File([blob],f.name,{type:f.type||blob.type})});}
+  comprobarContextoRespaldoMiner(c);
+  guardarLocal(false);localStorage.setItem(c.clave+':antesDeRespaldo',localStorage.getItem(c.clave));
+  // Abrir en el día actual, sin reemplazar otros días guardados.
+  localStorage.setItem(c.clave,JSON.stringify(data));cargarLocal(false);
+  for(const carpeta of carpetasTrabajadores){
+   carpeta.archivosFisicos=originales.filter(f=>f.folder===carpeta.id).map(f=>f.file);
+   for(const a of carpeta.archivos||[]){const f=carpeta.archivosFisicos.find(f=>f.name===a.nombre);a.previewURL=f&&a.esImagen?URL.createObjectURL(f):'';}
+  }
+  guardarLocal(false);renderizar();
+  estado.textContent='Respaldo del '+dia+' abierto: '+originales.length+' originales recuperados'+(r.backup.payload.faltantes?.length?' · '+r.backup.payload.faltantes.length+' originales pendientes':'')+'.';
+ }catch(e){estado.textContent=e.message;}finally{respaldoOcupado=false;}
+}
+function recuperarAntesRespaldoMiner(){
+ if(respaldoOcupado)return;const clave=claveDatosMiner(),raw=localStorage.getItem(clave+':antesDeRespaldo');
+ if(!raw){document.getElementById('estadoRespaldo').textContent='No hay una vista anterior guardada en este equipo.';return;}
+ localStorage.setItem(clave,raw);cargarLocal(false);document.getElementById('estadoRespaldo').textContent='Vista anterior recuperada. Vuelve a cargar los originales que solo estaban en memoria.';
 }
 
 </script>
