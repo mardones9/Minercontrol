@@ -5088,8 +5088,42 @@ function validarDatosLocales(d){
  const fallo=()=>{throw new Error('El respaldo contiene datos internos mal formados. No se cambió la vista actual.');};
  if(!objeto(d))fallo();
  const textos=new Set(['trabajador','rut','faena','documento','contratista','empresa','cargo','nombre','tipo','tipoNombre','estado','estadoOriginal','fechaVencimiento','archivo','hoja','accion','origen','fechaISO','fechaSubida','ruta','extension','previewURL','semaforo','prioridad','username','responsable','observaciones','texto','etiqueta','imagen','alt','guardadoEn','requisito']);
- function revisar(x,nivel=0){if(nivel>35)fallo();if(Array.isArray(x)){for(const v of x)revisar(v,nivel+1);}else if(objeto(x)){for(const [k,v] of Object.entries(x)){if(['__proto__','constructor','prototype'].includes(k))fallo();if(textos.has(k)&&v!=null&&typeof v!=='string')fallo();revisar(v,nivel+1);}}else if(x!==null&&!['string','number','boolean'].includes(typeof x))fallo();}
- revisar(d);
+ // La seguridad del árbol JSON se comprueba también dentro de los metadatos.
+ function revisarJSON(x,nivel=0){
+  if(nivel>35)fallo();
+  if(Array.isArray(x)){for(const v of x)revisarJSON(v,nivel+1);}
+  else if(objeto(x)){for(const [k,v] of Object.entries(x)){if(['__proto__','constructor','prototype'].includes(k))fallo();revisarJSON(v,nivel+1);}}
+  else if(x!==null&&(!['string','number','boolean'].includes(typeof x)||(typeof x==='number'&&!Number.isFinite(x))))fallo();
+ }
+ function revisarProcedencia(p){
+  if(!objeto(p))fallo();
+  for(const campo of Object.values(p)){
+   if(!objeto(campo)||typeof campo.columna!=='string'||(campo.valor!==null&&!['string','number','boolean'].includes(typeof campo.valor)))fallo();
+   revisarCampos(campo);
+  }
+ }
+ function revisarColumnas(lista){
+  if(!Array.isArray(lista))fallo();
+  for(const columna of lista){
+   if(!objeto(columna)||typeof columna.hoja!=='string'||!Array.isArray(columna.headers)||columna.headers.some(h=>typeof h!=='string')||!objeto(columna.mapa))fallo();
+   for(const descriptor of Object.values(columna.mapa)){
+    if(descriptor===null)continue;
+    if(!objeto(descriptor)||typeof descriptor.key!=='string'||typeof descriptor.label!=='string'||(descriptor.score!==undefined&&(typeof descriptor.score!=='number'||!Number.isFinite(descriptor.score))))fallo();
+    revisarCampos(descriptor);
+   }
+  }
+ }
+ function revisarCampos(x){
+  if(Array.isArray(x)){for(const v of x)revisarCampos(v);return;}
+  if(!objeto(x))return;
+  for(const [k,v] of Object.entries(x)){
+   if(k==='procedenciaCampos'){revisarProcedencia(v);continue;}
+   if(k==='columnasDetectadas'){revisarColumnas(v);continue;}
+   if(textos.has(k)&&v!=null&&typeof v!=='string')fallo();
+   revisarCampos(v);
+  }
+ }
+ revisarJSON(d);revisarCampos(d);
  for(const k of ['docs','archivos','errores','carpetasTrabajadores','historialOperacional','trabajadores'])if(!Array.isArray(d[k])||d[k].some(x=>!objeto(x)))fallo();
  if(!objeto(d.requisitosFaena)||Object.values(d.requisitosFaena).some(a=>!Array.isArray(a)||a.some(k=>typeof k!=='string')))fallo();
  if(d.configuracionFaenas!=null&&!objeto(d.configuracionFaenas))fallo();
@@ -5097,6 +5131,7 @@ function validarDatosLocales(d){
  for(const a of d.archivos)if(a.items!==undefined)registros(a.items);
  const ids=new Set();for(const c of d.carpetasTrabajadores){if(!['string','number'].includes(typeof c.id)||!c.id||ids.has(String(c.id)))fallo();ids.add(String(c.id));registros(c.archivos);if(c.archivos.some(a=>typeof a.nombre!=='string'||!a.nombre))fallo();for(const k of ['fotosPrincipales','checklist','revisionesHumanas'])if(c[k]!==undefined)registros(c[k]);}
 }
+
 function validarLecturaLocal(row){
  const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
  const fail=()=>{throw new Error('Lectura de ficha mal formada. No se restauró nada.');};
