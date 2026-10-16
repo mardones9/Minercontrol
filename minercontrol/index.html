@@ -785,7 +785,8 @@ button{transition:.15s ease}
 
     <div class="actions">
       <button class="blue" onclick="generarHistorialDesdeDatos()">Generar historial desde datos actuales</button>
-      <button class="green" onclick="exportarHistorialOperacional()">Exportar historial Excel</button>
+      <button class="green" onclick="exportarHistorialOperacional(true)">Exportar vista filtrada</button>
+      <button class="green" onclick="exportarHistorialOperacional()">Exportar historial completo</button>
       <button class="yellow" onclick="filtrarHistorialAyer()">Ver lo de ayer</button>
       <button class="red" onclick="borrarHistorialOperacional()">Borrar historial</button>
     </div>
@@ -935,7 +936,8 @@ function actualizarEstadoSistema(){
   const us=document.getElementById("ultimaSubida");
   const ec=document.getElementById("estadoCritico");
   if(eg){
-    const raw=localStorage.getItem(claveDatosMiner());
+    const clave=claveDatosMiner();
+    const raw=localStorage.getItem(clave)||(typeof clavesConfirmadasMiner!=='undefined'&&clavesConfirmadasMiner.has(clave));
     eg.innerText=raw ? "💾 Guardado local disponible" : "💾 Sin guardado local";
     eg.className=raw ? "status-pill ok" : "status-pill";
   }
@@ -1394,8 +1396,8 @@ let revisionExcelLeyendo=false;
 function leerExcelParaRevision(file,contenido){
   const erroresArchivo=[];
       const wb=XLSX.read(new Uint8Array(contenido),{type:"array"});
-      const fechaISO=new Date().toISOString();
-      const fechaBonita=new Date().toLocaleString("es-CL");
+      const fechaISO=fechaChileMiner();
+      const fechaBonita=new Date().toLocaleString("es-CL",{timeZone:"America/Santiago"});
 
       let itemsArchivo=[];
       let hojasProcesadas=[];
@@ -1724,7 +1726,7 @@ function renderizarRanking(){
   const pintar=(arr)=>arr.length?arr.map(x=>`
     <div class="rank-item">
       <div>
-        <b>${x.nombre}</b>
+        <b>${escaparPerfilDocumento(x.nombre)}</b>
         <div class="small">${x.criticos} críticos de ${x.total} docs</div>
       </div>
       <div>${x.porcentaje}%</div>
@@ -1767,16 +1769,16 @@ function renderizarAlertas(){
 
   body.innerHTML=alertas.slice(0,100).map(a=>`
     <tr>
-      <td>${trabajadorDeRegistro(a).trabajador}</td>
-      <td>${a.rut}</td>
-      <td>${a.documento}</td>
-      <td>${a.faena}</td>
-      <td><span class="tipo-pill">${a.tipoDocumento||"Documento"}</span></td>
-      <td>${a.fechaVencimiento||"-"}</td>
+      <td>${escaparPerfilDocumento(trabajadorDeRegistro(a).trabajador)}</td>
+      <td>${escaparPerfilDocumento(a.rut)}</td>
+      <td>${escaparPerfilDocumento(a.documento)}</td>
+      <td>${escaparPerfilDocumento(a.faena)}</td>
+      <td><span class="tipo-pill">${escaparPerfilDocumento(a.tipoDocumento||"Documento")}</span></td>
+      <td>${escaparPerfilDocumento(a.fechaVencimiento||"-")}</td>
       <td>${a.diasRestantes!==""?a.diasRestantes:"-"}</td>
       <td>${badge(a.estado)} ${semaforoHtml(a.semaforo)}</td>
       <td>${prioridadBadge(a.prioridad)}</td>
-      <td>${a.archivo}</td>
+      <td>${escaparPerfilDocumento(a.archivo)}</td>
     </tr>
   `).join("");
 }
@@ -1788,19 +1790,19 @@ function renderizarDocumentos(){
   fileGrid.innerHTML=filtrados.length?filtrados.map(a=>`
     <div class="file-card">
       <div class="file-icon">📁</div>
-      <div class="file-title">${a.nombre}</div>
+      <div class="file-title">${escaparPerfilDocumento(a.nombre)}</div>
       <div class="meta">
-        <b>Subido:</b> ${a.fechaSubida}<br>
+        <b>Subido:</b> ${escaparPerfilDocumento(a.fechaSubida)}<br>
         <b>Registros:</b> ${a.registros}<br>
         <b>Trabajadores detectados:</b> ${new Set(a.items.map(claveTrabajador)).size}<br>
         <b>Faenas:</b> ${a.faenas}<br>
         <b>Hojas:</b> ${a.columnasDetectadas?.length ? (a.hojas||[]).length : "No analizado"}
       </div>
       <div class="file-actions">
-        <button class="mini blue" onclick="verArchivo('${encodeURIComponent(a.nombre)}')">Ver ordenado</button>
-        <button class="mini purple" onclick="verColumnas('${encodeURIComponent(a.nombre)}')">Columnas</button>
-        <button class="mini green" onclick="exportarArchivo('${encodeURIComponent(a.nombre)}')">Exportar</button>
-        <button class="mini red" onclick="eliminarArchivo('${encodeURIComponent(a.nombre)}')">Eliminar</button>
+        <button class="mini blue" onclick="verArchivo('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Ver ordenado</button>
+        <button class="mini purple" onclick="verColumnas('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Columnas</button>
+        <button class="mini green" onclick="exportarArchivo('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Exportar</button>
+        <button class="mini red" onclick="eliminarArchivo('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Eliminar</button>
       </div>
     </div>
   `).join(""):`<div class="empty">No hay archivos cargados todavía.</div>`;
@@ -1825,7 +1827,7 @@ function pintarDetalleArchivo(nombre){
   detalleAgrupado.innerHTML=grupos.map(f=>`
     <div class="worker-box">
       <div class="worker-head">
-        <b>🏗️ Faena: ${f.faena}</b>
+        <b>🏗️ Faena: ${escaparPerfilDocumento(f.faena)}</b>
         <div>${f.trabajadores.length} trabajadores</div>
       </div>
     </div>
@@ -1834,8 +1836,8 @@ function pintarDetalleArchivo(nombre){
       <div class="worker-box">
         <div class="worker-head">
           <div>
-            <b><a href="#perfilDocumentoTrabajador" class="worker-link" data-perfil-documento="${encodeURIComponent(JSON.stringify({rut:g.rut,trabajador:g.trabajador,faena:f.faena}))}" onclick="abrirPerfilDesdeDocumentos(this);return false">👷 ${g.trabajador}</a></b>
-            <div class="small">RUT: ${g.rut} · Cargo: ${g.cargo} · Empresa: ${g.contratista}</div>
+            <b><a href="#perfilDocumentoTrabajador" class="worker-link" data-perfil-documento="${encodeURIComponent(JSON.stringify({rut:g.rut,trabajador:g.trabajador,faena:f.faena}))}" onclick="abrirPerfilDesdeDocumentos(this);return false">👷 ${escaparPerfilDocumento(g.trabajador)}</a></b>
+            <div class="small">RUT: ${escaparPerfilDocumento(g.rut)} · Cargo: ${escaparPerfilDocumento(g.cargo)} · Empresa: ${escaparPerfilDocumento(g.contratista)}</div>
             ${avisoConflictosNombreRut(conflictosNombreRut([...docs,...g.items]).filter(c=>c.rut===rutIdentidad(g.rut)))}
           </div>
           <div>${g.items.length} documentos</div>
@@ -1858,14 +1860,14 @@ function pintarDetalleArchivo(nombre){
               <tbody>
                 ${g.items.map(d=>`
                   <tr>
-                    <td>${d.documento}</td>
-                    <td><span class="tipo-pill">${d.tipoDocumento||"Documento"}</span></td>
-                    <td>${d.fechaVencimiento||"-"}</td>
+                    <td>${escaparPerfilDocumento(d.documento)}</td>
+                    <td><span class="tipo-pill">${escaparPerfilDocumento(d.tipoDocumento||"Documento")}</span></td>
+                    <td>${escaparPerfilDocumento(d.fechaVencimiento||"-")}</td>
                     <td>${badge(d.estado)} ${semaforoHtml(d.semaforo)}</td>
                     <td>${prioridadBadge(d.prioridad)}</td>
-                    <td>${d.hoja || "-"}</td>
+                    <td>${escaparPerfilDocumento(d.hoja || "-")}</td>
                     <td>${d.filaExcel || "-"}</td>
-                    <td>${d.fechaSubida}</td>
+                    <td>${escaparPerfilDocumento(d.fechaSubida)}</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -2081,11 +2083,11 @@ function renderizarTrabajadores(){
 
   trabajadoresBody.innerHTML=filtrados.length?filtrados.map(t=>`
     <tr>
-      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${idTrabajador(t)}')">${t.trabajador}</a></td>
-      <td>${t.rut}</td>
-      <td>${t.contratista}</td>
-      <td>${t.faena}</td>
-      <td>${t.cargo}</td>
+      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${idTrabajador(t)}')">${escaparPerfilDocumento(t.trabajador)}</a></td>
+      <td>${escaparPerfilDocumento(t.rut)}</td>
+      <td>${escaparPerfilDocumento(t.contratista)}</td>
+      <td>${escaparPerfilDocumento(t.faena)}</td>
+      <td>${escaparPerfilDocumento(t.cargo)}</td>
       <td>${t.documentos||0}</td>
       <td>${semaforoTrabajador(t)}</td>
     </tr>
@@ -2144,10 +2146,10 @@ function abrirPerfilTrabajador(cod){
     <div class="section" style="margin-bottom:0">
       <div class="profile-header">
         <div>
-          <h2>👷 Historial de ${t.trabajador}</h2>
+          <h2>👷 Historial de ${escaparPerfilDocumento(t.trabajador)}</h2>
           <p class="meta" style="margin-top:8px">
-            RUT: ${t.rut} · Empresa: ${t.contratista}<br>
-            Faena: ${t.faena} · Cargo: ${t.cargo}${t.estadoLaboral?`<br>Estado laboral: ${escaparPerfilDocumento(t.estadoLaboral)}`:""}
+            RUT: ${escaparPerfilDocumento(t.rut)} · Empresa: ${escaparPerfilDocumento(t.contratista)}<br>
+            Faena: ${escaparPerfilDocumento(t.faena)} · Cargo: ${escaparPerfilDocumento(t.cargo)}${t.estadoLaboral?`<br>Estado laboral: ${escaparPerfilDocumento(t.estadoLaboral)}`:""}
           </p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2191,14 +2193,14 @@ function abrirPerfilTrabajador(cod){
           <tbody>
             ${relacionados.length?relacionados.map(d=>`
               <tr>
-                <td>${d.documento}</td>
-                <td><span class="tipo-pill">${d.tipoDocumento||"Documento"}</span></td>
-                <td>${d.fechaVencimiento||"-"}</td>
+                <td>${escaparPerfilDocumento(d.documento)}</td>
+                <td><span class="tipo-pill">${escaparPerfilDocumento(d.tipoDocumento||"Documento")}</span></td>
+                <td>${escaparPerfilDocumento(d.fechaVencimiento||"-")}</td>
                 <td>${d.diasRestantes!==""?d.diasRestantes:"-"}</td>
                 <td>${badge(d.estado)} ${semaforoHtml(d.semaforo)}</td>
                 <td>${prioridadBadge(d.prioridad)}</td>
-                <td>${d.archivo}</td>
-                <td>${d.hoja||"-"}</td>
+                <td>${escaparPerfilDocumento(d.archivo)}</td>
+                <td>${escaparPerfilDocumento(d.hoja||"-")}</td>
               </tr>
             `).join(""):`<tr><td colspan="8" class="empty">Sin documentos para este trabajador.</td></tr>`}
           </tbody>
@@ -2209,8 +2211,8 @@ function abrirPerfilTrabajador(cod){
       <div class="timeline">
         ${relacionados.slice().sort((a,b)=>String(b.fechaSubida).localeCompare(String(a.fechaSubida))).map(d=>`
           <div class="timeline-item">
-            <b>${d.fechaSubida}</b> · ${d.documento}<br>
-            <span class="small">Estado: ${d.estado} · Archivo: ${d.archivo} · Hoja: ${d.hoja||"-"}</span>
+            <b>${escaparPerfilDocumento(d.fechaSubida)}</b> · ${escaparPerfilDocumento(d.documento)}<br>
+            <span class="small">Estado: ${escaparPerfilDocumento(d.estado)} · Archivo: ${escaparPerfilDocumento(d.archivo)} · Hoja: ${escaparPerfilDocumento(d.hoja||"-")}</span>
           </div>
         `).join("") || `<div class="empty">Sin historial todavía.</div>`}
       </div>
@@ -2413,7 +2415,7 @@ function renderizarRequisitos(){
     return `
       <div class="file-card">
         <div class="file-icon">📋</div>
-        <div class="file-title">${f}</div>
+        <div class="file-title">${escaparPerfilDocumento(f)}</div>
         <div class="meta">
           Trabajadores: ${trabFaena.length}<br>
           Cumplen: ${evals.filter(e=>e.estado==="Cumple").length}<br>
@@ -2423,12 +2425,12 @@ function renderizarRequisitos(){
         <div class="doc-list">
           ${CATALOGO_REQUISITOS.map(r=>`
             <label class="doc-chip" style="cursor:pointer">
-              <span><input type="checkbox" ${reqs.includes(r.key)?"checked":""} onchange="toggleRequisitoFaena('${f.replace(/'/g,"\\'")}', '${r.key}', this.checked)"> ${r.nombre}</span>
+              <span><input type="checkbox" ${reqs.includes(r.key)?"checked":""} onchange="${escaparPerfilDocumento('toggleRequisitoFaena('+JSON.stringify(f)+','+JSON.stringify(r.key)+',this.checked)')}"> ${r.nombre}</span>
             </label>
           `).join("")}
         </div>
         <div class="folder-actions">
-          <button class="mini red" onclick="eliminarFaenaRequisito('${f.replace(/'/g,"\\'")}')">Eliminar configuración</button>
+          <button class="mini red" onclick="${escaparPerfilDocumento('eliminarFaenaRequisito('+JSON.stringify(f)+')')}">Eliminar configuración</button>
         </div>
       </div>
     `;
@@ -2439,7 +2441,7 @@ function renderChecklistRequisitosTrabajador(t){
   const ev=evaluarRequisitosTrabajador(t);
   if(!ev.reqs.length)return `<div class="alert problem">⚠️ Esta faena no tiene requisitos configurados todavía.</div>`;
   return `
-    <h3 style="margin:18px 0 10px">Checklist obligatorio según faena: ${t.faena}</h3>
+    <h3 style="margin:18px 0 10px">Checklist obligatorio según faena: ${escaparPerfilDocumento(t.faena)}</h3>
     <div class="alert ${ev.estado!=="Cumple"?"problem":""}">
       Estado requisitos: ${badgeReqEstado(ev.estado)} · Cumplimiento requisitos: <b>${ev.cumplimiento}%</b> · Faltan/pendientes: <b>${ev.faltan}</b>
     </div>
@@ -2621,17 +2623,17 @@ function renderizarAcreditacion(){
 
   acreditacionBody.innerHTML=filtrados.length?filtrados.map(d=>`
     <tr>
-      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',document.querySelectorAll('.nav button')[1])">${trabajadorDeRegistro(d).trabajador}</a></td>
-      <td>${d.rut}</td>
-      <td>${d.faena}</td>
-      <td>${d.documento}</td>
-      <td><span class="tipo-pill">${d.tipoDocumento||"Documento"}</span></td>
-      <td>${d.fechaVencimiento||"-"}</td>
+      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',document.querySelectorAll('.nav button')[1])">${escaparPerfilDocumento(trabajadorDeRegistro(d).trabajador)}</a></td>
+      <td>${escaparPerfilDocumento(d.rut)}</td>
+      <td>${escaparPerfilDocumento(d.faena)}</td>
+      <td>${escaparPerfilDocumento(d.documento)}</td>
+      <td><span class="tipo-pill">${escaparPerfilDocumento(d.tipoDocumento||"Documento")}</span></td>
+      <td>${escaparPerfilDocumento(d.fechaVencimiento||"-")}</td>
       <td>${badge(d.estado)} ${semaforoHtml(d.semaforo)}</td>
       <td>${prioridadBadge(d.prioridad)}</td>
-      <td>${d.archivo}</td>
-      <td>${d.hoja || "-"}</td>
-      <td>${d.fechaSubida}</td>
+      <td>${escaparPerfilDocumento(d.archivo)}</td>
+      <td>${escaparPerfilDocumento(d.hoja || "-")}</td>
+      <td>${escaparPerfilDocumento(d.fechaSubida)}</td>
     </tr>
   `).join(""):`<tr><td colspan="11" class="empty">Sin documentos para acreditar.</td></tr>`;
 }
@@ -2646,10 +2648,10 @@ function renderizarReportes(){
 
   erroresBody.innerHTML=errores.length?errores.slice(-200).map(e=>`
     <tr>
-      <td>${e.archivo}</td>
-      <td>${e.hoja}</td>
+      <td>${escaparPerfilDocumento(e.archivo)}</td>
+      <td>${escaparPerfilDocumento(e.hoja)}</td>
       <td>${e.fila}</td>
-      <td>${e.problema}</td>
+      <td>${escaparPerfilDocumento(e.problema)}</td>
     </tr>
   `).join(""):`<tr><td colspan="4" class="empty">Sin errores detectados.</td></tr>`;
 }
@@ -2731,7 +2733,7 @@ function exportarExcel(){
 }
 
 function guardarLocal(mostrar=true){
-  localStorage.setItem(claveDatosMiner(),JSON.stringify({
+  const raw=JSON.stringify({
     trabajadores,
     docs,
     archivos,
@@ -2741,12 +2743,13 @@ function guardarLocal(mostrar=true){
     configuracionFaenas,
     historialOperacional,
     actualizado:new Date().toISOString()
-  }));
+  });
 
-  encolarCarpetasLocales();
+  const pendiente=encolarCarpetasLocales(raw);
   actualizarEstadoSistema();
   pintarDiasMiner();
-  if(mostrar)mostrarToast("Datos guardados. Consulta el estado de los originales en Respaldo de mi cuenta.","ok");
+  if(mostrar)mostrarToast("Guardando datos y originales. Consulta el estado en Respaldo de mi cuenta.","ok");
+  return pendiente;
 }
 
 async function cargarLocal(mostrar=true,usarPersistencia=true){
@@ -2755,6 +2758,7 @@ async function cargarLocal(mostrar=true,usarPersistencia=true){
   const persistido=usarPersistencia?await operarDBLocalMiner('estado','readonly',s=>s.get(contexto.clave)):null;
   if(!sigueContextoLocal(contexto))return false;
   const raw=persistido?persistido.raw:localStorage.getItem(contexto.clave);
+  if(persistido?.raw)clavesConfirmadasMiner.add(contexto.clave);
   if(persistido){try{if(raw===null)localStorage.removeItem(contexto.clave);else localStorage.setItem(contexto.clave,raw);}catch{mensajeRespaldoLocal('La copia local está a salvo, pero falta espacio para actualizar la vista.');}}
 
   if(!raw){
@@ -3275,11 +3279,11 @@ function renderizarCarpetas(){
     <div class="folder-card">
       <div class="folder-head">
         <div>
-          <h3>👷 ${c.trabajador}</h3>
+          <h3>👷 ${escaparPerfilDocumento(c.trabajador)}</h3>
           <div class="meta" style="margin-top:8px">
-            RUT: ${c.rut} · Empresa: ${c.empresa || "Sin empresa"}<br>
-            Faena: ${c.faena || "Sin faena"} · Cargo: ${c.cargo || "Sin cargo"}<br>
-            Subida: ${c.fechaSubida} · Archivos: ${c.archivos?.length||0} · Confianza: ${conf}%
+            RUT: ${escaparPerfilDocumento(c.rut)} · Empresa: ${escaparPerfilDocumento(c.empresa || "Sin empresa")}<br>
+            Faena: ${escaparPerfilDocumento(c.faena || "Sin faena")} · Cargo: ${escaparPerfilDocumento(c.cargo || "Sin cargo")}<br>
+            Subida: ${escaparPerfilDocumento(c.fechaSubida)} · Archivos: ${c.archivos?.length||0} · Confianza: ${conf}%
           </div>
           <div class="confidence" style="max-width:280px"><span style="width:${conf}%"></span></div>
         </div>
@@ -3288,8 +3292,8 @@ function renderizarCarpetas(){
 
       ${(c.fotosPrincipales||[]).length?`
         <div class="preview-doc">
-          ${c.fotosPrincipales.map(f=>f.previewURL?`<img src="${f.previewURL}" alt="${f.nombre}">`:"").join("")}
-          <div><b>Imagen/cédula detectada</b><br><span class="small">${c.fotosPrincipales.map(f=>f.nombre).join(" · ")}</span></div>
+          ${c.fotosPrincipales.map(f=>f.previewURL?`<img src="${f.previewURL}" alt="${escaparPerfilDocumento(f.nombre)}">`:"").join("")}
+          <div><b>Imagen/cédula detectada</b><br><span class="small">${escaparPerfilDocumento(c.fotosPrincipales.map(f=>f.nombre).join(" · "))}</span></div>
         </div>`:""}
 
       <div style="margin-top:12px">
@@ -3301,10 +3305,10 @@ function renderizarCarpetas(){
       <div class="check-grid">
         ${(c.checklist||[]).map(item=>`
           <div class="check-card ${item.estado==="Recibido"?"ok-doc":item.estado==="Por vencer"?"warn-doc":"bad-doc"}">
-            <b>${item.estado==="Recibido"?"✅":item.estado==="Por vencer"?"⚠️":"❌"} ${item.nombre}</b>
-            <div class="small" style="margin-top:6px">${item.estado} · ${item.cantidad||0} archivo(s) · Confianza ${item.confianza||0}%</div>
+            <b>${item.estado==="Recibido"?"✅":item.estado==="Por vencer"?"⚠️":"❌"} ${escaparPerfilDocumento(item.nombre)}</b>
+            <div class="small" style="margin-top:6px">${escaparPerfilDocumento(item.estado)} · ${item.cantidad||0} archivo(s) · Confianza ${item.confianza||0}%</div>
             <div class="doc-list">
-              ${(item.archivos||[]).slice(0,4).map(a=>`<div class="doc-chip"><span>${a}</span><span>${item.estado}</span></div>`).join("")}
+              ${(item.archivos||[]).slice(0,4).map(a=>`<div class="doc-chip"><span>${escaparPerfilDocumento(a)}</span><span>${escaparPerfilDocumento(item.estado)}</span></div>`).join("")}
             </div>
           </div>
         `).join("")}
@@ -3315,21 +3319,21 @@ function renderizarCarpetas(){
         ${(c.archivos||[]).slice(0,16).map(a=>`
           <div class="auto-file ${a.tipo&&a.tipo!=="otro"?"ok":"warn"}">
             <b>${a.tipoNombre||nombreTipoDoc(a.tipo)}</b><br>
-            ${a.nombre}<br>
-            <span class="small">Estado: ${a.estado||"Revisar"} · Vence: ${a.fechaVencimiento||"-"} · Confianza: ${a.confianza||0}%</span>
+            ${escaparPerfilDocumento(a.nombre)}<br>
+            <span class="small">Estado: ${escaparPerfilDocumento(a.estado||"Revisar")} · Vence: ${escaparPerfilDocumento(a.fechaVencimiento||"-")} · Confianza: ${a.confianza||0}%</span>
           </div>
         `).join("")}
       </div>
 
       ${resumenRevisionHumana(c)}
-      <textarea class="note" placeholder="Observaciones para esta carpeta..." oninput="actualizarObservacionCarpeta('${c.id}',this.value)">${c.observacion||""}</textarea>
+      <textarea class="note" placeholder="Observaciones para esta carpeta..." oninput="${escaparPerfilDocumento('actualizarObservacionCarpeta('+JSON.stringify(c.id)+',this.value)')}">${escaparPerfilDocumento(c.observacion||"")}</textarea>
 
       <div class="folder-actions">
-        <button class="mini green" onclick="integrarCarpetaADocumentos('${c.id}')">Enviar a acreditación</button>
-        <button class="mini green" onclick="despacharCarpeta('${c.id}')">Despachar ZIP</button>
-        <button class="mini blue" onclick="marcarCarpetaLista('${c.id}')">Confirmar revisión humana</button>
-        <button class="mini yellow" onclick="editarDatosCarpeta('${c.id}')">Editar datos</button>
-        <button class="mini red" onclick="eliminarCarpeta('${c.id}')">Eliminar</button>
+        <button class="mini green" onclick="${escaparPerfilDocumento('integrarCarpetaADocumentos('+JSON.stringify(c.id)+')')}">Enviar a acreditación</button>
+        <button class="mini green" onclick="${escaparPerfilDocumento('despacharCarpeta('+JSON.stringify(c.id)+')')}">Despachar ZIP</button>
+        <button class="mini blue" onclick="${escaparPerfilDocumento('marcarCarpetaLista('+JSON.stringify(c.id)+')')}">Confirmar revisión humana</button>
+        <button class="mini yellow" onclick="${escaparPerfilDocumento('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Editar datos</button>
+        <button class="mini red" onclick="${escaparPerfilDocumento('eliminarCarpeta('+JSON.stringify(c.id)+')')}">Eliminar</button>
       </div>
     </div>`;
   }).join("");
@@ -3495,9 +3499,23 @@ async function eliminarCarpeta(id){
  if(!confirm('¿Eliminar esta carpeta y sus originales locales? Se conservará una copia anterior recuperable.'))return;
  await eliminarDatosLocales([id],false);
 }
+function faltantesOriginalesDespacho(c){
+ const disponibles=[...(c.archivosFisicos||[])];
+ return (c.archivos||[]).filter(a=>{const i=disponibles.findIndex(f=>f instanceof Blob&&f.name===a.nombre&&(a.tamano==null||f.size===a.tamano));if(i<0)return true;disponibles.splice(i,1);return false;}).map(a=>a.nombre||'Archivo sin nombre');
+}
+async function validarOriginalesDespacho(lista){
+ const contexto=contextoLocalMiner();
+ await colaOriginalesLocales;await recuperarCarpetasLocales();
+ if(!sigueContextoLocal(contexto)){mostrarToast('Cambió la cuenta o el día. Vuelve a seleccionar el despacho.','warn');return false;}
+ const faltantes=lista.flatMap(c=>faltantesOriginalesDespacho(c).map(nombre=>({trabajador:c.trabajador,nombre})));
+ if(faltantes.length){mostrarToast('No se generó el ZIP: faltan '+faltantes.length+' originales. Vuelve a cargarlos antes de despachar.','warn');return false;}
+ if(!lista.some(c=>c.archivosFisicos?.length)){mostrarToast('No se generó el ZIP: no hay originales para despachar.','warn');return false;}
+ return true;
+}
+
 async function despacharCarpeta(id){
   const c=carpetasTrabajadores.find(x=>x.id===id);
-  if(!c)return;
+  if(!c || !await validarOriginalesDespacho([c]))return;
 
   const zip=new JSZip();
   const base=limpiarNombreArchivo(`${c.trabajador}_${c.rut}`);
@@ -3644,14 +3662,13 @@ function exportarCarpetasExcel(){
 
 function exportarMatrizControl(){
   const wb=XLSX.utils.book_new();
-  const filas=[];
-  carpetasTrabajadores.forEach(c=>{
+  const keys=[...new Set(carpetasTrabajadores.flatMap(c=>requisitosFaena[nombreFaenaCanonico(c.faena)]||[]))];
+  const filas=carpetasTrabajadores.map(c=>{
+    const activos=requisitosFaena[nombreFaenaCanonico(c.faena)]||[];
+    const checklist=crearChecklistCarpeta(c.archivos||[],c.faena);
     const row={Trabajador:c.trabajador,RUT:c.rut,Empresa:c.empresa,Faena:c.faena,Cargo:c.cargo,Estado:c.estado,Confianza:(c.confianza||calcularConfianzaCarpeta(c))+"%"};
-    DOCS_REQUERIDOS.slice(0,8).forEach(req=>{
-      const item=(c.checklist||[]).find(x=>x.key===req.key);
-      row[req.nombre]=item?item.estado:"Falta";
-    });
-    filas.push(row);
+    for(const key of keys)row[nombreReq(key)]=!activos.includes(key)?'No aplica':checklist.find(x=>x.key===key)?.estado||'Falta';
+    return row;
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(filas),"Matriz control");
   XLSX.writeFile(wb,"MinerControl_Matriz_Control.xlsx");
@@ -3660,6 +3677,7 @@ function exportarMatrizControl(){
 async function generarZIPMasivo(){
   const listas=carpetasTrabajadores.filter(c=>c.estado==="Lista" || c.estado==="Observada");
   if(!listas.length){mostrarToast("No hay carpetas listas u observadas para comprimir.","warn");return;}
+  if(!await validarOriginalesDespacho(listas))return;
   const zip=new JSZip();
   listas.forEach(c=>{
     const base=limpiarNombreArchivo(`${c.trabajador}_${c.rut}`);
@@ -3698,8 +3716,9 @@ function fechaISODesdeCL(fechaTexto){
 function registrarMovimiento(data){
   const mov={
     id:Date.now()+"_"+Math.random().toString(16).slice(2),
-    fecha:new Date().toLocaleString("es-CL"),
-    fechaISO:new Date().toISOString().slice(0,10),
+    fecha:new Date().toLocaleString("es-CL",{timeZone:"America/Santiago"}),
+    fechaISO:fechaChileMiner(),
+    creadoEn:new Date().toISOString(),
     trabajador:data.trabajador || "Sin trabajador",
     rut:data.rut || "Sin RUT",
     empresa:data.empresa || data.contratista || "Sin empresa",
@@ -3713,9 +3732,9 @@ function registrarMovimiento(data){
 }
 
 function estadoHistorialBadge(estado){
-  if(["Acreditado","Lista","Cumple"].includes(estado))return `<span class="badge ok">${estado}</span>`;
-  if(["Por vencer","Observada","Observado","Revisar"].includes(estado))return `<span class="badge warn">${estado}</span>`;
-  return `<span class="badge bad">${estado}</span>`;
+  if(["Acreditado","Lista","Cumple"].includes(estado))return `<span class="badge ok">${escaparPerfilDocumento(estado)}</span>`;
+  if(["Por vencer","Observada","Observado","Revisar"].includes(estado))return `<span class="badge warn">${escaparPerfilDocumento(estado)}</span>`;
+  return `<span class="badge bad">${escaparPerfilDocumento(estado)}</span>`;
 }
 
 function tipoAccionHistorial(h){
@@ -3748,7 +3767,7 @@ function renderizarHistorial(){
   if(!body || !timeline)return;
 
   const filtrados=obtenerHistorialFiltrado();
-  const hoyISO=new Date().toISOString().slice(0,10);
+  const hoyISO=fechaChileMiner();
 
   if(document.getElementById("hMovimientos"))hMovimientos.innerText=historialOperacional.length;
   if(document.getElementById("hAprobadosHoy"))hAprobadosHoy.innerText=historialOperacional.filter(h=>(h.fechaISO||fechaISODesdeCL(h.fecha))===hoyISO && tipoAccionHistorial(h)==="aprobado").length;
@@ -3761,14 +3780,14 @@ function renderizarHistorial(){
 
   body.innerHTML=filtrados.length?filtrados.map(h=>`
     <tr>
-      <td>${h.fecha}</td>
-      <td>${h.trabajador}</td>
-      <td>${h.rut}</td>
-      <td>${h.empresa}</td>
-      <td>${h.faena}</td>
-      <td>${h.accion}${h.revisionHumana?`<p class="meta">Encargado: ${escaparPerfilDocumento(h.revisionHumana.responsable)}<br>${escaparPerfilDocumento(h.revisionHumana.observaciones||'Sin observaciones')}</p>`:''}</td>
+      <td>${escaparPerfilDocumento(h.fecha)}</td>
+      <td>${escaparPerfilDocumento(h.trabajador)}</td>
+      <td>${escaparPerfilDocumento(h.rut)}</td>
+      <td>${escaparPerfilDocumento(h.empresa)}</td>
+      <td>${escaparPerfilDocumento(h.faena)}</td>
+      <td>${escaparPerfilDocumento(h.accion)}${h.revisionHumana?`<p class="meta">Encargado: ${escaparPerfilDocumento(h.revisionHumana.responsable)}<br>${escaparPerfilDocumento(h.revisionHumana.observaciones||'Sin observaciones')}</p>`:''}</td>
       <td>${estadoHistorialBadge(h.estado)}</td>
-      <td>${h.origen||"Sistema"}</td>
+      <td>${escaparPerfilDocumento(h.origen||"Sistema")}</td>
     </tr>
   `).join(""):`<tr><td colspan="8" class="empty">Sin movimientos para mostrar.</td></tr>`;
 
@@ -3786,12 +3805,12 @@ function renderizarHistorial(){
       ${porFecha[f].slice(0,20).map(h=>`
         <div class="history-event">
           <div>
-            <b>${h.fecha}</b><br>
-            👷 ${h.trabajador} · ${h.rut}<br>
-            <span class="small">🏢 ${h.empresa} · 🏗️ ${h.faena}</span>
+            <b>${escaparPerfilDocumento(h.fecha)}</b><br>
+            👷 ${escaparPerfilDocumento(h.trabajador)} · ${escaparPerfilDocumento(h.rut)}<br>
+            <span class="small">🏢 ${escaparPerfilDocumento(h.empresa)} · 🏗️ ${escaparPerfilDocumento(h.faena)}</span>
           </div>
           <div>
-            ${h.accion}<br>
+            ${escaparPerfilDocumento(h.accion)}<br>
             ${estadoHistorialBadge(h.estado)}
           </div>
         </div>
@@ -3807,7 +3826,7 @@ function generarHistorialDesdeDatos(){
 
   documentosReales().forEach(d=>{
     const accion=d.estado==="Acreditado"?"✅ Documento acreditado":d.estado==="Por vencer"?"⚠️ Documento por vencer":d.estado==="Vencido"?"🚨 Documento vencido":"❌ Documento pendiente/revisar";
-    const fechaISO=d.fechaISO?String(d.fechaISO).slice(0,10):new Date().toISOString().slice(0,10);
+    const fechaISO=d.fechaISO?String(d.fechaISO).slice(0,10):fechaChileMiner();
     const key=`Documentos|${d.trabajador}|${d.rut}|${d.faena}|${accion}|${fechaISO}`;
     if(!existentes.has(key)){
       historialOperacional.push({
@@ -3827,7 +3846,7 @@ function generarHistorialDesdeDatos(){
   });
 
   carpetasTrabajadores.forEach(c=>{
-    const fechaISO=fechaISODesdeCL(c.fechaSubida) || new Date().toISOString().slice(0,10);
+    const fechaISO=fechaISODesdeCL(c.fechaSubida) || fechaChileMiner();
     const accion="📂 Carpeta registrada";
     const key=`Carpetas|${c.trabajador}|${c.rut}|${c.faena}|${accion}|${fechaISO}`;
     if(!existentes.has(key)){
@@ -3854,22 +3873,21 @@ function generarHistorialDesdeDatos(){
 }
 
 function filtrarHistorialAyer(){
-  const d=new Date();
-  d.setDate(d.getDate()-1);
-  const iso=d.toISOString().slice(0,10);
+  const d=new Date(fechaChileMiner()+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-1);
   const input=document.getElementById("filtroFechaHistorial");
-  if(input)input.value=iso;
+  if(input)input.value=d.toISOString().slice(0,10);
   renderizarHistorial();
 }
 
-function exportarHistorialOperacional(){
-  if(!historialOperacional.length){
-    alert("No hay historial para exportar.");
+function exportarHistorialOperacional(filtrado=false){
+  const movimientos=filtrado?obtenerHistorialFiltrado():historialOperacional;
+  if(!movimientos.length){
+    alert(filtrado?"No hay movimientos en la vista filtrada para exportar.":"No hay historial para exportar.");
     return;
   }
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(historialOperacional),"Historial");
-  XLSX.writeFile(wb,"MinerControl_Historial_Operacional.xlsx");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(movimientos),"Historial");
+  XLSX.writeFile(wb,filtrado?"MinerControl_Historial_Filtrado.xlsx":"MinerControl_Historial_Operacional.xlsx");
 }
 
 function borrarHistorialOperacional(){
@@ -3945,15 +3963,16 @@ function baseDatosMiner(){
  if(!usuarioActual)throw new Error('Inicia sesión');
  return usuarioActual.username==='admin'?'minercontrol_data':`minercontrol_data_${usuarioActual.id}`;
 }
-function hoyMiner(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
+function fechaChileMiner(fecha=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(fecha);}
+function hoyMiner(){return fechaChileMiner();}
 let diaSeleccionadoMiner=hoyMiner();
 function claveDatosMiner(){
  const base=baseDatosMiner();
- if(!localStorage.getItem(base+':migradoDias')){
+ try{if(!localStorage.getItem(base+':migradoDias')){
   const anterior=localStorage.getItem(base);
   if(anterior && !localStorage.getItem(base+':dia:'+hoyMiner()))localStorage.setItem(base+':dia:'+hoyMiner(),anterior);
   localStorage.setItem(base+':migradoDias','1');
- }
+ }}catch{ /* El almacenamiento principal puede seguir disponible. */ }
  return base+':dia:'+diaSeleccionadoMiner;
 }
 async function cambiarDiaMiner(dia){
@@ -4017,7 +4036,7 @@ function confirmarUsoMiner(firma,nombre,tipo){
 }
 function registrarUsoMiner(firma,nombre,tipo){
  const usos=usosMiner();usos.push({firma,nombre,tipo,dia:diaSeleccionadoMiner});
- localStorage.setItem(baseDatosMiner()+':usos',JSON.stringify(usos));
+ try{localStorage.setItem(baseDatosMiner()+':usos',JSON.stringify(usos));}catch{mostrarToast('No se pudo actualizar el aviso de reutilización. Comprueba el estado del guardado principal.','warn');}
 }
 function firmaCarpetaMiner(files){return 'carpeta:'+JSON.stringify(files.map(f=>[f.webkitRelativePath||f.name,f.size,f.lastModified]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));}
 function firmaExcelMiner(a){return 'excel:'+(a.firmaOrigen||JSON.stringify([a.nombre,(a.items||[]).map(firmaRevisionExcel).sort()]));}
@@ -4029,7 +4048,7 @@ function pintarDiasMiner(){
  const select=document.getElementById('diasGuardadosMiner');select.replaceChildren();
  const primer=document.createElement('option');primer.value='';primer.textContent='Ir a un día guardado';select.append(primer);
  const prefijo=baseDatosMiner()+':dia:';
- Object.keys(localStorage).filter(k=>k.startsWith(prefijo)).map(k=>k.slice(prefijo.length)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse().forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;select.append(o);});
+ [...new Set([...Object.keys(localStorage),...(typeof clavesConfirmadasMiner==='undefined'?[]:clavesConfirmadasMiner)])].filter(k=>k.startsWith(prefijo)).map(k=>k.slice(prefijo.length)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse().forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;select.append(o);});
  pintarDocumentacionDiaMiner();
  const lista=document.getElementById('recientesMiner');lista.replaceChildren();
  const filas=[...archivos.map(a=>({nombre:a.nombre,borrar:()=>eliminarArchivo(encodeURIComponent(a.nombre))})),...carpetasTrabajadores.map(c=>({nombre:c.trabajador+' · '+c.archivos.length+' archivos',borrar:()=>eliminarCarpeta(c.id)}))];
@@ -4155,7 +4174,7 @@ async function iniciarSesion(){
 async function abrirSesionMiner(){
  loginView.style.display='none';appView.style.display='block';
  document.querySelector('.main h1').textContent=`Bienvenido ${usuarioActual.name} 👋`;
- activarLogoInicio();actualizarFecha();await cargarLocal(false);renderizar();pintarPermisosMiner();pintarDiasMiner();consultarRespaldoDiaMiner(!localStorage.getItem(claveDatosMiner()));
+ activarLogoInicio();actualizarFecha();await cargarIndiceDiasMiner();await cargarLocal(false);renderizar();pintarPermisosMiner();pintarDiasMiner();consultarRespaldoDiaMiner(!localStorage.getItem(claveDatosMiner()));
  pintarSuscripcionMiner(usuarioActual.subscription);if(usuarioActual.role==='Administrador')refrescarAvisosCobroMiner();
 }
 async function cerrarSesion(){
@@ -4794,8 +4813,8 @@ async function guardarRespaldoMiner(){
   const {files,faltantes}=obtenerOriginalesRespaldoMiner();
   if(faltantes.length&&!document.getElementById('permitirRespaldoParcial').checked)throw new Error('Faltan '+faltantes.length+' originales. Vuelve a cargarlos o elige guardar solo los datos disponibles.');
   if(files.length>100||files.some(f=>f.size>12*1024*1024)||files.reduce((n,f)=>n+f.size,0)>100*1024*1024)throw new Error('Este respaldo admite hasta 100 originales, 12 MB por archivo y 100 MB en total.');
-  guardarLocal(false);
-  const payload={schema:1,data:JSON.parse(localStorage.getItem(c.clave)),faltantes};
+  const copiaLocal=await capturarDiaLocal(c);
+  const payload={schema:1,data:copiaLocal.data,faltantes};
   estado.textContent='Preparando respaldo privado…';
   const preparado=await pedirRespaldoMiner('prepare',{files:files.map(({file,...f})=>f)},c);
   for(let i=0;i<files.length;i++){
@@ -5008,18 +5027,20 @@ function originalGuardadoEnTarjeta(item,t){
 // Copias locales: ningún archivo se envía a la red.
 let colaOriginalesLocales=Promise.resolve(),pendientesOriginalesLocales=0,errorOriginalesLocales='',restauracionLocalPendiente=null;
 const firmasCarpetasLocales=new Map();
+const clavesConfirmadasMiner=new Set();
 const LIMITE_RESPALDO_LOCAL=200*1024*1024;
 function mensajeRespaldoLocal(texto){for(const id of ['estadoRespaldoLocal','estadoOriginalesCarpetas']){const n=document.getElementById(id);if(n)n.textContent=texto;}}
 function contextoLocalMiner(){return {clave:claveDatosMiner(),dia:diaSeleccionadoMiner,id:usuarioActual?.id};}
 function sigueContextoLocal(c){return usuarioActual?.id===c.id&&diaSeleccionadoMiner===c.dia&&claveDatosMiner()===c.clave;}
 function abrirDBLocalMiner(){return new Promise((resolve,reject)=>{const r=indexedDB.open('minercontrol-carpetas-local-v1',2);const timer=setTimeout(()=>reject(new Error('Cierra otras pestañas de MinerControl para actualizar el almacenamiento local.')),10000);r.onupgradeneeded=()=>{for(const name of ['carpetas','anteriores','originales','estado'])if(!r.result.objectStoreNames.contains(name))r.result.createObjectStore(name,{keyPath:'key'});};r.onsuccess=()=>{clearTimeout(timer);r.result.onversionchange=()=>r.result.close();resolve(r.result);};r.onerror=()=>{clearTimeout(timer);reject(new Error('No se pudo abrir el almacenamiento local.'));};});}
 async function operarDBLocalMiner(store,modo,accion){const db=await abrirDBLocalMiner();try{return await new Promise((resolve,reject)=>{const tx=db.transaction(store,modo);let result;const r=accion(tx.objectStore(store));r.onsuccess=()=>result=r.result;tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(new Error('No se completó el guardado local. Comprueba el espacio del navegador.'));});}finally{db.close();}}
+async function cargarIndiceDiasMiner(){const claves=await operarDBLocalMiner('estado','readonly',store=>store.getAllKeys());for(const clave of claves)if(typeof clave==='string'&&clave.includes(':dia:'))clavesConfirmadasMiner.add(clave);}
 function keyCarpetaLocal(clave,id){return clave+':carpeta:'+String(id);}
-function encolarCarpetasLocales(){
- const c=contextoLocalMiner(),raw=localStorage.getItem(c.clave),carpetas=carpetasTrabajadores.filter(x=>x.archivosFisicos?.length).map(x=>({key:keyCarpetaLocal(c.clave,x.id),files:[...x.archivosFisicos]}));
+function encolarCarpetasLocales(raw){
+ const c=contextoLocalMiner(),carpetas=carpetasTrabajadores.filter(x=>x.archivosFisicos?.length).map(x=>({key:keyCarpetaLocal(c.clave,x.id),files:[...x.archivosFisicos]}));
  const nuevas=carpetas.filter(x=>{const f=firmasCarpetasLocales.get(x.key);return !f||f.length!==x.files.length||f.some((v,i)=>v!==x.files[i]);});
  pendientesOriginalesLocales++;mensajeRespaldoLocal('Guardando datos y originales en este navegador…');
- colaOriginalesLocales=colaOriginalesLocales.catch(()=>{}).then(async()=>{const db=await abrirDBLocalMiner();try{await new Promise((resolve,reject)=>{const tx=db.transaction(['carpetas','estado'],'readwrite');for(const row of nuevas)tx.objectStore('carpetas').put(row);tx.objectStore('estado').put({key:c.clave,raw});tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(new Error('No se completó el guardado local. Comprueba el espacio del navegador.'));});}finally{db.close();}for(const r of nuevas)firmasCarpetasLocales.set(r.key,r.files);errorOriginalesLocales='';if(sigueContextoLocal(c))mensajeRespaldoLocal('Datos y originales guardados en este navegador. Descarga un respaldo para conservar otra copia.');}).catch(e=>{errorOriginalesLocales=e.message;if(sigueContextoLocal(c))mensajeRespaldoLocal(e.message+' Conserva los archivos y descarga un respaldo antes de cerrar.');}).finally(()=>pendientesOriginalesLocales--);
+ colaOriginalesLocales=colaOriginalesLocales.catch(()=>{}).then(async()=>{const db=await abrirDBLocalMiner();try{await new Promise((resolve,reject)=>{const tx=db.transaction(['carpetas','estado'],'readwrite');for(const row of nuevas)tx.objectStore('carpetas').put(row);tx.objectStore('estado').put({key:c.clave,raw});tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(new Error('No se completó el guardado local. Comprueba el espacio del navegador.'));});}finally{db.close();}clavesConfirmadasMiner.add(c.clave);for(const r of nuevas)firmasCarpetasLocales.set(r.key,r.files);errorOriginalesLocales='';let auxiliar=true;try{localStorage.setItem(c.clave,raw);}catch{auxiliar=false;}if(sigueContextoLocal(c)){actualizarEstadoSistema();pintarDiasMiner();mensajeRespaldoLocal('Datos y originales guardados en este navegador.'+(auxiliar?' Descarga un respaldo para conservar otra copia.':' La copia auxiliar no pudo actualizarse; los datos están guardados en el almacenamiento principal. Descarga un respaldo.'));}}).catch(e=>{errorOriginalesLocales=e.message;if(sigueContextoLocal(c))mensajeRespaldoLocal(e.message+' Conserva los archivos y descarga un respaldo antes de cerrar.');}).finally(()=>pendientesOriginalesLocales--);
  return colaOriginalesLocales;
 }
 async function recuperarCarpetasLocales(){
@@ -5042,8 +5063,10 @@ async function listarLectoresLocales(clave){const db=await abrirDBOriginalesFich
 async function reemplazarLectoresLocales(clave,rows){const db=await abrirDBOriginalesFicha();try{await new Promise((resolve,reject)=>{const tx=db.transaction('originales','readwrite'),s=tx.objectStore('originales'),r=s.openCursor();r.onsuccess=()=>{const cur=r.result;if(cur){if(String(cur.key).startsWith(clave+':original:'))cur.delete();cur.continue();}else for(const row of rows)s.put(row);};tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(new Error('No se pudieron restaurar las lecturas locales.'));});}finally{db.close();}}
 async function capturarDiaLocal(c){
  await colaOriginalesLocales;if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');
- guardarLocal(false);await colaOriginalesLocales;
- const data=JSON.parse(localStorage.getItem(c.clave)),folders=[];
+ await guardarLocal(false);if(errorOriginalesLocales)throw new Error(errorOriginalesLocales);
+ const estado=await operarDBLocalMiner('estado','readonly',store=>store.get(c.clave));
+ if(!estado?.raw)throw new Error('No se ha confirmado el guardado del día.');
+ const data=JSON.parse(estado.raw),folders=[];
  for(const carpeta of carpetasTrabajadores){const guardado=await operarDBLocalMiner('carpetas','readonly',s=>s.get(keyCarpetaLocal(c.clave,carpeta.id)));folders.push({id:carpeta.id,files:carpeta.archivosFisicos?.length?[...carpeta.archivosFisicos]:guardado?.files||[]});}
  const readers=await listarLectoresLocales(c.clave);if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');
  return {data,folders,readers};
