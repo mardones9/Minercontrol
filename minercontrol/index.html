@@ -1538,6 +1538,42 @@ function cancelarRevisionExcel(){
   document.getElementById("revisionExcelModal").close();
 }
 
+function nuevaClaveCargaMiner(){return 'carga_'+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random().toString(16).slice(2));}
+function firmaRegistroCargaMiner(registro){
+ const ignorados=new Set(['cargaId','diasRestantes','estado','prioridad','semaforo']);
+ return JSON.stringify(Object.fromEntries(Object.keys(registro).filter(k=>!ignorados.has(k)).sort().map(k=>[k,registro[k]])));
+}
+function asegurarIdentidadesCargas(){
+ let cambio=false;const ids=new Set(),pendientes=new Map();
+ for(const archivo of archivos){
+  if(typeof archivo.id!=='string'||!archivo.id||ids.has(archivo.id)){do{archivo.id=nuevaClaveCargaMiner();}while(ids.has(archivo.id));cambio=true;}
+  ids.add(archivo.id);
+  for(const item of archivo.items||[]){if(item.cargaId!==archivo.id){item.cargaId=archivo.id;cambio=true;}const firma=firmaRegistroCargaMiner(item);if(!pendientes.has(firma))pendientes.set(firma,[]);pendientes.get(firma).push(archivo.id);}
+ }
+ for(const d of docs){
+  const candidatas=pendientes.get(firmaRegistroCargaMiner(d))||[];
+  const i=ids.has(d.cargaId)?candidatas.indexOf(d.cargaId):candidatas.length?0:-1;
+  if(i>=0){const id=candidatas.splice(i,1)[0];if(d.cargaId!==id){d.cargaId=id;cambio=true;}}
+ }
+ const usadasErrores=new Map();
+ for(const error of errores){
+  if(ids.has(error.cargaId))continue;
+  const candidatas=archivos.filter(a=>a.nombre===error.archivo&&(a.items||[]).some(d=>d.hoja===error.hoja&&d.filaExcel===error.fila));
+  if(!candidatas.length){const unicas=archivos.filter(a=>a.nombre===error.archivo);if(unicas.length===1)candidatas.push(unicas[0]);}
+  const firma=JSON.stringify([error.archivo,error.hoja,error.fila,error.problema]);const usados=usadasErrores.get(firma)||0;
+  if(candidatas[usados]){error.cargaId=candidatas[usados].id;usadasErrores.set(firma,usados+1);cambio=true;}
+ }
+ return cambio;
+}
+function buscarCargaArchivo(clave){
+ asegurarIdentidadesCargas();
+ const id=archivos.find(a=>a.id===clave);if(id)return id;
+ const porNombre=archivos.filter(a=>a.nombre===clave);
+ if(porNombre.length===1)return porNombre[0];
+ if(porNombre.length>1)mostrarToast('Hay varias cargas con ese nombre. Usa el botón de la carga que quieres consultar.','warn');
+ return null;
+}
+
 function confirmarRevisionExcel(){
   if(!revisionExcelPendiente || document.getElementById("confirmarRevisionExcel").disabled)return;
   const lote=revisionExcelPendiente;
@@ -1545,18 +1581,18 @@ function confirmarRevisionExcel(){
   for(const r of lote){if(!confirmarUsoMiner(firmaExcelMiner(r.archivo),r.archivo.nombre,'archivo'))return;}
   lote.forEach(r=>registrarUsoMiner(firmaExcelMiner(r.archivo),r.archivo.nombre,'archivo'));
   revisionExcelPendiente=null;
-  lote.forEach(r=>{archivos.push(r.archivo);docs.push(...r.archivo.items);errores.push(...r.errores);});
+  lote.forEach(r=>{r.archivo.id=nuevaClaveCargaMiner();r.archivo.items.forEach(d=>d.cargaId=r.archivo.id);r.errores.forEach(e=>e.cargaId=r.archivo.id);archivos.push(r.archivo);docs.push(...r.archivo.items);errores.push(...r.errores);});
   reconstruirTrabajadores();
   guardarLocal(false);
   renderizar();
-  resumenImportacion.innerHTML=lote.map(r=>`<div class="alert"><b>${escaparPerfilDocumento(r.archivo.nombre)}</b><br>Registros importados: ${r.archivo.registros}<br>Trabajadores detectados: ${r.archivo.trabajadores}<br><button class="mini blue" style="margin-top:10px" onclick="verColumnas('${encodeURIComponent(r.archivo.nombre)}')">Ver columnas detectadas</button></div>`).join("");
+  resumenImportacion.innerHTML=lote.map(r=>`<div class="alert"><b>${escaparPerfilDocumento(r.archivo.nombre)}</b><br>Registros importados: ${r.archivo.registros}<br>Trabajadores detectados: ${r.archivo.trabajadores}<br><button class="mini blue" style="margin-top:10px" onclick="verColumnas('${encodeURIComponent(r.archivo.id)}')">Ver columnas detectadas</button></div>`).join("");
   document.getElementById("revisionExcelModal").close();
   mostrarToast("✅ Carga confirmada: "+lote.length+" archivo(s)","ok");
 }
 
 function verColumnas(nombreCod){
-  const nombre=decodeURIComponent(nombreCod);
-  const archivo=archivos.find(a=>a.nombre===nombre);
+  const clave=decodeURIComponent(nombreCod);
+  const archivo=buscarCargaArchivo(clave);
 
   if(!archivo){
     alert("No encontré ese archivo.");
@@ -1784,6 +1820,7 @@ function renderizarAlertas(){
 }
 
 function renderizarDocumentos(){
+  asegurarIdentidadesCargas();
   const q=(document.getElementById("buscarArchivo")?.value||"").toLowerCase();
   const filtrados=archivos.filter(a=>JSON.stringify(a).toLowerCase().includes(q));
 
@@ -1799,10 +1836,10 @@ function renderizarDocumentos(){
         <b>Hojas:</b> ${a.columnasDetectadas?.length ? (a.hojas||[]).length : "No analizado"}
       </div>
       <div class="file-actions">
-        <button class="mini blue" onclick="verArchivo('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Ver ordenado</button>
-        <button class="mini purple" onclick="verColumnas('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Columnas</button>
-        <button class="mini green" onclick="exportarArchivo('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Exportar</button>
-        <button class="mini red" onclick="eliminarArchivo('${encodeURIComponent(a.nombre).replace(/'/g,"%27")}')">Eliminar</button>
+        <button class="mini blue" onclick="verArchivo('${encodeURIComponent(a.id)}')">Ver ordenado</button>
+        <button class="mini purple" onclick="verColumnas('${encodeURIComponent(a.id)}')">Columnas</button>
+        <button class="mini green" onclick="exportarArchivo('${encodeURIComponent(a.id)}')">Exportar</button>
+        <button class="mini red" onclick="eliminarArchivo('${encodeURIComponent(a.id)}')">Eliminar</button>
       </div>
     </div>
   `).join(""):`<div class="empty">No hay archivos cargados todavía.</div>`;
@@ -1810,13 +1847,14 @@ function renderizarDocumentos(){
   if(archivoSeleccionado)pintarDetalleArchivo(archivoSeleccionado);
 }
 
-function verArchivo(nombre){
-  archivoSeleccionado=decodeURIComponent(nombre);
+function verArchivo(claveCod){
+  const archivo=buscarCargaArchivo(decodeURIComponent(claveCod));if(!archivo)return;
+  archivoSeleccionado=archivo.id;
   pintarDetalleArchivo(archivoSeleccionado);
 }
 
-function pintarDetalleArchivo(nombre){
-  const archivo=archivos.find(a=>a.nombre===nombre);
+function pintarDetalleArchivo(clave){
+  const archivo=buscarCargaArchivo(clave);
   if(!archivo)return;
 
   detalleArchivo.classList.add("active");
@@ -2684,31 +2722,28 @@ function semaforoTrabajador(t){
   return `<span class="semaforo"><span class="dot ok"></span>OK</span>`;
 }
 
-function eliminarArchivo(nombreCod){
-  const nombre=decodeURIComponent(nombreCod);
-
-  if(!confirm("¿Eliminar este archivo de la vista?"))return;
-
-  archivos=archivos.filter(a=>a.nombre!==nombre);
-  docs=docs.filter(d=>d.archivo!==nombre);
-  errores=errores.filter(e=>e.archivo!==nombre);
-  reconstruirTrabajadores();
-  archivoSeleccionado=null;
-
-  guardarLocal(false);
-  cerrarDetalle();
-  renderizar();
+function eliminarArchivo(claveCod){
+  const archivo=buscarCargaArchivo(decodeURIComponent(claveCod));if(!archivo)return;
+  if(docs.some(d=>d.archivo===archivo.nombre&&!d.cargaId)){
+    mostrarToast('Esta carga antigua tiene registros sin una asociación inequívoca. Se conservó completa; revisa su origen antes de eliminar.','warn');return;
+  }
+  if(!confirm('¿Eliminar esta carga de la vista? '+archivo.nombre))return;
+  archivos=archivos.filter(a=>a.id!==archivo.id);
+  docs=docs.filter(d=>d.cargaId!==archivo.id);
+  errores=errores.filter(e=>e.cargaId!==archivo.id);
+  reconstruirTrabajadores();archivoSeleccionado=null;
+  guardarLocal(false);cerrarDetalle();renderizar();
 }
 
 function exportarArchivo(nombreCod){
-  const nombre=decodeURIComponent(nombreCod);
-  const archivo=archivos.find(a=>a.nombre===nombre);
+  const clave=decodeURIComponent(nombreCod);
+  const archivo=buscarCargaArchivo(clave);
 
   if(!archivo)return;
 
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(archivo.items),"Documentos");
-  XLSX.writeFile(wb,nombre.replace(/\.xlsx?$/i,"")+"_export.xlsx");
+  XLSX.writeFile(wb,archivo.nombre.replace(/\.xlsx?$/i,"")+"_export.xlsx");
 }
 
 function exportarExcel(){
@@ -2733,6 +2768,7 @@ function exportarExcel(){
 }
 
 function guardarLocal(mostrar=true){
+  asegurarIdentidadesCargas();
   const raw=JSON.stringify({
     trabajadores,
     docs,
@@ -2787,9 +2823,11 @@ async function cargarLocal(mostrar=true,usarPersistencia=true){
       a.items=(a.items||[]).map(d=>enriquecerDocumento(d));
       return a;
     });
+    const identidadesNuevas=asegurarIdentidadesCargas();
     reconstruirTrabajadores();
     renderizar();
     await recuperarCarpetasLocales();
+    if(identidadesNuevas&&sigueContextoLocal(contexto))await guardarLocal(false);
     if(mostrar)mostrarToast("Datos y originales cargados.","ok");
     return true;
   }catch(e){
@@ -3045,6 +3083,12 @@ function nombreTipoDoc(key){
   return DOCS_REQUERIDOS.find(d=>d.key===key)?.nombre || "Documento adicional";
 }
 
+function faenaDeGrupoCargaMiner(texto){
+ const n=normalizar(texto),vistas=new Map();
+ for(const f of [...Object.keys(requisitosFaena||{}),...FAENAS_CONOCIDAS])if(n.includes(normalizar(f)))vistas.set(nombreFaenaClave(f),nombreFaenaCanonico(f));
+ const candidatas=[...vistas.values()].filter(f=>![...vistas.values()].some(otra=>normalizar(otra)!==normalizar(f)&&normalizar(otra).includes(normalizar(f))));
+ return candidatas.length===1?{faena:candidatas[0],aviso:''}:{faena:'Sin faena',aviso:candidatas.length?'Faenas contradictorias en la ruta o nombre del archivo. Confirma la faena antes de acreditar.':'Faena sin identificar. Confirma su origen antes de acreditar.'};
+}
 function agruparArchivosAutomatico(files,modo="carpeta"){
   const grupos={};
   files.forEach(file=>{
@@ -3057,21 +3101,23 @@ function agruparArchivosAutomatico(files,modo="carpeta"){
     const nombreDesdeCarpeta=modo==="sueltos"?"Trabajador sin identificar":formatearNombreDetectado(subCarpeta || baseCarpeta);
     const nombreDesdeArchivo=formatearNombreDetectado(file.name);
     const trabajador=nombreDesdeCarpeta!=="Trabajador sin identificar" ? nombreDesdeCarpeta : nombreDesdeArchivo;
-    const key=rut!=="Sin RUT" ? rut : `${baseCarpeta}|${trabajador}`;
+    const destino=faenaDeGrupoCargaMiner(texto);
+    const key=JSON.stringify([rut!=="Sin RUT"?rutIdentidad(rut):`${baseCarpeta}|${trabajador}`,nombreFaenaClave(destino.faena)]);
     if(!grupos[key]){
       grupos[key]={
         nombreCarpeta:baseCarpeta,
         trabajador,
         rut,
         empresa:detectarEmpresaTexto(texto),
-        faena:detectarFaenaTexto(texto),
+        faena:destino.faena,
+        avisoFaena:destino.aviso,
         cargo:detectarCargoTexto(texto),
         files:[]
       };
     }
     if(grupos[key].rut==="Sin RUT" && rut!=="Sin RUT")grupos[key].rut=rut;
     if(grupos[key].trabajador==="Trabajador sin identificar" && trabajador!=="Trabajador sin identificar")grupos[key].trabajador=trabajador;
-    if(grupos[key].faena==="Sin faena")grupos[key].faena=detectarFaenaTexto(texto);
+    // Las faenas sin confirmar conservan su grupo; no se reasignan por otro archivo.
     if(grupos[key].cargo==="Sin cargo")grupos[key].cargo=detectarCargoTexto(texto);
     grupos[key].files.push(file);
   });
@@ -3179,7 +3225,7 @@ function procesarGrupoCarpeta(grupo,filesCarpeta){
     empresa:grupo.empresa || "Sin empresa",
     faena:nombreFaenaCanonico(grupo.faena || "Sin faena"),
     cargo:grupo.cargo || "Sin cargo",
-    observacion:"",
+    observacion:grupo.avisoFaena||"",
     estado,
     fechaSubida:fecha,
     archivos:archivosDetectados,
@@ -3679,15 +3725,18 @@ async function generarZIPMasivo(){
   if(!listas.length){mostrarToast("No hay carpetas listas u observadas para comprimir.","warn");return;}
   if(!await validarOriginalesDespacho(listas))return;
   const zip=new JSZip();
-  listas.forEach(c=>{
-    const base=limpiarNombreArchivo(`${c.trabajador}_${c.rut}`);
+  const rutasOriginales=new Set();
+  listas.forEach((c,indice)=>{
+    const base=String(indice+1).padStart(4,"0")+"_"+limpiarNombreArchivo(`${c.faena}_${c.trabajador}_${c.rut}`);
     const carpeta=zip.folder(base);
-    carpeta.file("00_RESUMEN.txt",[`Trabajador: ${c.trabajador}`,`RUT: ${c.rut}`,`Estado: ${c.estado}`,`Confianza: ${c.confianza||calcularConfianzaCarpeta(c)}%`].join("\n"));
+    carpeta.file("00_RESUMEN.txt",[`Trabajador: ${c.trabajador}`,`RUT: ${c.rut}`,`Faena: ${c.faena}`,`Estado: ${c.estado}`,`Confianza: ${c.confianza||calcularConfianzaCarpeta(c)}%`].join("\n"));
     carpeta.file("01_CHECKLIST.csv",["Documento,Estado,Cantidad",...(c.checklist||[]).map(x=>`"${x.nombre}","${x.estado}","${x.cantidad}"`)].join("\n"));
     if(c.archivosFisicos&&c.archivosFisicos.length){
-      c.archivosFisicos.forEach((file,idx)=>carpeta.file(`${String(idx+1).padStart(2,"0")}_${limpiarNombreArchivo(file.name)}`,file));
+      c.archivosFisicos.forEach((file,idx)=>{const ruta=`${base}/${String(idx+1).padStart(2,"0")}_${limpiarNombreArchivo(file.name)}`;rutasOriginales.add(ruta);zip.file(ruta,file);});
     }
   });
+  const esperados=listas.reduce((n,c)=>n+(c.archivosFisicos||[]).length,0);
+  if(rutasOriginales.size!==esperados||[...rutasOriginales].some(r=>!zip.file(r))){mostrarToast('No se generó el ZIP: el índice de originales está incompleto.','error');return;}
   const blob=await zip.generateAsync({type:"blob"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -4007,7 +4056,7 @@ function pintarDocumentacionDiaMiner(){
  titulo.textContent='Documentación del '+fecha;
  document.getElementById('resumenDocumentacionDia').textContent=resumen.documentos?resumen.trabajadores+' trabajador'+(resumen.trabajadores===1?'':'es')+' · '+resumen.documentos+' documento'+(resumen.documentos===1?'':'s')+' de este día.':'No hay documentación cargada en este día.';
  const tabla=document.getElementById('documentacionDiaFilas');tabla.replaceChildren();
- const filas=[...archivos.map(a=>({nombre:a.nombre,personas:new Set((a.items||[]).map(claveTrabajador)).size,cantidad:(a.items||[]).length,abrir:()=>{mostrarModulo('documentos',botonModulo('documentos'));verArchivo(encodeURIComponent(a.nombre));}})),...carpetasTrabajadores.map(c=>({nombre:'Carpeta de '+c.trabajador,personas:1,cantidad:(c.archivos||[]).length,abrir:()=>{document.getElementById('buscarCarpeta').value=c.rut||c.trabajador;mostrarModulo('carpetas',botonModulo('carpetas'));}}))];
+ const filas=[...archivos.map(a=>({nombre:a.nombre,personas:new Set((a.items||[]).map(claveTrabajador)).size,cantidad:(a.items||[]).length,abrir:()=>{mostrarModulo('documentos',botonModulo('documentos'));verArchivo(encodeURIComponent(a.id));}})),...carpetasTrabajadores.map(c=>({nombre:'Carpeta de '+c.trabajador,personas:1,cantidad:(c.archivos||[]).length,abrir:()=>{document.getElementById('buscarCarpeta').value=c.rut||c.trabajador;mostrarModulo('carpetas',botonModulo('carpetas'));}}))];
  if(!filas.length){const row=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='Selecciona otro día en el calendario para consultar su documentación.';row.append(td);tabla.append(row);}
  for(const f of filas){const row=document.createElement('tr');for(const valor of [f.nombre,f.personas,f.cantidad]){const td=document.createElement('td');td.textContent=valor;row.append(td);}const td=document.createElement('td'),btn=document.createElement('button');btn.className='mini blue';btn.textContent='Ver documentación';btn.onclick=f.abrir;td.append(btn);row.append(td);tabla.append(row);}
 }
@@ -4051,7 +4100,7 @@ function pintarDiasMiner(){
  [...new Set([...Object.keys(localStorage),...(typeof clavesConfirmadasMiner==='undefined'?[]:clavesConfirmadasMiner)])].filter(k=>k.startsWith(prefijo)).map(k=>k.slice(prefijo.length)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse().forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;select.append(o);});
  pintarDocumentacionDiaMiner();
  const lista=document.getElementById('recientesMiner');lista.replaceChildren();
- const filas=[...archivos.map(a=>({nombre:a.nombre,borrar:()=>eliminarArchivo(encodeURIComponent(a.nombre))})),...carpetasTrabajadores.map(c=>({nombre:c.trabajador+' · '+c.archivos.length+' archivos',borrar:()=>eliminarCarpeta(c.id)}))];
+ const filas=[...archivos.map(a=>({nombre:a.nombre,borrar:()=>eliminarArchivo(encodeURIComponent(a.id))})),...carpetasTrabajadores.map(c=>({nombre:c.trabajador+' · '+c.archivos.length+' archivos',borrar:()=>eliminarCarpeta(c.id)}))];
  if(!filas.length)lista.textContent='No hay archivos ni carpetas en este día.';
  filas.forEach(f=>{const row=document.createElement('div');row.className='actions';const texto=document.createElement('span');texto.textContent=f.nombre;const b=document.createElement('button');b.className='red mini';b.textContent='Eliminar del día';b.onclick=()=>{f.borrar();pintarDiasMiner();};row.append(texto,b);lista.append(row);});
 }
@@ -5087,7 +5136,7 @@ function validarDatosLocales(d){
  const objeto=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
  const fallo=()=>{throw new Error('El respaldo contiene datos internos mal formados. No se cambió la vista actual.');};
  if(!objeto(d))fallo();
- const textos=new Set(['trabajador','rut','faena','documento','contratista','empresa','cargo','nombre','tipo','tipoNombre','estado','estadoOriginal','fechaVencimiento','archivo','hoja','accion','origen','fechaISO','fechaSubida','ruta','extension','previewURL','semaforo','prioridad','username','responsable','observaciones','texto','etiqueta','imagen','alt','guardadoEn','requisito']);
+ const textos=new Set(['trabajador','rut','faena','documento','contratista','empresa','cargo','nombre','tipo','tipoNombre','estado','estadoOriginal','fechaVencimiento','archivo','hoja','accion','origen','fechaISO','fechaSubida','ruta','extension','previewURL','semaforo','prioridad','username','responsable','observaciones','texto','etiqueta','imagen','alt','guardadoEn','requisito','cargaId']);
  // La seguridad del árbol JSON se comprueba también dentro de los metadatos.
  function revisarJSON(x,nivel=0){
   if(nivel>35)fallo();
