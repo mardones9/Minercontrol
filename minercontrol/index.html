@@ -2940,7 +2940,7 @@ const DOCS_REQUERIDOS=[
   {key:"contrato", nombre:"Contrato / anexo", peso:16, aliases:["contrato","anexo","contratodetrabajo","adendum","relacionlaboral"]},
   {key:"odi", nombre:"ODI / Derecho a Saber", peso:15, aliases:["odi","derechoasaber","obligaciondeinformar","charla","das","induccionodi"]},
   {key:"antecedentes", nombre:"Certificado antecedentes", peso:13, aliases:["antecedentes","certificadoantecedentes","penales","criminal","registrocivil"]},
-  {key:"hoja_vida", nombre:"Hoja de vida conductor", peso:12, aliases:["hojadevida","vida conductor","vidaconductor","hvconductor"]},
+  {key:"hoja_vida", nombre:"Hoja de vida conductor", peso:12, aliases:["hojadevida","hojadevidadelconductor","vida conductor","vidaconductor","hvconductor"]},
   {key:"epp", nombre:"EPP / entrega de elementos", peso:12, aliases:["epp","entregaepp","elementosproteccion","proteccionpersonal","casco","zapatos","guantes"]},
   {key:"curso", nombre:"Curso / certificación", peso:11, aliases:["curso","certificacion","certificado","capacitacion","induccion","credencial","habilitacion"]},
   {key:"foto", nombre:"Foto trabajador / credencial", peso:8, aliases:["foto","selfie","imagen","perfil","credencial","avatar"]},
@@ -2972,8 +2972,14 @@ function textoSinRut(txt){
   return String(txt||"").replace(/\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9kK]\b/g," ");
 }
 
+function quitarTituloDocumentoMiner(txt){
+  return String(txt||" ")
+    .replace(/\bhoja[\s_.-]*de[\s_.-]*vida(?:[\s_.-]*(?:del?[\s_.-]*)?conductor)?\b/ig," ")
+    .replace(/\b(?:c[eé]dula[\s_.-]+(?:de[\s_.-]+)?identidad|licencia[\s_.-]+(?:de[\s_.-]+)?conduc(?:ir|tor)|contrato[\s_.-]+(?:de[\s_.-]+)?trabajo|certificado[\s_.-]+(?:de[\s_.-]+)?antecedentes|(?:certificado[\s_.-]+de[\s_.-]+)?examen[\s_.-]+ocupacional)\b/ig," ");
+}
+
 function formatearNombreDetectado(txt){
-  let s=textoSinRut(txt)
+  let s=quitarTituloDocumentoMiner(textoSinRut(txt))
     .replace(/\.[a-z0-9]+$/i," ")
     .replace(/[_]+/g," ")
     .replace(/[-]+/g," ")
@@ -2986,7 +2992,7 @@ function formatearNombreDetectado(txt){
   CARGOS_HINT.forEach(c=>{s=s.replace(new RegExp(c,"ig")," ")});
   s=s.replace(/\s+/g," ").trim();
   if(!s || s.length<4)return "Trabajador sin identificar";
-  return s.split(" ").slice(0,4).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
+  return s.split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
 }
 
 function detectarFaenaTexto(txt){
@@ -2996,7 +3002,7 @@ function detectarFaenaTexto(txt){
 }
 
 function detectarCargoTexto(txt){
-  const n=normalizar(txt);
+  const n=normalizar(quitarTituloDocumentoMiner(txt));
   return CARGOS_HINT.find(c=>n.includes(normalizar(c))) || "Sin cargo";
 }
 
@@ -3049,7 +3055,7 @@ function detectarDocumentoArchivo(nombre,ruta=""){
     if(score>mejor.peso)mejor={key:req.key,nombre:req.nombre,confianza:Math.min(98,45+score),senales,peso:score};
   });
 
-  const especial=n.includes("psicosensometrico")?"psicosensometrico":n.includes("alturafisica")||n.includes("trabajoaltura")?"altura":"";
+  const especial=n.includes("hojadevida")?"hoja_vida":n.includes("psicosensometrico")?"psicosensometrico":n.includes("alturafisica")||n.includes("trabajoaltura")?"altura":"";
   if(especial){const req=DOCS_REQUERIDOS.find(r=>r.key===especial);mejor={key:req.key,nombre:req.nombre,confianza:85,senales:[especial],peso:85};}
 
   if(mejor.key==="otro"){
@@ -3091,7 +3097,7 @@ function faenaDeGrupoCargaMiner(texto){
 }
 function agruparArchivosAutomatico(files,modo="carpeta"){
   const grupos={};
-  files.forEach(file=>{
+  files.forEach((file,indiceArchivo)=>{
     const ruta=file.webkitRelativePath || file.name;
     const partes=ruta.split("/").filter(Boolean);
     const baseCarpeta=modo==="sueltos" ? "Archivos sueltos" : (partes[0] || "Carpeta sin nombre");
@@ -3102,7 +3108,7 @@ function agruparArchivosAutomatico(files,modo="carpeta"){
     const nombreDesdeArchivo=formatearNombreDetectado(file.name);
     const trabajador=nombreDesdeCarpeta!=="Trabajador sin identificar" ? nombreDesdeCarpeta : nombreDesdeArchivo;
     const destino=faenaDeGrupoCargaMiner(texto);
-    const key=JSON.stringify([rut!=="Sin RUT"?rutIdentidad(rut):`${baseCarpeta}|${trabajador}`,nombreFaenaClave(destino.faena)]);
+    const key=JSON.stringify([rut!=="Sin RUT"?rutIdentidad(rut):`${baseCarpeta}|${trabajador}${trabajador==="Trabajador sin identificar"?"|sin-identidad:"+indiceArchivo:""}`,nombreFaenaClave(destino.faena)]);
     if(!grupos[key]){
       grupos[key]={
         nombreCarpeta:baseCarpeta,
@@ -3110,7 +3116,7 @@ function agruparArchivosAutomatico(files,modo="carpeta"){
         rut,
         empresa:detectarEmpresaTexto(texto),
         faena:destino.faena,
-        avisoFaena:destino.aviso,
+        avisoFaena:[destino.aviso,rut==="Sin RUT"?"RUN sin identificar. Confirma el nombre completo y la identidad antes de acreditar.":""].filter(Boolean).join(" "),
         cargo:detectarCargoTexto(texto),
         files:[]
       };
@@ -3407,49 +3413,65 @@ function editarDatosCarpeta(id){
   renderizarCarpetas();
 }
 
+function coincideOriginalCarpetaAnterior(d,c,a){
+  return !d.origenCarpetaId&&!d.origenArchivoId&&d.origen==='Carpetas Nivel Dios'&&d.archivo===a.nombre&&
+    nombreFaenaClave(d.faena)===nombreFaenaClave(c.faena)&&
+    (c.rut&&c.rut!=="Sin RUT"?rutIdentidad(d.rut)===rutIdentidad(c.rut):normalizar(d.trabajador)===normalizar(c.trabajador));
+}
+
 function integrarCarpetaADocumentos(id){
   const c=carpetasTrabajadores.find(x=>x.id===id);
   if(!c||!permitirCargaFaenas([c]))return;
   actualizarRevisionCarpeta(c);
-  const fecha=new Date().toLocaleString("es-CL");
-  const fechaISO=new Date().toISOString();
-  const nuevos=(c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro").map((a,idx)=>enriquecerDocumento({
-    trabajador:c.trabajador,
-    rut:c.rut,
-    documento:a.tipoNombre || nombreTipoDoc(a.tipo),
-    contratista:c.empresa,
-    faena:c.faena,
-    cargo:c.cargo,
-    estadoOriginal:a.estado || "Revisar",
-    revisionManual:a.revisionManual===true,
-    revisionHumana:c.revisionesHumanas?.at(-1)||null,
-    revisionFecha:a.revisionFecha||null,
-    fechaVencimiento:a.fechaVencimiento || "",
-    archivo:a.nombre,
-    hoja:"Carpeta automática",
-    filaExcel:idx+1,
-    fechaSubida:fecha,
-    fechaISO,
-    origen:"Carpetas Nivel Dios"
-  }));
-  if(!nuevos.length){mostrarToast("No hay documentos clasificados para enviar.","warn");return;}
+  // Vincula una carga anterior solo cuando su procedencia es inequívoca.
+  for(const a of (c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro")){
+    const anteriores=docs.filter(d=>coincideOriginalCarpetaAnterior(d,c,a));
+    const carpetasPosibles=carpetasTrabajadores.filter(p=>nombreFaenaClave(p.faena)===nombreFaenaClave(c.faena)&&
+      (c.rut&&c.rut!=="Sin RUT"?rutIdentidad(p.rut)===rutIdentidad(c.rut):normalizar(p.trabajador)===normalizar(c.trabajador))&&
+      (p.archivos||[]).some(x=>x.nombre===a.nombre));
+    if(anteriores.length&&(anteriores.length!==1||carpetasPosibles.length!==1)){
+      mostrarToast("Hay documentos anteriores con origen ambiguo. Revisa las cargas existentes antes de reenviar; no se agregó ningún duplicado.","warn");return;
+    }
+  }
+  const fecha=new Date().toLocaleString("es-CL"),fechaISO=new Date().toISOString();
+  const nuevos=[];let actualizados=0,clasificados=0;
+  (c.archivos||[]).forEach((a,idx)=>{
+    if(!a.tipo||a.tipo==="otro")return;
+    clasificados++;
+    // La identidad del original se conserva al guardar, recargar y reordenar.
+    if(!a.idOriginal)a.idOriginal=String(c.id)+':original:'+idx+':'+encodeURIComponent(a.ruta||a.nombre);
+    const coincide=d=>d.origenCarpetaId===String(c.id)&&d.origenArchivoId===a.idOriginal;
+    const existente=docs.find(coincide)||docs.find(d=>coincideOriginalCarpetaAnterior(d,c,a));
+    const filasAnteriores=existente?archivos.flatMap(carga=>(carga.items||[]).filter(fila=>fila===existente||JSON.stringify(fila)===JSON.stringify(existente))):[];
+    const item=enriquecerDocumento({...existente,
+      trabajador:c.trabajador,rut:c.rut,documento:a.tipoNombre||nombreTipoDoc(a.tipo),
+      contratista:c.empresa,faena:c.faena,cargo:c.cargo,
+      estadoOriginal:a.estado||"Revisar",revisionManual:a.revisionManual===true,
+      revisionHumana:c.revisionesHumanas?.at(-1)||null,revisionFecha:a.revisionFecha||null,
+      fechaVencimiento:a.fechaVencimiento||"",archivo:a.nombre,hoja:"Carpeta automática",
+      filaExcel:idx+1,fechaSubida:existente?.fechaSubida||fecha,fechaISO:existente?.fechaISO||fechaISO,
+      origen:"Carpetas Nivel Dios",origenCarpetaId:String(c.id),origenArchivoId:a.idOriginal
+    });
+    if(existente){
+      if(JSON.stringify(item)!==JSON.stringify(existente)){
+        Object.assign(existente,item);actualizados++;
+        for(const fila of filasAnteriores)Object.assign(fila,item);
+        for(const carga of archivos)for(const fila of carga.items||[])if(coincide(fila))Object.assign(fila,item);
+      }
+    }else nuevos.push(item);
+  });
+  if(!clasificados){mostrarToast("No hay documentos clasificados para enviar.","warn");return;}
+  if(!nuevos.length&&!actualizados){mostrarToast("Esta carpeta ya está enviada. No se duplicaron documentos.","ok");return;}
   docs.push(...nuevos);
-  archivos.push({
+  if(nuevos.length)archivos.push({
     nombre:`Carpeta_${limpiarNombreArchivo(c.trabajador)}_${limpiarNombreArchivo(c.rut)}.auto`,
-    fechaSubida:fecha,
-    fechaISO,
-    registros:nuevos.length,
-    trabajadores:1,
-    faenas:1,
-    hojas:["Carpeta automática"],
-    columnasDetectadas:[],
-    items:nuevos
+    fechaSubida:fecha,fechaISO,registros:nuevos.length,trabajadores:1,faenas:1,
+    hojas:["Carpeta automática"],columnasDetectadas:[],items:nuevos
   });
   reconstruirTrabajadores();
   registrarMovimiento({trabajador:c.trabajador,rut:c.rut,empresa:c.empresa,faena:c.faena,accion:"✅ Documentos enviados a acreditación",estado:c.estado,origen:"Carpetas Nivel Dios"});
-  guardarLocal(false);
-  renderizar();
-  mostrarToast(`✅ ${nuevos.length} documento(s) enviados a acreditación.`,"ok");
+  guardarLocal(false);renderizar();
+  mostrarToast(`✅ ${nuevos.length} documento(s) nuevos y ${actualizados} actualizado(s), sin duplicados.`,"ok");
 }
 
 function actualizarRevisionCarpeta(c){
@@ -4941,6 +4963,11 @@ function unirRostrosMiner(lista,nuevo){
 }
 function detectarRostrosCanvasMiner(canvas,detector){
  const zonas=[[0,0,canvas.width,canvas.height],[0,0,Math.round(canvas.width*.60),canvas.height],[Math.round(canvas.width*.40),0,Math.round(canvas.width*.60),canvas.height]],rostros=[];
+ // En una página completa la foto queda demasiado pequeña para el modelo.
+ // Revisa también ventanas cuadradas solapadas, con un máximo de 16 zonas.
+ const lado=Math.max(1,Math.round(Math.min(canvas.width,canvas.height)*.60));
+ const posiciones=dimension=>{const max=Math.max(0,dimension-lado),n=Math.min(4,Math.ceil(max/Math.max(1,lado/2))+1);return Array.from({length:n},(_,i)=>Math.round(max*i/Math.max(1,n-1)));};
+ for(const y of posiciones(canvas.height))for(const x of posiciones(canvas.width))zonas.push([x,y,Math.min(lado,canvas.width-x),Math.min(lado,canvas.height-y)]);
  for(const [x,y,w,h] of zonas){
   const zona=document.createElement('canvas');zona.width=w;zona.height=h;
   try{
@@ -5136,7 +5163,7 @@ function validarDatosLocales(d){
  const objeto=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
  const fallo=()=>{throw new Error('El respaldo contiene datos internos mal formados. No se cambió la vista actual.');};
  if(!objeto(d))fallo();
- const textos=new Set(['trabajador','rut','faena','documento','contratista','empresa','cargo','nombre','tipo','tipoNombre','estado','estadoOriginal','fechaVencimiento','archivo','hoja','accion','origen','fechaISO','fechaSubida','ruta','extension','previewURL','semaforo','prioridad','username','responsable','observaciones','texto','etiqueta','imagen','alt','guardadoEn','requisito','cargaId']);
+ const textos=new Set(['trabajador','rut','faena','documento','contratista','empresa','cargo','nombre','tipo','tipoNombre','estado','estadoOriginal','fechaVencimiento','archivo','hoja','accion','origen','fechaISO','fechaSubida','ruta','extension','previewURL','semaforo','prioridad','username','responsable','observaciones','texto','etiqueta','imagen','alt','guardadoEn','requisito','cargaId','idOriginal','origenCarpetaId','origenArchivoId']);
  // La seguridad del árbol JSON se comprueba también dentro de los metadatos.
  function revisarJSON(x,nivel=0){
   if(nivel>35)fallo();
