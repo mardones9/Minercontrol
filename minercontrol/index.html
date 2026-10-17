@@ -3013,17 +3013,29 @@ function detectarEmpresaTexto(txt){
   return "Sin empresa";
 }
 
-function detectarFechaArchivo(txt){
+function detectarFechaArchivo(txt,detalle=false){
   const s=String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const near=s.match(/(?:vence|vencimiento|vto|caducidad|expiracion|vigente\s*hasta|vigencia\s*hasta|valid[oa]\s*hasta|proximo\s*control)\s*[-_: ]*([0-9]{1,2}[\/-][0-9]{1,2}[\/-][0-9]{2,4}|[0-9]{4}[\/-][0-9]{1,2}[\/-][0-9]{1,2})/i);
-  return near?normalizarFecha(near[1]):'';
+  const etiquetas=/(?:^|[^\p{L}\p{N}])(?:vence|vencimiento|vto|caducidad|expiracion|vigente\s*hasta|vigencia\s*hasta|valid[oa]\s*hasta|proximo\s*control)\s*[-_: ]*/giu;
+  const fechas=new Set();let invalida=false;
+  for(const etiqueta of s.matchAll(etiquetas)){
+    const resto=s.slice(etiqueta.index+etiqueta[0].length);
+    // Exigir el dato completo: nunca convertir un prefijo de una fecha dañada.
+    const dato=resto.match(/^(\d{4}[\/-]\d{1,2}[\/-]\d{1,2}|\d{1,2}[\/-]\d{1,2}[\/-](?:\d{4}|\d{2}))(?![\p{L}\p{N}]|[\/.-]\d)/u);
+    const fecha=dato?normalizarFecha(dato[1]):'';
+    if(fecha)fechas.add(fecha);else invalida=true;
+  }
+  const aviso=invalida?'Vencimiento malformado o incompleto en el nombre: revisar el documento.':fechas.size>1?'Vencimientos contradictorios en el nombre: revisar el documento.':'';
+  const fecha=!aviso&&fechas.size===1?[...fechas][0]:'';
+  return detalle?{fecha,aviso}:fecha;
 }
 
 function detectarEstadoArchivo(txt,fechaISO=""){
   const texto=String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   if(/rechaz|pendiente|faltante|\bfalta\b|no[ _-]*(?:aprob|valid|vigente|acredit)/.test(texto))return "Pendiente";
   const dias=diasHasta(fechaISO);
-  if(/vencid|caduc|expir/.test(texto)||(typeof dias==='number'&&dias<0))return "Vencido";
+  // Las etiquetas «caducidad» y «expiración» presentan fechas, no estados.
+  const vencidoDeclarado=/(?:^|[^\p{L}\p{N}])(?:vencid[oa]s?|caducad[oa]s?|expirad[oa]s?)(?=$|[^\p{L}\p{N}])/u.test(texto);
+  if(vencidoDeclarado||(typeof dias==='number'&&dias<0))return "Vencido";
   // Un nombre y una fecha futura son indicios, nunca una aprobación del contenido.
   return "Revisar";
 }
@@ -3063,7 +3075,9 @@ function detectarDocumentoArchivo(nombre,ruta=""){
     if(ext==="pdf")mejor.confianza=35;
   }
 
-  const fechaVencimiento=detectarFechaArchivo(full);
+  const lecturaFecha=detectarFechaArchivo(full,true);
+  const fechaVencimiento=lecturaFecha.fecha;
+  if(lecturaFecha.aviso)mejor.senales.push(lecturaFecha.aviso);
   const estado=detectarEstadoArchivo(full,fechaVencimiento);
   const rut=extraerRutTexto(full);
   return {
@@ -3373,6 +3387,7 @@ function renderizarCarpetas(){
             <b>${a.tipoNombre||nombreTipoDoc(a.tipo)}</b><br>
             ${escaparPerfilDocumento(a.nombre)}<br>
             <span class="small">Estado: ${escaparPerfilDocumento(a.estado||"Revisar")} · Vence: ${escaparPerfilDocumento(a.fechaVencimiento||"-")} · Confianza: ${a.confianza||0}%</span>
+            ${(a.senales||[]).filter(s=>/Vencimiento.*revisar el documento\./i.test(s)).map(s=>`<br><span class="small">⚠️ ${escaparPerfilDocumento(s)}</span>`).join('')}
           </div>
         `).join("")}
       </div>
