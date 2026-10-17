@@ -2414,7 +2414,7 @@ function renderTarjetaRequisito(item,trabajador){
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
     return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Este registro no contiene una imagen. Puedes cargar y guardar el original con el botón de esta ficha.</span>':''}${origenDocumentoRequisito(d)}${evidenciaNombreEnFicha(d,trabajador)}</div>`;
   }).join('');
-  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div>${originalGuardadoEnTarjeta(item,trabajador)}<div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+','+JSON.stringify(item.key)+')')}">${['cedula','licencia','examen','altura','psicosensometrico'].includes(item.key)?'Leer':'Ver / cargar'} ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
+  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div>${originalGuardadoEnTarjeta(item,trabajador)}<div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+','+JSON.stringify(item.key)+')')}">${['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida'].includes(item.key)?'Leer':'Ver / cargar'} ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
 
 function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
@@ -4444,13 +4444,13 @@ let evidenciaLecturaContenido=null;
 async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=''){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
   limpiarLecturaContenido();
-  tipoDocumentoContenido=tipo==='licencia'?'licencia':tipo==='medico'?'medico':'cedula';
+  tipoDocumentoContenido=['antecedentes','contrato','hoja_vida'].includes(requisito)?requisito:['cedula','licencia','medico','antecedentes','contrato','hoja_vida'].includes(tipo)?tipo:'cedula';
   document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':tipoDocumentoContenido==='medico'?'Leer documento médico':'Leer cédula de identidad chilena';
   document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
   document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
   contextoFechaContenido={trabajador:nombre,rut,faena,requisito:requisito||(tipo==='medico'?'examen':tipo)};
   document.getElementById('estadoGuardadoLector').textContent='';
-  const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico'].includes(contextoFechaContenido.requisito);
+  const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida'].includes(contextoFechaContenido.requisito);
   document.getElementById('leerContenido').hidden=!admiteLectura;
   document.getElementById('detectarFotoDocumento').hidden=!['cedula','licencia'].includes(contextoFechaContenido.requisito);
   if(requisito)document.getElementById('tituloLectorContenido').textContent='Documento · '+nombreReq(requisito);
@@ -4590,7 +4590,38 @@ function fechaDocumentoChileno(texto,tipo){
   const elegido=resultados.find(r=>r.fecha===fechasUnicas[0]);
   return {...elegido,motivo:''};
 }
+function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
+ const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+ const titulos={antecedentes:/CERTIFICADO\s*(?:DE\s*)?ANTECEDENTES/,contrato:/CONTRATO\s*(?:INDIVIDUAL\s*)?(?:DE\s*)?TRABAJO/,hoja_vida:/HOJA\s*(?:DE\s*)?VIDA\s*(?:DEL?\s*)?CONDUCTOR/};
+ const tipos=Object.keys(titulos).filter(k=>titulos[k].test(normal));
+ const medico=/EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL)|CEDULA\s*(?:DE\s*)?IDENTIDAD/.test(normal);
+ const reconocido=tipos.length===1&&!medico?tipos[0]:'sin identificar';
+ const ruts=[...new Set((normal.match(/\b(?:\d{1,2}[.]\d{3}[.]\d{3}|\d{7,8})\s*[-–]\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s–-]/g,'')))],validos=ruts.filter(rutValidoContenido);
+ const esperado=String(rutEsperado||'').toUpperCase().replace(/[.\s-]/g,''),tokens=String(nombreEsperado||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().match(/[A-Z]+/g)||[],palabras=new Set(normal.match(/[A-Z]+/g)||[]);
+ const campos=[];
+ const agregar=(etiqueta,patron)=>{const m=normal.match(patron);if(m)campos.push({etiqueta,valor:m[1].trim()});};
+ agregar('Fecha de emisión',/(?:FECHA\s*(?:DE\s*)?(?:EMISION|EXPEDICION)|EMITIDO\s*EL)\s*[:\-]?\s*([^\n]{1,60})/);
+ if(tipo==='antecedentes'){
+  agregar('Finalidad',/(?:PARA\s*)?FINES\s+(ESPECIALES|PARTICULARES)/);
+  agregar('Folio',/FOLIO\s*[:\-]?\s*([^\n]{1,60})/);
+ }
+ if(tipo==='contrato'){
+  agregar('Empleador',/(?:EMPLEADOR|RAZON\s*SOCIAL)\s*[:\-]\s*([^\n]{1,100})/);
+  agregar('Trabajador',/(?:TRABAJADOR|TRABAJADORA)\s*[:\-]\s*([^\n]{1,100})/);
+  agregar('Cargo',/CARGO\s*[:\-]\s*([^\n]{1,100})/);
+  agregar('Inicio',/(?:FECHA\s*(?:DE\s*)?INICIO|INICIO)\s*[:\-]\s*([^\n]{1,60})/);
+  agregar('Duración',/(?:DURACION|PLAZO)\s*[:\-]\s*([^\n]{1,100})/);
+  agregar('Contrato comercial / PO',/(?:CONTRATO\s*COMERCIAL|ORDEN\s*(?:DE\s*)?COMPRA|PO)\s*[:\-]\s*([^\n]{1,60})/);
+ }
+ if(tipo==='hoja_vida'){
+  agregar('Licencia / clase',/CLASE\s*[:\-]\s*([^\n]{1,60})/);
+  agregar('Registro informado',/(?:ANOTACIONES|INFRACCIONES)\s*[:\-]\s*([^\n]{1,150})/);
+ }
+ const f=reconocido===tipo?fechaDocumentoChileno(normal,tipo):{fecha:'',motivo:'El título no corresponde a un único documento.'};
+ return {tipo:reconocido,evidenciaTipo:reconocido==='sin identificar'?'Título ausente o documentos mezclados':'Título de '+({antecedentes:'antecedentes',contrato:'contrato de trabajo',hoja_vida:'hoja de vida del conductor'}[reconocido]||'documento')+' leído',compatible:reconocido===tipo&&validos.length===1&&ruts.length===1,coincideTipo:reconocido===tipo,ruts,validos,indicios:[reconocido===tipo,validos.length===1,tokens.length>0&&tokens.every(t=>palabras.has(t)),campos.length>0],fecha:f.fecha,fechaMotivo:f.motivo||'No hay vencimiento explícito; no se deduce desde la emisión.',etiquetaFecha:'Vencimiento explícito',evidenciaFecha:f.fragmento||'',estado:'Revisar',nombre:tokens.length&&tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta',rut:!esperado?'Sin RUT de referencia':!rutValidoContenido(esperado)?'RUT de referencia inválido':validos.length===1&&validos[0]===esperado?'Coincide':ruts.length>1?'Varios RUT detectados; distinguir trabajador y empleador manualmente':'No coincide o lectura incompleta',camposLaborales:campos,avisoLaboral:tipo==='antecedentes'?'La antigüedad admisible debe definirse según la faena. No se asigna vencimiento desde la emisión ni se comprueba el folio.':tipo==='contrato'?'Comprueba trabajador y empleador, plazo, cargo, jornada, anexos y contrato comercial. No se evalúa validez legal.':'Requisito separado de la licencia. Comprueba emisión y registros en el original; no se decide habilitación del conductor.'};
+}
 function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsperado='cedula',hoy=hoyMiner()){
+  if(['antecedentes','contrato','hoja_vida'].includes(tipoEsperado))return analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipoEsperado);
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const ruts=[...new Set((normal.match(/\b(?:\d{1,2}[. ]\s*\d{3}[. ]?\s*\d{3}|\d{7,8})\s*[-–—:]\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s–—:-]/g,'')))];
   const validos=ruts.filter(rutValidoContenido);
@@ -4621,6 +4652,15 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
     etiquetaFecha:lecturaFecha.etiqueta|| (tipo==='licencia'?'Vencimiento o próximo control':'Fecha de vencimiento'),evidenciaFecha:lecturaFecha.fragmento||'',
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
+}
+function fechasCamposCedulaMiner(texto){
+ const t=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+ const fechas={};
+ for(const [campo,rotulo] of [['NACIMIENTO','NACIMIENTO'],['EMISIÓN','EMISION'],['VENCIMIENTO','VENCIMIENTO']]){
+  const adaptado=t.replace(/(?:FECHA\s*(?:DE\s*)?)?(NACIMIENTO|EMISION|VENCIMIENTO)/g,(_,r)=>r===rotulo?'VENCIMIENTO':'EMISION');
+  fechas[campo]=fechaDocumentoChileno(adaptado,'cedula').fecha;
+ }
+ return fechas;
 }
 function coberturaCedulaMiner(texto){
   const t=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -4702,6 +4742,14 @@ function localizarCamposCedulaOCR(datos){
    const otros=palabras.filter(w=>w!==label&&/^(NACIMIENTO|EMISION|VENCIMIENTO|NUMERO|NACIONALIDAD|SEXO)$/.test(norm(w.text))&&Math.abs(w.bbox.y0-b.y0)<h&&w.bbox.x0>b.x1);
    const derecha=otros.length?Math.min(...otros.map(w=>w.bbox.x0))-h*.5:b.x0+h*18;
    let candidatos=palabras.filter(w=>w!==label&&w.bbox.x0>=izquierda&&w.bbox.x1<=derecha&&w.bbox.y0>=b.y1-h*.2&&w.bbox.y0<=b.y1+h*3.5&&!/^(FECHA|DE|DOCUMENTO|DEL|FIRMA|TITULAR|EMISION|VENCIMIENTO|NACIMIENTO|SEXO|NACIONALIDAD)$/.test(norm(w.text)));
+   if(['NACIMIENTO','EMISIÓN','VENCIMIENTO'].includes(etiqueta)){
+    const mismaFila=palabras.filter(w=>w!==label&&w.bbox.x0>=label.bbox.x1&&w.bbox.x1<=derecha&&Math.abs(w.bbox.y0-label.bbox.y0)<h*.65).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+    if(fechaDocumentoChileno('VENCIMIENTO '+mismaFila.map(w=>w.text).join(' '),'cedula').fecha)candidatos=mismaFila;
+    else {
+     const siguiente=palabras.filter(w=>/^(NACIMIENTO|EMISION|VENCIMIENTO|NUMERO|NACIONALIDAD|SEXO|RUN|RUT)$/.test(norm(w.text))&&w.bbox.y0>b.y1&&w.bbox.x0>=izquierda&&w.bbox.x0<=derecha).sort((a,b)=>a.bbox.y0-b.bbox.y0)[0];
+     if(siguiente)candidatos=candidatos.filter(w=>w.bbox.y1<siguiente.bbox.y0);
+    }
+   }
    if(etiqueta==='RUN')candidatos=palabras.filter(w=>w!==label&&w.bbox.y0>=b.y0-h*.5&&w.bbox.y0<=b.y1+h*1.5&&w.bbox.x0>=b.x1&&w.bbox.x0<=b.x1+h*20);
    candidatos.sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0);
    if(!candidatos.length)continue;
@@ -4814,13 +4862,19 @@ async function revisarContenidoCedula(){
       }finally{imagen.close();}
     }
     const analisis=analizarDocumentoChileno(texto,nombre,rut,tipo);
+    const fechasCedula=tipo==='cedula'?fechasCamposCedulaMiner(texto):null;
+    // Una zona recortada puede perder su rótulo o su valor. No mostrar recuadros
+    // si contradicen la lectura etiquetada del documento completo.
+    if(fechasCedula&&evidenciaNombre?.campos.some(c=>Object.hasOwn(fechasCedula,c.etiqueta)&&c.texto!==fechasCedula[c.etiqueta]))evidenciaNombre=null;
     evidenciaLecturaContenido={archivo,fecha:analisis.fecha,tipo:analisis.tipo,fragmento:analisis.evidenciaFecha,paginas,limitado};
     document.getElementById('fechaConfirmadaContenido').value=analisis.fecha||'';
     document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido();
-    const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':'documento sin identificar';
+    const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':analisis.tipo==='antecedentes'?'certificado de antecedentes':analisis.tipo==='contrato'?'contrato de trabajo':analisis.tipo==='hoja_vida'?'hoja de vida del conductor':'documento sin identificar';
     const lineas=[limitado?'Lectura parcial: quedan páginas pendientes.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':analisis.tipo!=='sin identificar'?'Tipo de documento reconocido. Falta confirmar el RUN o completar la lectura antes de asociarlo.':'No se pudo identificar el documento. Prueba una foto más nítida y encuadrada.',
-      ...(tipo==='cedula'?[coberturaCedulaMiner(texto).mensaje]:[]),
+      ...(tipo==='cedula'?[coberturaCedulaMiner(texto).mensaje,...Object.entries(fechasCedula).map(([k,v])=>k+' (texto etiquetado): '+(v||'No confirmado'))]:[]),
       'Tipo leído: '+tipoLeido,
+      ...(analisis.camposLaborales||[]).map(c=>c.etiqueta+': '+c.valor),
+      ...(analisis.avisoLaboral?[analisis.avisoLaboral]:[]),
       'Evidencia del tipo: '+analisis.evidenciaTipo,
       'Comparación de tipo: '+(analisis.coincideTipo?'Coincide con la tarjeta seleccionada':'No coincide con la tarjeta; revisar antes de asociar'),
       'RUN/RUT detectados: '+(analisis.ruts.join(', ')||'Ninguno'),
@@ -4851,7 +4905,7 @@ async function revisarContenidoCedula(){
 </script>
 <dialog id="respaldoMiner" style="margin:auto;width:min(760px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;background:var(--panel);color:var(--text);padding:24px" aria-label="Respaldo de mi cuenta">
 <button class="mini blue" onclick="cerrarRespaldoMiner()" style="float:right">Cerrar</button><h2>Respaldo de mi cuenta</h2>
-<div class="section" style="margin-top:18px"><h3>Respaldo en tu equipo</h3><p class="meta">Los originales de carpetas y fichas se conservan en este navegador. Descarga una copia completa del día para protegerlos o llevarlos a otro equipo. No se envían a Supabase.</p><div class="file-actions"><button class="mini green" onclick="descargarRespaldoLocal()">Descargar respaldo completo</button><label class="mini blue" style="cursor:pointer">Seleccionar respaldo ZIP<input type="file" accept=".zip" style="display:none" onchange="prepararRestauracionLocal(this)"></label><button class="mini yellow" id="confirmarRestauracionLocal" hidden onclick="confirmarRestauracionLocal()">Restaurar este día</button><button class="mini blue" onclick="recuperarCopiaAnteriorLocal()">Recuperar copia anterior</button></div><p id="estadoRespaldoLocal" role="status" class="meta" style="margin-top:12px">Solo en este navegador; descarga una segunda copia. Un respaldo abarca el día seleccionado, hasta 200 MB y 1000 archivos.</p></div><details><summary>Respaldo opcional en Supabase</summary><p class="meta">Guarda una copia privada del día actual en Supabase para abrirla desde otro equipo. Incluye datos y originales disponibles. Los cambios posteriores requieren un nuevo respaldo.</p>
+<div class="section" style="margin-top:18px"><h3>Respaldo en tu equipo</h3><p class="meta">Los originales de carpetas y fichas se conservan en este navegador. Descarga una copia completa del día para protegerlos o llevarlos a otro equipo. No se envían a Supabase.</p><div class="file-actions"><button class="mini green" onclick="descargarRespaldoLocal()">Descargar respaldo completo</button><label class="mini blue" style="cursor:pointer">Seleccionar respaldo ZIP<input type="file" accept=".zip" style="display:none" onchange="prepararRestauracionLocal(this)"></label><button class="mini yellow" id="confirmarRestauracionLocal" hidden onclick="confirmarRestauracionLocal()">Restaurar este día</button><button class="mini blue" onclick="recuperarCopiaAnteriorLocal()">Recuperar copia anterior</button></div><p id="estadoRespaldoLocal" role="status" class="meta" style="margin-top:12px">Solo en este navegador; descarga una segunda copia. Un respaldo abarca el día seleccionado, hasta 512 MB y 10000 archivos.</p></div><details><summary>Respaldo opcional en Supabase</summary><p class="meta">Guarda una copia privada del día actual en Supabase para abrirla desde otro equipo. Incluye datos y originales disponibles. Los cambios posteriores requieren un nuevo respaldo.</p>
 <div class="actions"><button class="mini purple" onclick="guardarRespaldoMiner()">Guardar respaldo del día actual</button></div>
 <label class="meta"><input type="checkbox" id="permitirRespaldoParcial"> Guardar los datos disponibles aunque falten originales.</label>
 <h3 style="margin-top:20px">Abrir un respaldo</h3><label>Día del respaldo <input class="search" type="date" id="respaldoDia"></label>
@@ -5112,7 +5166,7 @@ function originalGuardadoEnTarjeta(item,t){
 let colaOriginalesLocales=Promise.resolve(),pendientesOriginalesLocales=0,errorOriginalesLocales='',restauracionLocalPendiente=null;
 const firmasCarpetasLocales=new Map();
 const clavesConfirmadasMiner=new Set();
-const LIMITE_RESPALDO_LOCAL=200*1024*1024;
+const LIMITE_RESPALDO_LOCAL=512*1024*1024;
 function mensajeRespaldoLocal(texto){for(const id of ['estadoRespaldoLocal','estadoOriginalesCarpetas']){const n=document.getElementById(id);if(n)n.textContent=texto;}}
 function contextoLocalMiner(){return {clave:claveDatosMiner(),dia:diaSeleccionadoMiner,id:usuarioActual?.id};}
 function sigueContextoLocal(c){return usuarioActual?.id===c.id&&diaSeleccionadoMiner===c.dia&&claveDatosMiner()===c.clave;}
@@ -5158,13 +5212,13 @@ async function capturarDiaLocal(c){
 async function hashArchivoLocal(blob){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))].map(n=>n.toString(16).padStart(2,'0')).join('');}
 async function crearZipLocal(c,copia){
  const zip=new JSZip(),manifest={format:'MinerControl-local',version:1,day:c.dia,createdAt:new Date().toISOString(),data:copia.data,folders:[],readers:[],files:[]};let bytes=0;
- async function agregar(file){if(!(file instanceof Blob))throw new Error('Un original no está disponible.');bytes+=file.size;if(bytes>LIMITE_RESPALDO_LOCAL||manifest.files.length>=1000)throw new Error('El respaldo local admite hasta 200 MB y 1000 archivos.');const path='originales/'+manifest.files.length;manifest.files.push({path,name:file.name,type:file.type,size:file.size,lastModified:file.lastModified,sha256:await hashArchivoLocal(file)});zip.file(path,await file.arrayBuffer());return path;}
+ async function agregar(file){if(!(file instanceof Blob))throw new Error('Un original no está disponible.');bytes+=file.size;if(bytes>LIMITE_RESPALDO_LOCAL||manifest.files.length>=10000)throw new Error('El respaldo local admite hasta 512 MB y 10000 archivos.');const path='originales/'+manifest.files.length;manifest.files.push({path,name:file.name,type:file.type,size:file.size,lastModified:file.lastModified,sha256:await hashArchivoLocal(file)});zip.file(path,await file.arrayBuffer());return path;}
  const faltantes=[];
  for(const f of copia.folders){manifest.folders.push({id:f.id,files:[]});for(const file of f.files)manifest.folders.at(-1).files.push(await agregar(file));const carpeta=copia.data.carpetasTrabajadores.find(x=>x.id===f.id);for(const a of carpeta?.archivos||[])if(!f.files.some(x=>x.name===a.nombre))faltantes.push(a.nombre);}
  if(faltantes.length)throw new Error('Faltan '+faltantes.length+' originales de carpetas. Vuelve a cargarlos antes de descargar un respaldo completo.');
  for(const row of copia.readers){const {file,key,...datos}=row;manifest.readers.push({...datos,file:await agregar(file)});}
- const json=JSON.stringify(manifest);if(new TextEncoder().encode(json).length>5*1024*1024)throw new Error('Las lecturas y datos superan 5 MB. Divide la carga por días.');zip.file('minercontrol.json',json);
- return {blob:await zip.generateAsync({type:'blob',compression:'STORE'}),count:manifest.files.length};
+ const json=JSON.stringify(manifest);if(new TextEncoder().encode(json).length>32*1024*1024)throw new Error('Las lecturas y datos superan 32 MB. Divide la carga por días.');zip.file('minercontrol.json',json);
+ return {blob:await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true}),count:manifest.files.length};
 }
 async function descargarRespaldoLocal(){if(respaldoOcupado)return;respaldoOcupado=true;const c=contextoLocalMiner();try{mensajeRespaldoLocal('Preparando copia local completa…');const copia=await capturarDiaLocal(c),r=await crearZipLocal(c,copia);if(!sigueContextoLocal(c))throw new Error('Cambió la cuenta o el día.');const a=document.createElement('a');a.href=URL.createObjectURL(r.blob);a.download='MinerControl_'+c.dia+'_completo.zip';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);mensajeRespaldoLocal('Descarga solicitada: '+r.count+' originales, datos y lecturas. Comprueba que el ZIP quedó guardado en tu equipo. No se subió a Supabase.');}catch(e){mensajeRespaldoLocal(e.message);}finally{respaldoOcupado=false;}}
 function validarDatosLocales(d){
@@ -5224,14 +5278,14 @@ function validarLecturaLocal(row){
  if(row.rostros!=null&&(!obj(row.rostros)||!Array.isArray(row.rostros.elementos)||row.rostros.elementos.some(x=>!obj(x)||(x.imagen!==undefined&&typeof x.imagen!=='string')||(x.texto!==undefined&&typeof x.texto!=='string'))))fail();
 }
 async function leerZipLocal(file,c){
- if(!file||file.size>LIMITE_RESPALDO_LOCAL+6*1024*1024)throw new Error('Usa un ZIP MinerControl de hasta 206 MB.');
- const zip=await JSZip.loadAsync(await file.arrayBuffer()),entradas=Object.values(zip.files);if(entradas.length>1105)throw new Error('Demasiados archivos en el respaldo.');
- const item=zip.file('minercontrol.json');if(!item||item._data?.uncompressedSize>5*1024*1024)throw new Error('No contiene un manifiesto MinerControl válido.');
- const raw=await item.async('string');if(new TextEncoder().encode(raw).length>5*1024*1024)throw new Error('Manifiesto demasiado grande.');const m=JSON.parse(raw);
+ if(!file||file.size>LIMITE_RESPALDO_LOCAL+40*1024*1024)throw new Error('Usa un ZIP MinerControl de hasta 552 MB.');
+ const zip=await JSZip.loadAsync(await file.arrayBuffer()),entradas=Object.values(zip.files);if(entradas.length>10105)throw new Error('Demasiados archivos en el respaldo.');
+ const item=zip.file('minercontrol.json');if(!item||item._data?.uncompressedSize>32*1024*1024)throw new Error('No contiene un manifiesto MinerControl válido.');
+ const raw=await item.async('string');if(new TextEncoder().encode(raw).length>32*1024*1024)throw new Error('Manifiesto demasiado grande.');const m=JSON.parse(raw);
  if(m.format!=='MinerControl-local'||m.version!==1||m.day!==c.dia)throw new Error('Selecciona en el calendario el día del respaldo antes de restaurar.');
- validarDatosLocales(m.data);if(!Array.isArray(m.files)||!Array.isArray(m.folders)||!Array.isArray(m.readers)||m.files.length>1000)throw new Error('Índice de archivos no válido.');
+ validarDatosLocales(m.data);if(!Array.isArray(m.files)||!Array.isArray(m.folders)||!Array.isArray(m.readers)||m.files.length>10000)throw new Error('Índice de archivos no válido.');
  const files=new Map();let total=0;
- for(const f of m.files){const entry=zip.file(f.path);if(!/^originales\/\d+$/.test(f.path)||files.has(f.path)||!entry||typeof f.name!=='string'||typeof f.type!=='string'||!Number.isSafeInteger(f.size)||f.size<0||!Number.isSafeInteger(entry._data?.uncompressedSize)||entry._data.uncompressedSize!==f.size)throw new Error('Índice de originales no válido.');total+=f.size;if(total>LIMITE_RESPALDO_LOCAL)throw new Error('Los originales superan 200 MB.');files.set(f.path,null);}
+ for(const f of m.files){const entry=zip.file(f.path);if(!/^originales\/\d+$/.test(f.path)||files.has(f.path)||!entry||typeof f.name!=='string'||typeof f.type!=='string'||!Number.isSafeInteger(f.size)||f.size<0||!Number.isSafeInteger(entry._data?.uncompressedSize)||entry._data.uncompressedSize!==f.size)throw new Error('Índice de originales no válido.');total+=f.size;if(total>LIMITE_RESPALDO_LOCAL)throw new Error('Los originales superan 512 MB.');files.set(f.path,null);}
  for(const f of m.files){const bytes=await zip.file(f.path).async('uint8array'),blob=new File([bytes],f.name,{type:f.type,lastModified:f.lastModified});if(blob.size!==f.size||await hashArchivoLocal(blob)!==f.sha256)throw new Error('Un original está incompleto o alterado. No se restauró nada.');files.set(f.path,blob);}
  const ids=new Set();const usados=new Set();const folders=m.folders.map(f=>{if(ids.has(String(f.id))||!m.data.carpetasTrabajadores.some(x=>x.id===f.id)||!Array.isArray(f.files))throw new Error('Carpeta no válida.');ids.add(String(f.id));return {id:f.id,files:f.files.map(p=>{if(!files.get(p)||usados.has(p))throw new Error('Original ausente o repetido.');usados.add(p);return files.get(p);})};});
  if(folders.length!==m.data.carpetasTrabajadores.length)throw new Error('Faltan carpetas en el respaldo.');
