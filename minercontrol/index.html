@@ -442,7 +442,7 @@ button{transition:.15s ease}
         <thead>
           <tr>
             <th>Trabajador</th>
-            <th>RUT</th>
+            <th>RUN/RUT</th>
             <th>Documento</th>
             <th>Faena</th>
             <th>Tipo</th>
@@ -522,7 +522,7 @@ button{transition:.15s ease}
         <thead>
           <tr>
             <th>Trabajador</th>
-            <th>RUT</th>
+            <th>RUN/RUT</th>
             <th>Contratista</th>
             <th>Faena</th>
             <th>Cargo</th>
@@ -604,7 +604,7 @@ button{transition:.15s ease}
         <thead>
           <tr>
             <th>Trabajador</th>
-            <th>RUT</th>
+            <th>RUN/RUT</th>
             <th>Faena</th>
             <th>Documento</th>
             <th>Tipo</th>
@@ -630,9 +630,9 @@ button{transition:.15s ease}
   <p class="meta">Selecciona una imagen JPG/PNG o un PDF (hasta 12 MB). Se lee el contenido, independientemente del nombre del archivo. Se recorren todas las páginas del PDF, una por una. Para la cédula, incluye frente y reverso en el mismo PDF o en una imagen con ambos lados. Una sola cara queda pendiente de revisión.</p>
   <div class="actions">
     <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150" oninput="invalidarLecturaContenido()">
-    <input class="search" id="rutContenido" aria-label="RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20" oninput="invalidarLecturaContenido()">
+    <input class="search" id="rutContenido" aria-label="RUN/RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20" oninput="invalidarLecturaContenido()">
   </div>
-  <p class="meta">El nombre y RUT de la ficha se completan como referencia. Compara el resultado con el documento original.</p>
+  <p class="meta">El nombre y RUN/RUT de la ficha se completan como referencia. Compara el resultado con el documento original.</p>
   <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf" aria-label="Archivo para leer contenido" onchange="invalidarLecturaContenido()">
   <div class="file-actions" style="margin-top:14px">
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
@@ -667,7 +667,7 @@ button{transition:.15s ease}
     <div class="head">
       <div>
         <h2>Cargar documentos</h2>
-        <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl organiza los datos por sus nombres y prepara el checklist. Revisa los originales antes de confirmar su aprobación.</p>
+        <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl organiza los datos por sus nombres y prepara el checklist. Revisa los originales antes de confirmar su aprobación.</p><p class="meta">La carga inicial organiza por nombres de archivo. Si allí no figura el RUN/RUT, abre la cédula para leerlo y compruébalo antes de editar los datos. No se deduce el número a partir del nombre de la persona.</p>
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
     </div>
@@ -703,7 +703,7 @@ button{transition:.15s ease}
 
     <div class="smart-metrics">
       <div class="smart-metric"><small>Docs auto detectados</small><b id="cAutoDocs">0</b></div>
-      <div class="smart-metric"><small>RUT detectados</small><b id="cRutsDetectados">0</b></div>
+      <div class="smart-metric"><small>RUN/RUT en nombres</small><b id="cRutsDetectados">0</b></div>
       <div class="smart-metric"><small>Fotos / cédulas</small><b id="cFotosCedulas">0</b></div>
       <div class="smart-metric"><small>Confianza promedio</small><b id="cConfianza">0%</b><div class="confidence"><span id="cConfianzaBar"></span></div></div>
     </div>
@@ -721,7 +721,7 @@ button{transition:.15s ease}
 <div class="smart-import-panel"><div class="smart-drop"><label for="inputRevisionTemporal">📂 Subir carpeta para revisar</label><input id="inputRevisionTemporal" type="file" webkitdirectory directory multiple onchange="cargarRevisionTemporal(this)"></div><div class="smart-drop"><label for="inputRevisionTemporalArchivos">Subir archivos de prueba</label><input id="inputRevisionTemporalArchivos" type="file" multiple onchange="cargarRevisionTemporal(this)"></div></div>
 <p id="revisionTemporalEstado" role="status">Sin revisión activa.</p>
 <div class="file-actions"><button class="mini green" id="exportarRevisionTemporal" onclick="exportarRevisionTemporal()" disabled>Exportar diagnóstico Excel</button><button class="mini blue" id="finalizarRevisionTemporal" onclick="finalizarRevisionTemporal()" disabled>Finalizar revisión y liberar espacio</button></div>
-<p id="revisionTemporalLimite" class="meta"></p><div style="overflow:auto"><table><thead><tr><th>Trabajador</th><th>RUT</th><th>Faena</th><th>Estado</th><th>Motivos</th></tr></thead><tbody id="revisionTemporalFilas"></tbody></table></div></div>
+<p id="revisionTemporalLimite" class="meta"></p><div style="overflow:auto"><table><thead><tr><th>Trabajador</th><th>RUN/RUT</th><th>Faena</th><th>Estado</th><th>Motivos</th></tr></thead><tbody id="revisionTemporalFilas"></tbody></table></div></div>
 </details>
     <p id="estadoOriginalesCarpetas" class="meta" role="status">Los originales de nuevas cargas se guardan en este navegador. Descarga un respaldo para conservar otra copia.</p>
     <div id="resumenCarpetasAuto"></div>
@@ -814,7 +814,7 @@ button{transition:.15s ease}
             <tr>
               <th>Fecha</th>
               <th>Trabajador</th>
-              <th>RUT</th>
+              <th>RUN/RUT</th>
               <th>Empresa</th>
               <th>Faena</th>
               <th>Acción</th>
@@ -2976,18 +2976,28 @@ function extensionArchivo(nombre){
   return m?m[1]:"";
 }
 
+function coincidenciasRutTextoMiner(txt){
+ const patron=/(?<![\p{L}\p{N}])(?:\d{1,2}(?:[.\s]\d{3}){2}|\d{7,8})\s*(?:[-–]\s*|\s+)[0-9kK](?![\p{L}\p{N}])|(?<![\p{L}\p{N}])\d{7,8}[0-9kK](?![\p{L}\p{N}])/gu;
+ return [...String(txt||'').matchAll(patron)];
+}
 function extraerRutTexto(txt){
-  const m=String(txt||"").match(/\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9kK]\b/);
-  if(!m)return 'Sin RUT';
-  const limpio=m[0].replace(/[.-]/g,'').toUpperCase();
-  const cuerpo=limpio.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
-  return cuerpo+'-'+limpio.slice(-1);
+ const candidatos=[...new Set(coincidenciasRutTextoMiner(txt).map(m=>m[0].replace(/[.\s–-]/g,'').toUpperCase()))];
+ if(candidatos.length!==1)return 'Sin RUT';
+ const limpio=candidatos[0],cuerpo=limpio.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+ return cuerpo+'-'+limpio.slice(-1);
 }
-
 function textoSinRut(txt){
-  return String(txt||"").replace(/\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9kK]\b/g," ");
+ let s=String(txt||'');for(const m of coincidenciasRutTextoMiner(s).reverse()){const antes=s.slice(0,m.index).replace(/(?<![\p{L}\p{N}])R\.?U\.?[NT]\.?[\s:_-]*$/iu,' ');s=antes+' '+s.slice(m.index+m[0].length);}return s;
 }
-
+function baseNombreDocumentoMiner(txt){
+ const s=String(txt||'').normalize('NFC'),base=s.replace(/\.[a-z0-9]+$/i,'');
+ const corte=base.indexOf('_'),prefijo=corte<0?'':base.slice(0,corte).trim();
+ // Convención «nombre completo_título»: el sufijo es del archivo, no del trabajador.
+ // Se exige un prefijo de al menos tres palabras; otros formatos conservan el análisis general.
+ const sufijo=base.slice(corte+1).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/_+/g,' ').trim();
+ if(corte>0&&(textoSinRut(prefijo).match(/[\p{L}]+/gu)||[]).length>=3&&/^(?:CEDULA|CARNET|IDENTIDAD|CERTIFICADO|CONTRATO|ANEXO|EPP|EXAMEN|LICENCIA|HOJA|ODI|CURSO|INDUCCION|CERO\s+DANO|DOCUMENTO)(?:\b|[_.-])/i.test(sufijo))return prefijo;
+ return s.replace(/_+/g,' ');
+}
 function quitarTituloDocumentoMiner(txt){
   return String(txt||" ")
     .replace(/\bhoja[\s_.-]*(?:de[\s_.-]*)?vida(?:[\s_.-]*(?:del?[\s_.-]*)?conductor)?\b/ig," ")
@@ -2995,7 +3005,7 @@ function quitarTituloDocumentoMiner(txt){
 }
 
 function formatearNombreDetectado(txt){
-  let s=quitarTituloDocumentoMiner(textoSinRut(txt))
+  let s=quitarTituloDocumentoMiner(textoSinRut(baseNombreDocumentoMiner(txt)))
     .replace(/\.[a-z0-9]+$/i," ")
     .replace(/[_]+/g," ")
     .replace(/[-]+/g," ")
@@ -3302,7 +3312,7 @@ function importarCarpetasDesdeFiles(files,modo="carpeta"){
     creadas++;
     autoDocs+=carpeta.archivos.filter(a=>a.tipo!=="otro").length;
     if(carpeta.rut!=="Sin RUT")ruts++;
-    if(carpeta.confianza<55)bajaConfianza++;
+    if(carpeta.confianza<55||carpeta.rut==="Sin RUT"||carpeta.faena==="Sin faena"||carpeta.archivos.some(a=>a.tipo==="otro"))bajaConfianza++;
     registrarMovimiento({
       trabajador:carpeta.trabajador,
       rut:carpeta.rut,
@@ -3318,7 +3328,7 @@ function importarCarpetasDesdeFiles(files,modo="carpeta"){
   renderizarHistorial();
   const resumen=document.getElementById("resumenCarpetasAuto");
   if(resumen){
-    resumen.innerHTML=`<div class="alert ${bajaConfianza?"problem":""}"><b>🤖 Importación automática lista</b><br>Carpetas/grupos creados: ${creadas}<br>Documentos clasificados: ${autoDocs} de ${files.length}<br>RUT detectados: ${ruts}<br>${bajaConfianza?"⚠️ Hay grupos con baja confianza. Revisa y edita datos si corresponde.":"✅ Detección estable."}</div>`;
+    resumen.innerHTML=`<div class="alert ${bajaConfianza?"problem":""}"><b>🤖 Importación automática lista</b><br>Carpetas/grupos creados: ${creadas}<br>Documentos clasificados: ${autoDocs} de ${files.length}<br>RUN/RUT detectados en nombres: ${ruts}<br>${bajaConfianza?"⚠️ Hay RUN/RUT, faenas o documentos pendientes. Revisa los originales y completa los datos.":"Carga organizada. Comprueba los datos con los originales."}</div>`;
   }
   mostrarToast(`Carga de documentos lista: ${creadas} grupo(s).`,"ok");
 }
@@ -3364,7 +3374,7 @@ function renderizarCarpetas(){
         <div>
           <h3>👷 ${escaparPerfilDocumento(c.trabajador)}</h3>
           <div class="meta" style="margin-top:8px">
-            RUT: ${escaparPerfilDocumento(c.rut)} · Empresa: ${escaparPerfilDocumento(c.empresa || "Sin empresa")}<br>
+            RUN/RUT: ${escaparPerfilDocumento(c.rut==="Sin RUT"?"Sin RUN/RUT":c.rut)} · Empresa: ${escaparPerfilDocumento(c.empresa || "Sin empresa")}<br>
             Faena: ${escaparPerfilDocumento(c.faena || "Sin faena")} · Cargo: ${escaparPerfilDocumento(c.cargo || "Sin cargo")}<br>
             Subida: ${escaparPerfilDocumento(c.fechaSubida)} · Archivos: ${c.archivos?.length||0} · Confianza: ${conf}%
           </div>
@@ -3413,6 +3423,7 @@ function renderizarCarpetas(){
       <textarea class="note" placeholder="Observaciones para esta carpeta..." oninput="${escaparPerfilDocumento('actualizarObservacionCarpeta('+JSON.stringify(c.id)+',this.value)')}">${escaparPerfilDocumento(c.observacion||"")}</textarea>
 
       <div class="folder-actions">
+        ${!rutIdentidad(c.rut)&&(c.archivos||[]).some(a=>a.tipo==='cedula')?`<button class="mini blue" onclick="${escaparPerfilDocumento('revisarRunCarpeta('+JSON.stringify(c.id)+')')}">Leer RUN/RUT en cédula</button>`:''}
         <button class="mini green" onclick="${escaparPerfilDocumento('integrarCarpetaADocumentos('+JSON.stringify(c.id)+')')}">Enviar a acreditación</button>
         <button class="mini green" onclick="${escaparPerfilDocumento('despacharCarpeta('+JSON.stringify(c.id)+')')}">Despachar ZIP</button>
         <button class="mini blue" onclick="${escaparPerfilDocumento('marcarCarpetaLista('+JSON.stringify(c.id)+')')}">Confirmar revisión humana</button>
@@ -3423,6 +3434,11 @@ function renderizarCarpetas(){
   }).join("");
 }
 
+async function revisarRunCarpeta(id){
+ const c=carpetasTrabajadores.find(x=>x.id===id);if(!c)return;
+ if(!(c.archivos||[]).some(a=>a.tipo==='cedula')){mostrarToast('No hay una cédula clasificada en esta carpeta. Adjunta el documento para leer el RUN/RUT.','warn');return;}
+ await abrirLectorContenido(c.trabajador,c.rut,'cedula',c.faena,'cedula');
+}
 function actualizarObservacionCarpeta(id,valor){
   const c=carpetasTrabajadores.find(x=>x.id===id);
   if(c){c.observacion=valor;guardarLocal(false);}
@@ -3433,7 +3449,7 @@ function editarDatosCarpeta(id){
   if(!c)return;
   const identidadAnterior=JSON.stringify([rutIdentidad(c.rut),normalizar(c.trabajador),nombreFaenaClave(c.faena)]);
   c.trabajador=prompt("Nombre trabajador",c.trabajador)||c.trabajador;
-  c.rut=prompt("RUT",c.rut)||c.rut;
+  c.rut=prompt("RUN/RUT del trabajador",c.rut)||c.rut;
   c.empresa=prompt("Empresa contratista",c.empresa)||c.empresa;
   const faenaNueva=prompt("Faena",c.faena)||c.faena;
   if(nombreFaenaClave(faenaNueva)===nombreFaenaClave(c.faena)||permitirCargaFaenas([{faena:faenaNueva}]))c.faena=nombreFaenaCanonico(faenaNueva);
@@ -5027,9 +5043,9 @@ async function revisarContenidoCedula(){
       ...(analisis.avisoLaboral?[analisis.avisoLaboral]:[]),
       'Evidencia del tipo: '+analisis.evidenciaTipo,
       'Comparación de tipo: '+(analisis.coincideTipo?'Coincide con la tarjeta seleccionada':'No coincide con la tarjeta; revisar antes de asociar'),
-      'RUN/RUT detectados: '+(analisis.ruts.join(', ')||'Ninguno'),
-      'RUN/RUT con dígito verificador válido: '+(analisis.validos.join(', ')||(analisis.ruts.length?'No coincide el dígito verificador; comprobar el original':'Ninguno')),
-      'Comparación de RUT: '+analisis.rut,'Comparación de nombre: '+analisis.nombre,
+      'RUN/RUT detectados: '+(analisis.ruts.map(r=>extraerRutTexto(r)).join(', ')||'Ninguno'),
+      'RUN/RUT con dígito verificador válido: '+(analisis.validos.map(r=>extraerRutTexto(r)).join(', ')||(analisis.ruts.length?'No coincide el dígito verificador; comprobar el original':'Ninguno')),
+      'Comparación de RUN/RUT: '+analisis.rut,'Comparación de nombre: '+analisis.nombre,
       analisis.etiquetaFecha+': '+(analisis.fecha?analisis.fecha.split('-').reverse().join('/'):'No confirmada. '+analisis.fechaMotivo),
       'Origen de la fecha: '+(analisis.evidenciaFecha||'Sin evidencia suficiente'),
       ...(analisis.avisoFecha?[analisis.avisoFecha]:[]),
