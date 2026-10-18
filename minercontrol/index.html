@@ -314,6 +314,10 @@ button{transition:.15s ease}
 .hero{padding:18px 24px;margin-bottom:14px}.hero h1{font-size:30px}#panelDiaMiner{padding:16px}#panelDiaMiner .actions{margin-bottom:0}
 @media(max-width:900px){.sidebar{width:190px}.nav button{font-size:14px}}
 @media(max-width:650px){.layout{flex-direction:column}.sidebar{width:100%;max-height:260px;padding:12px}.sidebar .logo{font-size:18px;margin-bottom:12px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.nav details{grid-column:1/-1}.main{padding:14px;min-height:0}.hero h1{font-size:26px}.pasos-inicio{grid-template-columns:1fr}}
+#detalleIndicadores,#dashboard #documentacionDiaPanel,#appView>.layout>.main>.status-strip,.main>details.extra-options,#carpetas>.section>details.extra-options,#carpetas .smart-metrics,#carpetas>.section>.grid,#carpetas>.section>.actions{display:none!important}
+#navUsuarios{display:none!important}
+#lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>*{display:none}
+#lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>label:has(#destinoFechaContenido){display:block}
 </style>
 </head>
 
@@ -338,17 +342,9 @@ button{transition:.15s ease}
     <button class="active" data-modulo="dashboard" onclick="mostrarModulo('dashboard',this)">Inicio</button>
     <button data-modulo="carpetas" onclick="mostrarModulo('carpetas',this)">1. Cargar documentos</button>
     <button id="navRevisionDocumentos" data-modulo="centroRevision" onclick="abrirCentroRevision()">2. Revisar documentos</button>
-    <button data-modulo="acreditacion" onclick="mostrarModulo('acreditacion',this)">3. Ver pendientes</button>
-    <button data-modulo="trabajadores" onclick="mostrarModulo('trabajadores',this)">Trabajadores</button>
-    <details id="herramientasMenu"><summary>Más herramientas</summary><div class="nav-extra">
-      <button data-modulo="documentos" onclick="mostrarModulo('documentos',this)">Todos los archivos</button>
-      <button data-modulo="faenas" onclick="mostrarModulo('faenas',this)">Faenas</button>
-      <button data-modulo="requisitos" onclick="mostrarModulo('requisitos',this)">Requisitos</button>
-      <button data-modulo="reportes" onclick="mostrarModulo('reportes',this)">Reportes</button>
-      <button data-modulo="historial" onclick="mostrarModulo('historial',this)">Historial</button>
-      <button id="navUsuarios" data-modulo="usuarios" hidden onclick="mostrarModulo('usuarios',this)">Usuarios</button>
-      <button onclick="abrirRespaldoMiner()">Guardar una copia</button>
-    </div></details>
+    <button data-modulo="pendientesLaborales" onclick="mostrarModulo('pendientesLaborales',this)">3. Ver pendientes</button>
+    <button onclick="abrirRespaldoMiner()">Guardar una copia</button>
+    <button id="navUsuarios" data-modulo="usuarios" hidden onclick="mostrarModulo('usuarios',this)">Usuarios</button>
     <button onclick="cerrarSesion()">Cerrar sesión</button>
   </nav>
 </aside>
@@ -400,8 +396,8 @@ button{transition:.15s ease}
     <p class="meta" style="margin:12px 0">Elige primero el día de trabajo en el calendario. Después sigue estos pasos.</p>
     <ol class="pasos-inicio">
       <li><b>1. Carga tus documentos</b><p class="meta">Elige una carpeta o varios archivos. Después comprueba el nombre, RUN/RUT y faena detectados.</p><button class="mini blue" onclick="irModuloRapido('carpetas')">Ir a cargar documentos</button></li>
-      <li><b>2. Revisa cada trabajador</b><p class="meta">Envía la carpeta a revisión. Abre el original y compara sus datos y fechas con la ficha.</p><button class="mini blue" onclick="abrirCentroRevision()">Ir a revisar documentos</button></li>
-      <li><b>3. Consulta qué falta</b><p class="meta">Revisa los documentos faltantes, vencidos o pendientes. La lectura no los aprueba automáticamente.</p><button class="mini blue" onclick="irModuloRapido('acreditacion')">Ver pendientes</button></li>
+      <li><b>2. Revisa cada trabajador</b><p class="meta">Abre la carpeta, selecciona un documento y compara sus datos y fechas con el original.</p><button class="mini blue" onclick="abrirCentroRevision()">Ir a revisar documentos</button></li>
+      <li><b>3. Consulta qué falta</b><p class="meta">Revisa los documentos faltantes, vencidos o pendientes. La lectura no los aprueba automáticamente.</p><button class="mini blue" onclick="irModuloRapido('pendientesLaborales')">Ver pendientes</button></li>
     </ol>
   </div>
 
@@ -473,6 +469,7 @@ button{transition:.15s ease}
 </div></details>
 </section>
 
+<section id="pendientesLaborales" class="module"><div class="section"><h2>Qué falta en las carpetas</h2><p class="meta">Comprueba presencia y revisión de documentos. No determina aptitud ni autorización de acceso.</p><div id="pendientesCarpetaLaboral"></div></div></section>
 <section id="documentos" class="module">
   <div class="section">
     <div class="head">
@@ -641,14 +638,15 @@ button{transition:.15s ease}
 <div class="section" style="margin-bottom:0">
 <button class="mini blue" onclick="cerrarLectorContenido()" style="float:right">Cerrar</button>
   <h2 id="tituloLectorContenido">Leer contenido de una cédula chilena</h2>
-  <p class="meta">Selecciona JPG, PNG, PDF, Word (.docx) o Excel (.xlsx, .xls, .csv), hasta 12 MB. Word antiguo (.doc) debe convertirse a DOCX o PDF. Se lee el contenido, independientemente del nombre del archivo. Se recorren todas las páginas del PDF, una por una. Para la cédula, incluye frente y reverso en el mismo PDF o en una imagen con ambos lados. Una sola cara queda pendiente de revisión.</p>
+  <p class="meta" id="ayudaArchivoContenido">Selecciona JPG, PNG, PDF, Word (.docx) o Excel (.xlsx, .xls, .csv), hasta 12 MB. Word antiguo (.doc) debe convertirse a DOCX o PDF. Se lee el contenido, independientemente del nombre del archivo. Se recorren todas las páginas del PDF, una por una. Para la cédula, incluye frente y reverso en el mismo PDF o en una imagen con ambos lados. Una sola cara queda pendiente de revisión.</p>
   <div class="actions">
     <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150" oninput="invalidarLecturaContenido()">
     <input class="search" id="rutContenido" aria-label="RUN/RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20" oninput="invalidarLecturaContenido()">
   </div>
   <p class="meta">El nombre y RUN/RUT de la ficha se completan como referencia. Compara el resultado con el documento original.</p>
-  <p class="meta">Registro Civil: la lectura no confirma autenticidad. <a href="https://www.registrocivil.cl/OficinaInternet/verificacion/verificacioncertificado.srcei" target="_blank" rel="noopener noreferrer">Abrir verificación oficial de certificados</a>. Introduce el código del certificado en el servicio oficial; esta aplicación no transmite datos ni registra una verificación automática.</p>
+  <p class="meta" id="accesoRegistroCivilLector">Registro Civil: la lectura no confirma autenticidad. <a href="https://www.registrocivil.cl/OficinaInternet/verificacion/verificacioncertificado.srcei" target="_blank" rel="noopener noreferrer">Abrir verificación oficial de certificados</a>. Introduce el código del certificado en el servicio oficial; esta aplicación no transmite datos ni registra una verificación automática.</p>
   <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf,.docx,.xlsx,.xls,.csv" aria-label="Archivo para leer contenido" onchange="invalidarLecturaContenido()">
+  <div id="comprobacionMedicaLaboral" hidden class="section" style="margin-top:14px"><h3>Comprobar emisión del examen médico</h3><p class="meta">Estado: sin comprobar. Consulta al centro que aparece como emisor mediante su canal oficial y compara trabajador, folio, fecha y examen. Un QR por sí solo no confirma autenticidad. No envíes diagnósticos ni archivos a sitios desconocidos.</p><a href="https://ww3.achs.cl/webapp/020005/" target="_blank" rel="noopener noreferrer">Abrir validador oficial ACHS, solo si el emisor es ACHS</a><p class="meta">Este enlace no transmite datos. MinerControl no ha realizado la consulta ni confirmado la emisión.</p></div>
   <div class="file-actions" style="margin-top:14px">
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
     <button class="mini blue" id="detectarFotoDocumento" onclick="detectarFotoDocumentoMiner()">Detectar foto de rostro</button>
@@ -656,9 +654,9 @@ button{transition:.15s ease}
   <p class="meta">Se usa únicamente el vencimiento, vigencia hasta o próximo control identificado. La emisión, nacimiento y fecha del examen no sustituyen el vencimiento.</p>
   <p class="meta">Lectura local en este navegador. Se descargan los motores de lectura; el archivo no se envía a un servicio de análisis. No acredita automáticamente ni comprueba autenticidad.</p>
   <p id="estadoContenido" role="status" aria-live="polite">Sin archivo leído.</p>
-  <div class="alert" role="note"><h3>Revisión humana</h3><p class="meta" style="margin-top:8px;margin-bottom:0">MinerControl no tiene acceso al Registro Civil y no verifica la identidad ni la autenticidad de la cédula. El encargado debe revisar el documento original, comprobar que los datos correspondan a la ficha y realizar la validación que exija la empresa o faena mediante sus canales autorizados. Confirmar esta revisión no equivale a una validación del Registro Civil.</p></div>
+  <div class="alert" role="note" id="avisoIdentidadLector"><h3>Revisión humana</h3><p class="meta" style="margin-top:8px;margin-bottom:0">MinerControl no tiene acceso al Registro Civil y no verifica la identidad ni la autenticidad de la cédula. El encargado debe revisar el documento original, comprobar que los datos correspondan a la ficha y realizar la validación que exija la empresa o faena mediante sus canales autorizados. Confirmar esta revisión no equivale a una validación del Registro Civil.</p></div>
   <div id="vistaOriginalContenido"></div>
-  <p class="meta">Revisa que el documento esté completo, el rostro visible y los datos sin reflejos. Los avisos de calidad son orientativos, no una aprobación ni una norma del Registro Civil.</p>
+  <p class="meta" id="avisoCalidadVisualContenido">Revisa que el documento esté completo, el rostro visible y los datos sin reflejos. Los avisos de calidad son orientativos, no una aprobación ni una norma del Registro Civil.</p>
   <p id="estadoFotoDocumento" role="status" class="meta">La detección de foto localiza rostros; no identifica a la persona.</p>
   <div id="resultadoFotoDocumento"></div>
   <button class="mini green" id="guardarOriginalLector" onclick="guardarDesdeLector().catch(errorGuardarLector)">Guardar documento en esta ficha</button><p id="estadoGuardadoLector" role="status" class="meta"></p>
@@ -682,7 +680,7 @@ button{transition:.15s ease}
     <div class="head">
       <div>
         <h2>Cargar documentos</h2>
-        <p style="color:#9eb3cb;margin-top:6px">Elige una carpeta o varios archivos. Comprueba a quién corresponden y pulsa «Enviar a revisión».</p><p class="meta">La carga inicial organiza por nombres de archivo. Si allí no figura el RUN/RUT, abre la cédula para leerlo y compruébalo antes de editar los datos. No se deduce el número a partir del nombre de la persona.</p>
+        <p style="color:#9eb3cb;margin-top:6px">Elige una carpeta o varios archivos. Comprueba a quién corresponden y pulsa «Revisar carpeta completa».</p><p class="meta">La carga inicial organiza por nombres de archivo. Si allí no figura el RUN/RUT, abre la cédula para leerlo y compruébalo antes de editar los datos. No se deduce el número a partir del nombre de la persona.</p>
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
     </div>
@@ -847,7 +845,7 @@ button{transition:.15s ease}
 </section>
 
 
-<section id="centroRevision" class="module"><h2>Revisar documentos</h2><p class="meta">Selecciona al trabajador y abre el documento. Aquí recuperas sus originales, la lectura por campos y la foto guardada del día seleccionado.</p><label>Buscar trabajador por nombre o RUN<input class="search" id="buscarCentroRevision" oninput="pintarCentroRevision()" placeholder="Nombre o RUN"></label><div id="listaCentroRevision" style="margin-top:16px"></div><div id="documentosCentroRevision" style="margin-top:20px"></div></section>
+<section id="centroRevision" class="module"><h2>Revisar documentos</h2><p class="meta">Selecciona al trabajador y abre el documento. Aquí recuperas los cinco documentos de la carpeta y los exámenes médicos que estén cargados.</p><label>Buscar trabajador por nombre o RUN<input class="search" id="buscarCentroRevision" oninput="pintarCentroRevision()" placeholder="Nombre o RUN"></label><div id="listaCentroRevision" style="margin-top:16px"></div><div id="documentosCentroRevision" style="margin-top:20px"></div></section>
 <section id="usuarios" class="module">
 <details class="extra-options">
   <summary>Mantenimiento de datos</summary>
@@ -1040,7 +1038,8 @@ function mostrarModulo(id,btn){
 
 
 const MODULOS_TITULOS={
-  dashboard:"Dashboard",
+  pendientesLaborales:"Pendientes de carpetas",
+  dashboard:"Inicio",
   trabajadores:"Trabajadores",
   documentos:"Documentos / Archivos",
   faenas:"Faenas",
@@ -2171,15 +2170,14 @@ function seleccionarCentroRevision(cod){
 }
 function clavesDocumentosCentroRevision(t,req){
  const cargados=documentosDelTrabajador(t).map(requisitoDeDocumento);
- for(const carpeta of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,t)))for(const a of carpeta.archivos||[])cargados.push(a.tipo);
- const conocidos=new Set(CATALOGO_REQUISITOS.map(r=>r.key));
- return [...new Set(['cedula','licencia',...(req.reqs||[]),'examen',...cargados.filter(k=>conocidos.has(k))])];
+ for(const c of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,t)))for(const a of c.archivos||[])cargados.push(tipoCarpetaLaboralMiner(a));
+ return [...CLAVES_CARPETA_LABORAL,...CLAVES_MEDICAS_LABORAL.filter(k=>cargados.includes(k)),...new Set(cargados.filter(k=>k&&!CLAVES_CARPETA_LABORAL.includes(k)&&!CLAVES_MEDICAS_LABORAL.includes(k)))];
 }
 function pintarDocumentosCentroRevision(){
  const t=trabajadorCentroRevision,panel=document.getElementById('documentosCentroRevision');if(!t||!panel)return;
  const esc=escaparPerfilDocumento,req=evaluarRequisitosTrabajador(t);
  const keys=clavesDocumentosCentroRevision(t,req);
- panel.innerHTML='<h3>'+esc(t.trabajador)+' · '+esc(t.rut)+'</h3><p class="meta">Abre el documento para ver su original, los campos leídos y la detección de foto. Cada archivo se guarda en el requisito elegido.</p>';
+ panel.innerHTML='<h3>'+esc(t.trabajador)+' · '+esc(t.rut)+'</h3><p class="meta">Revisa los cinco documentos de esta carpeta. Los exámenes médicos se muestran cuando están cargados. Presencia de archivo y autenticidad se comprueban por separado.</p>';
  for(const key of keys){const item=req.checklist.find(i=>i.key===key)||{key,nombre:nombreReq(key),estado:'Falta',documentos:[]};const c=document.createElement('div');c.className='section';c.innerHTML='<h3>'+esc(item.nombre)+'</h3>'+originalGuardadoEnTarjeta(item,t);const b=document.createElement('button');b.className='mini blue';b.textContent='Abrir '+item.nombre;b.onclick=()=>abrirLectorContenido(t.trabajador,t.rut,key==='cedula'||key==='licencia'?key:'medico',t.faena,key);c.append(b);panel.append(c);}
 }
 function abrirPerfilTrabajador(cod){
@@ -2312,7 +2310,11 @@ function requisitosDefault(){
   };
 }
 
+const CLAVES_CARPETA_LABORAL=Object.freeze(["cedula","cero_dano","antecedentes","contrato","epp"]);
+const CLAVES_MEDICAS_LABORAL=Object.freeze(["examen","altura","psicosensometrico"]);
+
 const CATALOGO_REQUISITOS=[
+  {key:"cero_dano",nombre:"Cero Daño / calificaciones del portal",aliases:["cerodano","calificacionesportal"]},
   {key:"cedula",nombre:"Cédula de identidad",aliases:["cedula","carnet","identidad","rut","run"]},
   {key:"licencia",nombre:"Licencia de conducir",aliases:["licencia","conducir","claseb","clased","clasea"]},
   {key:"examen",nombre:"Examen ocupacional",aliases:["examenocupacional","ocupacional","preocupacional","examenmedico","medico"]},
@@ -2339,6 +2341,7 @@ function requisitoDeDocumento(d){
     const compacto=normalizar(texto);
     const claves=[];
     const reglas=[
+      ["cero_dano",/cero\s*dano|calificaciones\s*(?:del?\s*)?portal/],
       ["cedula",/cedula|carnet|identidad|\b(?:rut|run|dni|ci)\b/],
       ["licencia",/licencia.*(?:conduc|chofer|clase\s*[abcd])/],
       ["altura",/altura/],
@@ -2966,7 +2969,8 @@ const DOCS_REQUERIDOS=[
   {key:"curso", nombre:"Curso / certificación", peso:11, aliases:["curso","certificacion","certificado","capacitacion","induccion","credencial","habilitacion"]},
   {key:"foto", nombre:"Foto trabajador / credencial", peso:8, aliases:["foto","selfie","imagen","perfil","credencial","avatar"]},
   {key:"seguro", nombre:"Seguro / mutual", peso:10, aliases:["seguro","mutual","poliza","achs","ist","isl"]},
-  {key:"finiquito", nombre:"Finiquito", peso:7, aliases:["finiquito","termino","egreso"]}
+  {key:"finiquito", nombre:"Finiquito", peso:7, aliases:["finiquito","termino","egreso"]},
+  {key:"cero_dano",nombre:"Cero Daño / calificaciones del portal",peso:20,aliases:["cerodano","calificacionesportal"]}
 ];
 
 const FAENAS_CONOCIDAS=["Collahuasi","Spence","Escondida","QB2","Quebrada Blanca","Los Bronces","Andina","El Teniente","Chuquicamata","Caserones","Centinela","Candelaria"];
@@ -3338,105 +3342,46 @@ function importarCarpetasDesdeFiles(files,modo="carpeta"){
   mostrarToast(`Carga de documentos lista: ${creadas} grupo(s).`,"ok");
 }
 
+
+function tipoCarpetaLaboralMiner(a){
+ const nombre=String(a.nombre||a.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+ return /cero[ _-]*dano/i.test(nombre)?'cero_dano':a.tipo||detectarTipoArchivo(nombre);
+}
+function resumenCarpetaLaboralMiner(c){
+ const archivos=c.archivos||[];
+ return CLAVES_CARPETA_LABORAL.map(key=>({key,nombre:nombreReq(key),archivos:archivos.filter(a=>tipoCarpetaLaboralMiner(a)===key)}));
+}
+function abrirCarpetaLaboralMiner(id){
+ const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
+ abrirCentroRevision(idTrabajador(c));
+}
+function abrirDocumentoCarpetaLaboralMiner(id,key){
+ const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
+ const permitido=[...CLAVES_CARPETA_LABORAL,...CLAVES_MEDICAS_LABORAL,'otro'];if(!permitido.includes(key))return;
+ if(!(c.archivos||[]).some(a=>tipoCarpetaLaboralMiner(a)===key)){mostrarToast('Este documento no está cargado. Añádelo a la carpeta.','warn');return;}
+ return abrirLectorContenido(c.trabajador,c.rut,key==='cedula'?'cedula':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key,c.faena,key);
+}
+function renderizarCarpetasLaboralesMiner(){
+ const grid=document.getElementById('carpetasGrid');if(!grid)return;
+ const q=normalizar(document.getElementById('buscarCarpeta')?.value||'');
+ const lista=carpetasTrabajadores.filter(c=>!q||normalizar([c.trabajador,c.rut,c.faena,...(c.archivos||[]).map(a=>a.nombre)].join(' ')).includes(q));
+ const esc=escaparPerfilDocumento;
+ grid.innerHTML=lista.map(c=>{
+  const resumen=resumenCarpetaLaboralMiner(c),recibidos=resumen.filter(i=>i.archivos.length).length;
+  const pendientesIdentidad=!rutValidoContenido(c.rut)||!c.faena||c.faena==='Sin faena';
+  const botones=(key,label)=>esc('abrirDocumentoCarpetaLaboralMiner('+JSON.stringify(c.id)+','+JSON.stringify(key)+')');
+  const medicos=(c.archivos||[]).filter(a=>CLAVES_MEDICAS_LABORAL.includes(tipoCarpetaLaboralMiner(a)));
+  return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3><p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de 5 tipos de documento presentes</b> · Revisión pendiente</p>${pendientesIdentidad?'<p class="meta">Completa el RUN/RUT y la faena al comparar los originales.</p>':''}<div class="check-grid">${resumen.map(i=>`<div class="check-card"><b>${esc(i.nombre)}</b><p class="meta">${i.archivos.length?i.archivos.length+' archivo(s) · Contenido por revisar':'Sin archivo cargado'}</p>${i.archivos.length?`<button class="mini blue" onclick="${botones(i.key)}">Revisar ${esc(i.nombre)}</button>`:''}</div>`).join('')}</div>${medicos.length?'<h4 style="margin-top:16px">Exámenes médicos</h4><p class="meta">Autenticidad pendiente de comprobar con el emisor.</p>'+[...new Set(medicos.map(tipoCarpetaLaboralMiner))].map(k=>`<button class="mini blue" onclick="${botones(k)}">Revisar ${esc(nombreReq(k))}</button>`).join(''):''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button><button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div><details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
+ }).join('')||'<p class="empty">Elige una carpeta o varios archivos para empezar. Se esperan cédula, Cero Daño, antecedentes, contrato y EPP.</p>';
+ pintarPendientesCarpetaLaboralMiner();
+}
+function pintarPendientesCarpetaLaboralMiner(){
+ const panel=document.getElementById('pendientesCarpetaLaboral');if(!panel)return;const esc=escaparPerfilDocumento;
+ panel.innerHTML=carpetasTrabajadores.map(c=>{const faltan=resumenCarpetaLaboralMiner(c).filter(i=>!i.archivos.length).map(i=>i.nombre);return '<div class="section"><h3>'+esc(c.trabajador)+'</h3><p class="meta">'+(faltan.length?'Sin archivo: '+esc(faltan.join(', ')):'Los cinco tipos están cargados. Falta revisar su contenido y, donde corresponda, comprobarlo con el emisor.')+'</p><p class="meta">Este resumen no acredita al trabajador ni confirma acceso a faena.</p><button class="mini blue" onclick="'+esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')+'">Abrir carpeta</button></div>';}).join('')||'<p class="meta">No hay carpetas cargadas para este día.</p>';
+}
+
 function renderizarCarpetas(){
-  const grid=document.getElementById("carpetasGrid");
-  if(!grid)return;
-
-  const q=(document.getElementById("buscarCarpeta")?.value||"").toLowerCase();
-  const filtradas=carpetasTrabajadores.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
-
-  const total=carpetasTrabajadores.length;
-  const listas=carpetasTrabajadores.filter(c=>c.estado==="Lista").length;
-  const observadas=carpetasTrabajadores.filter(c=>c.estado==="Observada").length;
-  const incompletas=carpetasTrabajadores.filter(c=>c.estado==="Incompleta").length;
-  const autoDocs=carpetasTrabajadores.reduce((acc,c)=>acc+(c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro").length,0);
-  const ruts=new Set(carpetasTrabajadores.filter(c=>c.rut&&c.rut!=="Sin RUT").map(c=>c.rut)).size;
-  const fotos=carpetasTrabajadores.reduce((acc,c)=>acc+(c.archivos||[]).filter(a=>a.tipo==="cedula"||a.tipo==="foto"||a.esImagen).length,0);
-  const confianza=carpetasTrabajadores.length?Math.round(carpetasTrabajadores.reduce((acc,c)=>acc+(c.confianza||calcularConfianzaCarpeta(c)),0)/carpetasTrabajadores.length):0;
-
-  if(document.getElementById("cCarpetas"))cCarpetas.innerText=total;
-  if(document.getElementById("cListas"))cListas.innerText=listas;
-  if(document.getElementById("cObservadas"))cObservadas.innerText=observadas;
-  if(document.getElementById("cIncompletas"))cIncompletas.innerText=incompletas;
-  if(document.getElementById("cAutoDocs"))cAutoDocs.innerText=autoDocs;
-  if(document.getElementById("cRutsDetectados"))cRutsDetectados.innerText=ruts;
-  if(document.getElementById("cFotosCedulas"))cFotosCedulas.innerText=fotos;
-  if(document.getElementById("cConfianza"))cConfianza.innerText=confianza+"%";
-  if(document.getElementById("cConfianzaBar"))cConfianzaBar.style.width=confianza+"%";
-
-  if(!filtradas.length){
-    grid.innerHTML=`<div class="empty">Todavía no hay documentos cargados. Elige una carpeta o varios archivos para empezar.</div>`;
-    return;
-  }
-
-  grid.innerHTML=filtradas.map(c=>{
-    const conf=c.confianza||calcularConfianzaCarpeta(c);
-    const dups=c.duplicados||duplicadosCarpeta(c);
-    const sinClasificar=(c.archivos||[]).filter(a=>!a.tipo || a.tipo==="otro").length;
-    return `
-    <div class="folder-card">
-      <div class="folder-head">
-        <div>
-          <h3>👷 ${escaparPerfilDocumento(c.trabajador)}</h3>
-          <div class="meta" style="margin-top:8px">
-            RUN/RUT: ${escaparPerfilDocumento(c.rut==="Sin RUT"?"Sin RUN/RUT":c.rut)} · Empresa: ${escaparPerfilDocumento(c.empresa || "Sin empresa")}<br>
-            Faena: ${escaparPerfilDocumento(c.faena || "Sin faena")} · Cargo: ${escaparPerfilDocumento(c.cargo || "Sin cargo")}<br>
-            Subida: ${escaparPerfilDocumento(c.fechaSubida)} · Archivos: ${c.archivos?.length||0} · Confianza: ${conf}%
-          </div>
-          <div class="confidence" style="max-width:280px"><span style="width:${conf}%"></span></div>
-        </div>
-        <div>${badgeCarpeta(c.estado)}</div>
-      </div>
-
-      ${(c.fotosPrincipales||[]).length?`
-        <div class="preview-doc">
-          ${c.fotosPrincipales.map(f=>f.previewURL?`<img src="${f.previewURL}" alt="${escaparPerfilDocumento(f.nombre)}">`:"").join("")}
-          <div><b>Imagen/cédula detectada</b><br><span class="small">${escaparPerfilDocumento(c.fotosPrincipales.map(f=>f.nombre).join(" · "))}</span></div>
-        </div>`:""}
-
-      <div style="margin-top:12px">
-        <span class="detected-pill ok">🤖 ${((c.archivos||[]).filter(a=>a.tipo&&a.tipo!=="otro").length)} docs detectados</span>
-        <span class="detected-pill ${sinClasificar?"warn":"ok"}">🧩 ${sinClasificar} sin clasificar</span>
-        <span class="detected-pill ${dups.length?"bad":"ok"}">🧬 ${dups.length} duplicado(s)</span>
-      </div>
-
-      <div class="check-grid">
-        ${(c.checklist||[]).map(item=>`
-          <div class="check-card ${item.estado==="Recibido"?"ok-doc":item.estado==="Por vencer"?"warn-doc":"bad-doc"}">
-            <b>${item.estado==="Recibido"?"✅":item.estado==="Por vencer"?"⚠️":"❌"} ${escaparPerfilDocumento(item.nombre)}</b>
-            <div class="small" style="margin-top:6px">${escaparPerfilDocumento(item.estado)} · ${item.cantidad||0} archivo(s) · Confianza ${item.confianza||0}%</div>
-            <div class="doc-list">
-              ${(item.archivos||[]).slice(0,4).map(a=>`<div class="doc-chip"><span>${escaparPerfilDocumento(a)}</span><span>${escaparPerfilDocumento(item.estado)}</span></div>`).join("")}
-            </div>
-          </div>
-        `).join("")}
-      </div>
-
-      <h3 style="margin:18px 0 10px">Archivos detectados automáticamente</h3>
-      <div class="auto-file-list">
-        ${(c.archivos||[]).slice(0,16).map(a=>`
-          <div class="auto-file ${a.tipo&&a.tipo!=="otro"?"ok":"warn"}">
-            <b>${a.tipoNombre||nombreTipoDoc(a.tipo)}</b><br>
-            ${escaparPerfilDocumento(a.nombre)}<br>
-            <span class="small">Estado: ${escaparPerfilDocumento(a.estado||"Revisar")} · Vence: ${escaparPerfilDocumento(a.fechaVencimiento||"-")} · Confianza: ${a.confianza||0}%</span>
-            ${(a.senales||[]).filter(s=>/Vencimiento.*revisar el documento\./i.test(s)).map(s=>`<br><span class="small">⚠️ ${escaparPerfilDocumento(s)}</span>`).join('')}
-          </div>
-        `).join("")}
-      </div>
-
-      ${resumenRevisionHumana(c)}
-      <textarea class="note" placeholder="Observaciones para esta carpeta..." oninput="${escaparPerfilDocumento('actualizarObservacionCarpeta('+JSON.stringify(c.id)+',this.value)')}">${escaparPerfilDocumento(c.observacion||"")}</textarea>
-
-      <div class="folder-actions">
-        ${!rutIdentidad(c.rut)&&(c.archivos||[]).some(a=>a.tipo==='cedula')?`<button class="mini blue" onclick="${escaparPerfilDocumento('revisarRunCarpeta('+JSON.stringify(c.id)+')')}">Leer RUN/RUT en cédula</button>`:''}
-        <button class="mini green" onclick="${escaparPerfilDocumento('integrarCarpetaADocumentos('+JSON.stringify(c.id)+')')}">Enviar a revisión</button>
-        <button class="mini green" onclick="${escaparPerfilDocumento('despacharCarpeta('+JSON.stringify(c.id)+')')}">Despachar ZIP</button>
-        <button class="mini blue" onclick="${escaparPerfilDocumento('marcarCarpetaLista('+JSON.stringify(c.id)+')')}">Confirmar revisión humana</button>
-        <button class="mini yellow" onclick="${escaparPerfilDocumento('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Editar datos</button>
-        <button class="mini red" onclick="${escaparPerfilDocumento('eliminarCarpeta('+JSON.stringify(c.id)+')')}">Eliminar</button>
-      </div>
-    </div>`;
-  }).join("");
+ return renderizarCarpetasLaboralesMiner();
 }
 
 async function revisarRunCarpeta(id){
@@ -4503,16 +4448,22 @@ let evidenciaLecturaContenido=null;
 async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=''){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
   limpiarLecturaContenido();
-  tipoDocumentoContenido=requisito==='otro'?'portal':['antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(requisito)?requisito:['cedula','licencia','medico','antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(tipo)?tipo:'cedula';
+  tipoDocumentoContenido=['otro','cero_dano'].includes(requisito)?'portal':['antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(requisito)?requisito:['cedula','licencia','medico','antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(tipo)?tipo:'cedula';
   document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':tipoDocumentoContenido==='medico'?'Leer documento médico':'Leer cédula de identidad chilena';
   document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
   document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
   contextoFechaContenido={trabajador:nombre,rut,faena,requisito:requisito||(tipo==='medico'?'examen':tipo),contextoLocal:contextoLocalMiner()};
   document.getElementById('estadoGuardadoLector').textContent='';
-  const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida','epp','curso','odi','otro'].includes(contextoFechaContenido.requisito);
+  const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida','epp','curso','odi','otro','cero_dano'].includes(contextoFechaContenido.requisito);
   document.getElementById('leerContenido').hidden=!admiteLectura;
   document.getElementById('detectarFotoDocumento').hidden=!['cedula','licencia'].includes(contextoFechaContenido.requisito);
   if(requisito)document.getElementById('tituloLectorContenido').textContent='Documento · '+nombreReq(requisito);
+  document.getElementById('ayudaArchivoContenido').textContent='Selecciona PDF, JPG, PNG, DOCX, XLSX, XLS o CSV (hasta 12 MB). Se recorren todas las páginas del PDF. Word antiguo (.doc) debe convertirse a DOCX o PDF.'+(tipoDocumentoContenido==='cedula'?' Incluye frente y reverso de la cédula.':'');
+  document.getElementById('lectorContenidoModal').dataset.tipo=tipoDocumentoContenido;
+  document.getElementById('comprobacionMedicaLaboral').hidden=tipoDocumentoContenido!=='medico';
+  document.getElementById('accesoRegistroCivilLector').hidden=!['cedula','antecedentes'].includes(tipoDocumentoContenido);
+  document.getElementById('avisoIdentidadLector').hidden=tipoDocumentoContenido!=='cedula';
+  for(const id of ['avisoCalidadVisualContenido','estadoFotoDocumento'])document.getElementById(id).hidden=!['cedula','licencia'].includes(tipoDocumentoContenido);
   prepararConfirmacionFechaContenido();
   document.getElementById('lectorContenidoModal').showModal();
   await recuperarDocumentoLector().catch(errorGuardarLector);
@@ -4521,7 +4472,7 @@ function prepararConfirmacionFechaContenido(){
   destinosFechaContenido=[];
   if(contextoFechaContenido?.faena)for(const c of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,contextoFechaContenido))){
     for(const a of c.archivos||[]){
-      if(contextoFechaContenido.requisito?a.tipo!==contextoFechaContenido.requisito:!(tipoDocumentoContenido==='medico'?['examen','altura','psicosensometrico'].includes(a.tipo):a.tipo===tipoDocumentoContenido))continue;
+      if(contextoFechaContenido.requisito?tipoCarpetaLaboralMiner(a)!==contextoFechaContenido.requisito:!(tipoDocumentoContenido==='medico'?['examen','altura','psicosensometrico'].includes(a.tipo):a.tipo===tipoDocumentoContenido))continue;
       const originales=(c.archivosFisicos||[]).filter(f=>f.name===a.nombre);
       if(originales.length===1)destinosFechaContenido.push({c,a,file:originales[0]});
     }
@@ -4597,6 +4548,7 @@ function estadoFechaContenido(){
   document.getElementById('estadoFechaContenido').textContent=typeof dias!=='number'?'Selecciona el vencimiento que aparece en el original.':dias<0?'Vencido':dias<=30?'Por vencer':'Vigente';
 }
 function confirmarFechaContenido(){
+  if(typeof tipoDocumentoContenido!=='undefined'&&tipoDocumentoContenido==='portal'){mostrarToast('Cada calificación del portal tiene su propia fecha; no se guarda un vencimiento global.','warn');return;}
   if(lecturaContenidoActiva)return;
   const d=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];
   const fecha=document.getElementById('fechaConfirmadaContenido').value;
@@ -4677,6 +4629,7 @@ function fechaDocumentoChileno(texto,tipo){
             if([...lineas[k].matchAll(etiquetas)].length)break;
             const todas=fechas(lineas[k]);if(!todas.length){if(permitida&&incompleta(lineas[k]))malformada=true;continue;}
             if(rotulos.length>1){
+              if(todas.length>rotulos.length){if(permitida)ambigua=true;valores=[];break;}
               // Conservar columnas: la fecha de emisión a la izquierda no pertenece al vencimiento de la derecha.
               valores=todas.filter(f=>f.x>=Math.max(0,r.index-4)&&(j+1===rotulos.length||f.x<rotulos[j+1].index-4));
             }else if(todas.length===1&&(r.index<8||todas[0].x>=r.index-4))valores=todas;
@@ -4702,11 +4655,13 @@ function fechaDocumentoChileno(texto,tipo){
 }
 function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
  const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
- const titulos={antecedentes:/CERTIFICADO\s*(?:DE\s*)?ANTECEDENTES/,contrato:/CONTRATO\s*(?:INDIVIDUAL\s*)?(?:DE\s*)?TRABAJO/,epp:/(?:ENTREGA|REGISTRO|RECEPCION)[^\n]{0,80}(?:EPP|ELEMENTOS?\s*(?:DE\s*)?PROTECCION)|ELEMENTOS?\s*(?:DE\s*)?PROTECCION\s*PERSONAL/,curso:/(?:CERTIFICADO[^\n]{0,60})?(?:CURSO|CAPACITACION|INDUCCION)/,odi:/OBLIGACION\s*(?:DE\s*)?INFORMAR|DERECHO\s*A\s*SABER|\bODI\b/,hoja_vida:/HOJA\s*(?:DE\s*)?VIDA\s*(?:DEL?\s*)?CONDUCTOR/};
- const tipos=Object.keys(titulos).filter(k=>titulos[k].test(normal));
- const medico=/EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL)|CEDULA\s*(?:DE\s*)?IDENTIDAD/.test(normal);
+ const titulos={antecedentes:/CERTIFICADO\s*(?:DE\s*)?ANTECEDENTES/,contrato:/CONTRATO\s*(?:INDIVIDUAL\s*)?(?:DE\s*)?TRABAJO/,epp:/ENTREGA\s*(?:DE\s*)?CARGO(?=[\s\S]*RUT\s*TRABAJADOR)(?=[\s\S]*\bEPP\b)|(?:ENTREGA|REGISTRO|RECEPCION)[^\n]{0,80}(?:EPP|ELEMENTOS?\s*(?:DE\s*)?PROTECCION)|ELEMENTOS?\s*(?:DE\s*)?PROTECCION\s*PERSONAL/,curso:/(?:CERTIFICADO[^\n]{0,60})?(?:CURSO|CAPACITACION|INDUCCION)/,odi:/OBLIGACION\s*(?:DE\s*)?INFORMAR|DERECHO\s*A\s*SABER|\bODI\b/,hoja_vida:/HOJA\s*(?:DE\s*)?VIDA\s*(?:DEL?\s*)?CONDUCTOR/};
+ const cabecera=normal.split(/FIN DE LECTURA|\nPAGINA\s+2\n/)[0].slice(0,1800),lineas=cabecera.split(/\r?\n/).map(l=>l.trim());
+ const inicio={antecedentes:/^CERTIFICADO\s*(?:DE\s*)?ANTECEDENTES/,contrato:/^CONTRATO\s*(?:INDIVIDUAL\s*)?(?:DE\s*)?TRABAJO/,hoja_vida:/^HOJA\s*(?:DE\s*)?VIDA/,curso:/^(?:CERTIFICADO[^\n]{0,60})?(?:CURSO|CAPACITACION|INDUCCION)\b/,odi:/^(?:OBLIGACION\s*(?:DE\s*)?INFORMAR|DERECHO\s*A\s*SABER|ODI)\b/,epp:/^(?:(?:REGISTRO|RECEPCION|ENTREGA)\b|ELEMENTOS?\s*(?:DE\s*)?PROTECCION)/};
+ const tipos=Object.keys(titulos).filter(k=>titulos[k].test(normal)&&lineas.some(l=>l.length<=180&&inicio[k].test(l)));
+ const medico=lineas.some(l=>/^(?:EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL)|CEDULA\s*(?:DE\s*)?IDENTIDAD)\s*$/.test(l));
  const reconocido=tipos.length===1&&!medico?tipos[0]:'sin identificar';
- const ruts=[...new Set((normal.match(/\b(?:\d{1,2}[.]\d{3}[.]\d{3}|\d{7,8})\s*[-–]\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s–-]/g,'')))],validos=ruts.filter(rutValidoContenido);
+ const ruts=[...new Set(coincidenciasRutTextoMiner(normal).filter(m=>/[-–]/.test(m[0])||/\d{1,2}[.]\d{3}[.]\d{3}/.test(m[0])||/\bR\.?U\.?[NT]\.?(?:\s*TRABAJADOR)?\s*[:\-]?\s*$/.test(normal.slice(Math.max(0,m.index-35),m.index))).map(m=>m[0].replace(/[.\s–-]/g,'').toUpperCase()))],validos=ruts.filter(rutValidoContenido);
  const esperado=String(rutEsperado||'').toUpperCase().replace(/[.\s-]/g,''),tokens=String(nombreEsperado||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().match(/[A-Z]+/g)||[],palabras=new Set(normal.match(/[A-Z]+/g)||[]);
  const campos=[];
  const agregar=(etiqueta,patron)=>{const m=normal.match(patron);if(m)campos.push({etiqueta,valor:m[1].trim()});};
@@ -4715,7 +4670,7 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
 
  if(tipo==='antecedentes'){
   agregar('Finalidad',/(?:PARA\s*)?FINES\s+(ESPECIALES|PARTICULARES)/);
-  agregar('Código de verificación (sin comprobar)',/CODIGO\s*(?:DE\s*)?VERIFICACION\s*[:\-]?\s*([^\n]{1,80})/);
+  agregar('Código de verificación (sin comprobar)',/CODIGO\s*(?:DE\s*)?VERIFICACION\s*[:\-]?\s*([A-Z0-9]{6,32})(?![A-Z0-9])/);
   agregar('Folio',/FOLIO\s*[:\-]?\s*([^\n]{1,60})/);
  }
  if(['epp','curso','odi'].includes(tipo)){
@@ -4735,17 +4690,19 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
   agregar('Registro informado',/(?:ANOTACIONES|INFRACCIONES)\s*[:\-]\s*([^\n]{1,150})/);
  }
  const f=reconocido===tipo?fechaDocumentoChileno(normal,tipo):{fecha:'',motivo:'El título no corresponde a un único documento.'};
- return {tipo:reconocido,evidenciaTipo:reconocido==='sin identificar'?'Título ausente o documentos mezclados':'Título de '+({antecedentes:'antecedentes',contrato:'contrato de trabajo',hoja_vida:'hoja de vida del conductor'}[reconocido]||'documento')+' leído',compatible:reconocido===tipo&&validos.length===1&&ruts.length===1,coincideTipo:reconocido===tipo,ruts,validos,indicios:[reconocido===tipo,validos.length===1,tokens.length>0&&tokens.every(t=>palabras.has(t)),campos.length>0],fecha:f.fecha,avisoFecha:f.aviso||'',fechaMotivo:f.motivo||'No hay vencimiento explícito; no se deduce desde la emisión.',etiquetaFecha:'Vencimiento explícito',evidenciaFecha:f.fragmento||'',estado:'Revisar',nombre:tokens.length&&tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta',rut:!esperado?'Sin RUT de referencia':!rutValidoContenido(esperado)?'RUT de referencia inválido':validos.length===1&&validos[0]===esperado?'Coincide':ruts.length>1?'Varios RUT detectados; distinguir trabajador y empleador manualmente':'No coincide o lectura incompleta',camposLaborales:campos,avisoLaboral:['epp','curso','odi'].includes(tipo)?'Comprueba fecha, trabajador, contenido y firmas en el original. La lectura no acredita entrega, asistencia ni aprobación.':tipo==='antecedentes'?'La antigüedad admisible debe definirse según la faena. No se asigna vencimiento desde la emisión ni se comprueba el folio.':tipo==='contrato'?'Comprueba trabajador y empleador, plazo, cargo, jornada, anexos y contrato comercial. No se evalúa validez legal.':'Requisito separado de la licencia. Comprueba emisión y registros en el original; no se decide habilitación del conductor.'};
+ return {tipo:reconocido,evidenciaTipo:reconocido==='sin identificar'?'Título ausente o documentos mezclados':'Título de '+({antecedentes:'antecedentes',contrato:'contrato de trabajo',hoja_vida:'hoja de vida del conductor'}[reconocido]||'documento')+' leído',compatible:reconocido===tipo&&validos.length===1&&ruts.length===1,coincideTipo:reconocido===tipo,ruts,validos,indicios:[reconocido===tipo,validos.length===1,tokens.length>0&&tokens.every(t=>palabras.has(t)),campos.length>0],fecha:f.fecha,avisoFecha:f.aviso||'',fechaMotivo:f.motivo||'No hay vencimiento explícito; no se deduce desde la emisión.',etiquetaFecha:'Vencimiento explícito',evidenciaFecha:f.fragmento||'',estado:'Revisar',nombre:tokens.length&&tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta',rut:!esperado?'Sin RUT de referencia':!rutValidoContenido(esperado)?'RUT de referencia inválido':validos.length===1&&validos[0]===esperado?'Coincide':validos.includes(esperado)&&ruts.length>1?'Varios RUT detectados; el RUN/RUT de referencia está presente. Confirma visualmente quién es el trabajador':ruts.length>1?'Varios RUT detectados; distinguir trabajador y empleador manualmente':'No coincide o lectura incompleta',camposLaborales:campos,avisoLaboral:['epp','curso','odi'].includes(tipo)?'Comprueba fecha, trabajador, contenido y firmas en el original. La lectura no acredita entrega, asistencia ni aprobación.':tipo==='antecedentes'?'La antigüedad admisible debe definirse según la faena. No se asigna vencimiento desde la emisión ni se comprueba el folio.':tipo==='contrato'?'Comprueba trabajador y empleador, plazo, cargo, jornada, anexos y contrato comercial. No se evalúa validez legal.':'Requisito separado de la licencia. Comprueba emisión y registros en el original; no se decide habilitación del conductor.'};
 }
-function analizarPortalMiner(texto){
+function analizarPortalMiner(texto,nombreEsperado='',rutEsperado=''){
  const n=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
- const categorias=[...n.matchAll(/CALIFICACION\s*(?:DE\s*)?(SALUD|LEGAL|ENTRENAMIENTO)/g)];
+ const categorias=[...new Set([...n.matchAll(/CALIFICACION\s*(?:DE\s*)?(SALUD|LEGAL|ENTRENAMIENTO)/g)].map(m=>m[1]))];
  const reconocido=categorias.length>=2&&/FAENA|MINERA/.test(n);
- const campos=categorias.map((m,i)=>({etiqueta:'Calificación '+m[1].toLowerCase(),valor:n.slice(m.index+m[0].length,categorias[i+1]?.index||m.index+160).trim().slice(0,160)}));
- return {tipo:reconocido?'portal':'sin identificar',evidenciaTipo:reconocido?'Varias calificaciones de un portal de faena':'No se identifican varias calificaciones de portal',compatible:false,coincideTipo:reconocido,ruts:[],validos:[],indicios:[],fecha:'',fechaMotivo:'Cada calificación puede tener una fecha diferente. No se asigna un vencimiento global.',etiquetaFecha:'Vencimiento global no aplicable',estado:'Revisar',nombre:'Comprobar en el original',rut:'Comprobar en el original',camposLaborales:campos,avisoLaboral:'Captura informativa del portal. Comprueba por separado salud, legal y entrenamiento, sus fechas y los mensajes de acceso. No acredita acceso a faena ni se convierte en certificado de curso.'};
+ const ruts=[...new Set(coincidenciasRutTextoMiner(n).filter(m=>/[-–]/.test(m[0])).map(m=>m[0].replace(/[.\s–-]/g,'').toUpperCase()))],validos=ruts.filter(rutValidoContenido);
+ const referencia=String(rutEsperado||'').replace(/[.\s-]/g,'').toUpperCase();
+ const campos=categorias.map(c=>({etiqueta:'Calificación '+c.toLowerCase(),valor:'Categoría detectada. Comprueba su estado y su fecha en la columna del original; el texto extraído puede mezclar columnas.'}));
+ return {tipo:reconocido?'portal':'sin identificar',evidenciaTipo:reconocido?'Varias calificaciones de un portal de faena':'No se identifican varias calificaciones de portal',compatible:false,coincideTipo:reconocido,ruts,validos,indicios:[],fecha:'',fechaMotivo:'Cada calificación puede tener una fecha diferente. No se asigna un vencimiento global.',etiquetaFecha:'Vencimiento global no aplicable',estado:'Revisar',nombre:'Comprobar en el original',rut:referencia&&validos.includes(referencia)?'RUN/RUT de referencia presente; comprobar en el original':'Comprobar en el original',camposLaborales:campos,avisoLaboral:'Captura informativa del portal. Comprueba por separado salud, legal y entrenamiento, sus fechas y los mensajes de acceso. No acredita acceso a faena ni se convierte en certificado de curso.'};
 }
 function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsperado='cedula',hoy=hoyMiner()){
-  if(tipoEsperado==='portal')return analizarPortalMiner(texto);
+  if(tipoEsperado==='portal')return analizarPortalMiner(texto,nombreEsperado,rutEsperado);
   if(['antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(tipoEsperado))return analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipoEsperado);
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const ruts=[...new Set((normal.match(/\b(?:\d{1,2}[. ]\s*\d{3}[. ]?\s*\d{3}|\d{7,8})\s*[-–—:]\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s–—:-]/g,'')))];
@@ -4789,7 +4746,9 @@ function fechasCamposCedulaMiner(texto){
 }
 function coberturaCedulaMiner(texto){
   const t=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-  const frente=/CEDULA\s*(?:DE\s*)?IDENTIDAD/.test(t)&&/APELLIDOS?|NOMBRES?/.test(t);
+  const lineas=t.split(/\r?\n/),separado=lineas.some((l,i)=>/\bCEDULA\b/.test(l)&&/\bIDENT[I1L]DAD\b/.test(lineas.slice(i,i+3).join(' ').slice(0,220))&&!/FIN DE LECTURA/.test(lineas.slice(i,i+3).join(' ')));
+  const campos=[/\bRUN\b/,/NACIONALIDAD/,/NUMERO\s*DOCUMENTO/,/FECHA\s*(?:DE\s*)?NACIMIENTO/,/FIRMA\s*(?:DEL\s*)?TITULAR/].filter(r=>r.test(t)).length;
+  const frente=(/CEDULA\s*(?:DE\s*)?IDENTIDAD/.test(t)||separado&&/REPUBLICA\s*DE\s*CHILE|REGISTRO\s*CIVIL/.test(t)&&campos>=3)&&/APELLIDOS?|NOMBRES?/.test(t);
   const reverso=/\bI(?:[DC]<|[DC]|<)CHL[A-Z0-9<]+/.test(t)||/\b(?:NACIO\s+EN|PROFESION|NO\s+DONANTE|DONANTE\s+DE\s+ORGANOS)\b/.test(t);
   return {frente,reverso,mensaje:frente&&reverso?'Se leyeron indicios de frente y reverso. Comprueba visualmente que ambos pertenecen a la misma cédula.':'Cédula incompleta o lados no confirmados: '+(!frente?'falta confirmar el frente. ':'')+(!reverso?'falta confirmar el reverso. ':'')+'Incluye ambos lados y revisa el original. El número de páginas no demuestra que estén ambos lados.'};
 }
@@ -4978,7 +4937,7 @@ function puntajeOrientacionDocumento(texto){
   const rotulos=t.match(/\b(?:NOMBRES|APELLIDOS|NACIMIENTO|EMISION|VENCIMIENTO|VIGENTE|OCUPACIONAL|TRABAJADOR|CONDUCTOR|ANTECEDENTES|CONTRATO)\b/g)||[];
   return (a.tipo!=='sin identificar'?20:0)+(a.validos.length?12:0)+(a.fecha?10:0)+Math.min(8,new Set(rotulos).size*2);
 }
-async function leerImagenDocumento(imagen,reconocer,informar,pagina=1,registrarOrientacion=()=>{}){
+async function leerImagenDocumento(imagen,reconocer,informar,pagina=1,registrarOrientacion=()=>{},lecturaDetallada=true){
   const base=document.createElement('canvas');
   const escala=Math.min(4,2600/Math.max(imagen.width,imagen.height));
   base.width=Math.round(imagen.width*escala);base.height=Math.round(imagen.height*escala);
@@ -5012,7 +4971,7 @@ async function leerImagenDocumento(imagen,reconocer,informar,pagina=1,registrarO
   let rect=[0,0,base.width,base.height];
   if(xs.length&&ys.length){const x=xs[0],y=ys[0],w=xs.at(-1)-x,h=ys.at(-1)-y;if(w>base.width*.45&&h>base.height*.45)rect=[Math.max(0,x-8),Math.max(0,y-8),Math.min(base.width-x,w+16),Math.min(base.height-y,h+16)];}
   const [x,y,w,h]=rect;
-  const zonas=[[0,0,1,1,false],[0,0,1,1,true],[.30,0,.70,1,true],[0,.67,1,.33,true],[.62,.38,.38,.49,true],[0,0,.36,.23,true],[0,.77,.43,.20,true]];
+  const zonas=lecturaDetallada?[[0,0,1,1,false],[0,0,1,1,true],[.30,0,.70,1,true],[0,.67,1,.33,true],[.62,.38,.38,.49,true],[0,0,.36,.23,true],[0,.77,.43,.20,true]]:[[0,0,1,1,false],[0,0,1,1,true]];
   for(let n=0;n<zonas.length;n++){
     informar('Lectura '+(n+1)+' de '+zonas.length+' · ajustando contraste y zonas…');
     const [zx,zy,zw,zh,filtrar]=zonas[n],c=document.createElement('canvas');c.width=Math.round(w*zw);c.height=Math.round(h*zh);
@@ -5037,15 +4996,15 @@ async function revisarContenidoCedula(){
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
-  let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,lecturaTerminada=false;
+  let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,lecturaTerminada=false,paginaLectura=1,totalPaginasLectura=1;
   try{
     const motores=esOffice?null:await cargarMotorContenido();comprobarLectura();
     async function reconocer(imagen,modo='3',origen=null){
-      if(!worker)worker=await motores.ocr.createWorker('spa',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',logger:m=>{if(m.status==='recognizing text')estado.textContent='Leyendo contenido: '+Math.round((m.progress||0)*100)+' %';}});
+      if(!worker)worker=await motores.ocr.createWorker('spa',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',logger:m=>{if(m.status==='recognizing text')estado.textContent='Página '+paginaLectura+' de '+totalPaginasLectura+' · Leyendo contenido: '+Math.round((m.progress||0)*100)+' %';}});
       await worker.setParameters({tessedit_pageseg_mode:modo,preserve_interword_spaces:'1',tessedit_char_whitelist:''});
       const {data}=await worker.recognize(imagen,{}, {text:true,blocks:true});comprobarLectura();
       reconocer.confianzaOrientacion=Number(data.confidence)||0;
-      if(origen){const campos=localizarCamposCedulaOCR(data);if(campos.length&&(!evidenciaNombre||puntajeCamposCedula(campos)>puntajeCamposCedula(evidenciaNombre.campos)))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
+      if(origen&&tipo==='cedula'){const campos=localizarCamposCedulaOCR(data);if(campos.length&&(!evidenciaNombre||puntajeCamposCedula(campos)>puntajeCamposCedula(evidenciaNombre.campos)))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
       let texto=data.text||'';
       if(origen?.tabla)for(const zona of zonasFechaTablaMiner(data,origen)){
        texto+=await releerFechaTablaMiner(origen,zona,async(celda,modoCelda,idioma)=>{
@@ -5064,9 +5023,9 @@ async function revisarContenidoCedula(){
     let texto='',avisoOffice='',paginas=1,limitado=false;const orientaciones=[];
     if(esOffice){const lectura=await leerOfficeMiner(archivo);texto=lectura.texto;avisoOffice=lectura.aviso;}else if(esPDF){
       pdf=await motores.pdf.getDocument({data:new Uint8Array(await archivo.arrayBuffer()),isEvalSupported:false}).promise;
-      paginas=pdf.numPages;
+      paginas=pdf.numPages;totalPaginasLectura=paginas;
       for(let i=1;i<=paginas;i++){
-        estado.textContent='Leyendo página '+i+' de '+paginas+'…';
+        paginaLectura=i;estado.textContent='Leyendo página '+i+' de '+paginas+'…';
         const pagina=await pdf.getPage(i),contenido=await pagina.getTextContent();
         let parcial=contenido.items.map(x=>(x.str||'')+(x.hasEOL?'\n':' ')).join('');
         // Renderizar también PDFs con una capa de texto escasa o irrelevante.
@@ -5074,7 +5033,7 @@ async function revisarContenidoCedula(){
           const inicial=pagina.getViewport({scale:1}),escala=Math.min(2,2400/Math.max(inicial.width,inicial.height));
           const viewport=pagina.getViewport({scale:escala}),canvas=document.createElement('canvas');
           canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-          try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport}).promise;parcial+='\n'+await leerImagenDocumento(canvas,reconocer,mensaje=>estado.textContent='Página '+i+' · '+mensaje,i,o=>orientaciones.push(o));}finally{canvas.width=0;canvas.height=0;}
+          try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport}).promise;parcial+='\n'+await leerImagenDocumento(canvas,reconocer,mensaje=>estado.textContent='Página '+i+' · '+mensaje,i,o=>orientaciones.push(o),['cedula','licencia','medico'].includes(tipo));}finally{canvas.width=0;canvas.height=0;}
         }
         texto+='\nPágina '+i+'\n'+parcial;pagina.cleanup();
         await new Promise(resolve=>setTimeout(resolve,0));
@@ -5082,7 +5041,7 @@ async function revisarContenidoCedula(){
     }else{
       const imagen=await createImageBitmap(archivo);
       try{
-        texto=await leerImagenDocumento(imagen,reconocer,mensaje=>estado.textContent=mensaje,1,o=>orientaciones.push(o));
+        texto=await leerImagenDocumento(imagen,reconocer,mensaje=>estado.textContent=mensaje,1,o=>orientaciones.push(o),['cedula','licencia','medico'].includes(tipo));
       }finally{imagen.close();}
     }
     comprobarLectura();
@@ -5100,6 +5059,7 @@ async function revisarContenidoCedula(){
       ...orientaciones.filter(o=>o.grados).map(o=>'Orientación de lectura: página '+o.pagina+' girada '+o.grados+'°. El original se conserva sin cambios.'),
       ...(avisoOffice?[avisoOffice]:[]),
       'Tipo leído: '+tipoLeido,
+      ...(tipo==='medico'?['Autenticidad: pendiente de comprobar con el emisor. La lectura, el RUN válido, el logo o una firma dibujada no prueban que el centro haya emitido el examen.']:[]),
       ...(analisis.camposLaborales||[]).map(c=>c.etiqueta+': '+c.valor),
       ...(analisis.avisoLaboral?[analisis.avisoLaboral]:[]),
       'Evidencia del tipo: '+analisis.evidenciaTipo,
@@ -5112,9 +5072,9 @@ async function revisarContenidoCedula(){
       ...(analisis.avisoFecha?[analisis.avisoFecha]:[]),
       'Estado por fecha detectada: '+(limitado?'Revisar (lectura parcial)':tipo==='cedula'&&(!coberturaCedulaMiner(texto).frente||!coberturaCedulaMiner(texto).reverso)?'Revisar (ambos lados pendientes)':analisis.estado),
       'Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.',
-      'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
+      tipo==='portal'?'Comprueba por separado el estado y la fecha de cada calificación. No se guarda un vencimiento global ni se acredita acceso.':'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
     for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
-    if(!esOffice){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);}
+    if(!esOffice&&tipo==='cedula'){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);}
     if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
     estado.textContent='Lectura terminada · '+(esOffice?'archivo '+formato.toUpperCase():paginas+' página(s).')+(analisis.tipo==='sin identificar'||!analisis.fecha?' Datos sin confirmar: revisa el original.':'');
