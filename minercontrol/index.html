@@ -318,6 +318,7 @@ button{transition:.15s ease}
 #navUsuarios{display:none!important}
 #lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>*{display:none}
 #lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>label:has(#destinoFechaContenido){display:block}
+.decision-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid;border-radius:999px;font-weight:800}.decision-pill.verde{background:#103b25;color:#bbf7d0;border-color:#4ade80}.decision-pill.amarillo{background:#3b2b08;color:#fef08a;border-color:#facc15}.decision-pill.rojo{background:#45151a;color:#fecaca;border-color:#fb7185}.decision-originales label,#formDecisionMiner>label,#camposDocumentoDecisionMiner>label,#formDecisionMiner fieldset label{display:block;margin:12px 0;line-height:1.5}#formDecisionMiner .search{max-width:100%;margin:6px 0}#estadoDecisionMiner{margin:12px 0}#decisionLaboralMiner [hidden]{display:none!important}
 </style>
 </head>
 
@@ -1025,6 +1026,7 @@ function actualizarFecha(){
 }
 setInterval(actualizarFecha,1000);
 document.addEventListener("DOMContentLoaded",activarLogoInicio);
+document.addEventListener('DOMContentLoaded',()=>document.getElementById('decisionLaboralMiner').addEventListener('cancel',e=>{if(guardandoDecisionMiner)e.preventDefault();else contextoDecisionMiner=null;}));
 
 function mostrarModulo(id,btn){
   document.querySelectorAll(".module").forEach(m=>m.classList.remove("active"));
@@ -2178,7 +2180,7 @@ function pintarDocumentosCentroRevision(){
  const esc=escaparPerfilDocumento,req=evaluarRequisitosTrabajador(t);
  const keys=clavesDocumentosCentroRevision(t,req);
  panel.innerHTML='<h3>'+esc(t.trabajador)+' · '+esc(t.rut)+'</h3><p class="meta">Revisa los cinco documentos de esta carpeta. Los exámenes médicos se muestran cuando están cargados. Presencia de archivo y autenticidad se comprueban por separado.</p>';
- for(const key of keys){const item=req.checklist.find(i=>i.key===key)||{key,nombre:nombreReq(key),estado:'Falta',documentos:[]};const c=document.createElement('div');c.className='section';c.innerHTML='<h3>'+esc(item.nombre)+'</h3>'+originalGuardadoEnTarjeta(item,t);const b=document.createElement('button');b.className='mini blue';b.textContent='Abrir '+item.nombre;b.onclick=()=>abrirLectorContenido(t.trabajador,t.rut,key==='cedula'||key==='licencia'?key:'medico',t.faena,key);c.append(b);panel.append(c);}
+ for(const key of keys){const item=req.checklist.find(i=>i.key===key)||{key,nombre:nombreReq(key),estado:'Falta',documentos:[]};const c=document.createElement('div');c.className='section';const carpetasDecision=carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,t)),propietaria=carpetasDecision.length===1?carpetasDecision[0]:null;c.innerHTML='<h3>'+esc(item.nombre)+'</h3>'+(propietaria?badgeDecisionMiner(estadoDocumentoDecisionMiner(propietaria,key))+botonesDecisionMiner(propietaria,key):'')+originalGuardadoEnTarjeta(item,t);const b=document.createElement('button');b.className='mini blue';b.textContent='Abrir '+item.nombre;b.onclick=()=>abrirLectorContenido(t.trabajador,t.rut,key==='cedula'||key==='licencia'?key:'medico',t.faena,key);c.append(b);panel.append(c);}
 }
 function abrirPerfilTrabajador(cod){
   const [rut,nombre,faena]=decodeURIComponent(cod).split("||");
@@ -3343,6 +3345,120 @@ function importarCarpetasDesdeFiles(files,modo="carpeta"){
 }
 
 
+// Decisiones documentales: registro humano ligado al contenido, la ficha y el día.
+const hashesDecisionMiner=new WeakMap();
+let contextoDecisionMiner=null,guardandoDecisionMiner=false;
+function perfilDecisionMiner(c){return JSON.stringify([rutIdentidad(c.rut),normalizar(c.trabajador),nombreFaenaClave(c.faena),normalizar(c.empresa||''),normalizar(c.cargo||'')]);}
+function fechaDecisionValidaMiner(f){if(!/^\d{4}-\d{2}-\d{2}$/.test(f||''))return false;const d=new Date(f+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===f;}
+function emisorObligatorioDecisionMiner(key){return ['antecedentes',...CLAVES_MEDICAS_LABORAL].includes(key);}
+function clavesDecisionMiner(c){return [...new Set([...CLAVES_CARPETA_LABORAL,...(c.archivos||[]).map(tipoCarpetaLaboralMiner).filter(k=>k&&k!=='carpeta')])];}
+function hashDecisionMiner(file){
+ if(!file)return {error:'No está disponible el original.'};
+ const existente=hashesDecisionMiner.get(file);if(existente)return existente;
+ const valor={hash:'',error:'',promesa:null},contexto=contextoLocalMiner();hashesDecisionMiner.set(file,valor);
+ valor.promesa=hashArchivoLocal(file).then(h=>{valor.hash=h;}).catch(()=>{valor.error='No se pudo comprobar el contenido del original.';}).finally(()=>{if(sigueContextoLocal(contexto)){renderizarCarpetas();if(document.getElementById('centroRevision')?.classList.contains('active'))pintarDocumentosCentroRevision();}});
+ return valor;
+}
+function capturaDecisionMiner(c,key){
+ const lista=key==='carpeta'?(c.archivos||[]):(c.archivos||[]).filter(a=>tipoCarpetaLaboralMiner(a)===key),huellas=[];
+ for(const a of lista){const originales=(c.archivosFisicos||[]).filter(f=>f.name===a.nombre);if(originales.length!==1)return {firma:'',motivo:'El original falta o tiene un nombre duplicado. Vuelve a cargarlo antes de decidir.',archivos:lista};const h=hashDecisionMiner(originales[0]);if(!h.hash)return {firma:'',motivo:h.error||'Comprobando que el original corresponde a esta revisión…',archivos:lista};huellas.push([a.nombre,tipoCarpetaLaboralMiner(a),h.hash,a.fechaVencimiento||'',a.revisionFecha?.fecha||'']);}
+ huellas.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+ return {firma:JSON.stringify([contextoLocalMiner().clave,String(c.id),perfilDecisionMiner(c),key,huellas]),motivo:'',archivos:lista};
+}
+function motivoAprobacionDocumentoMiner(d,key,cantidad,hoy=hoyMiner()){
+ if(!cantidad)return 'Falta el archivo de este documento.';
+ if(d?.originalesRevisados!==true||d.datosComparados!==true||d.criteriosCumplidos!==true)return 'Falta confirmar los originales, la identidad o los requisitos documentales.';
+ if(d.fechaRevisada!==true)return 'Falta revisar la fecha aplicable en el original.';
+ if(key==='cero_dano'){if(d.sinVencimiento!==true||d.columnasRevisadas!==true)return 'Revisa por separado las calificaciones del portal; no hay una fecha global.';}
+ else if(typeof d.sinVencimiento!=='boolean')return 'Indica si corresponde vencimiento.';
+ else if(['cedula',...CLAVES_MEDICAS_LABORAL].includes(key)&&d.sinVencimiento)return 'Este tipo requiere una fecha de vencimiento o próximo control confirmada.';
+ else if(!d.sinVencimiento){if(!fechaDecisionValidaMiner(d.vencimiento))return 'Indica una fecha completa y válida o confirma que no aplica vencimiento.';if(d.vencimiento<hoy)return 'Vencimiento confirmado: '+d.vencimiento+'.';}
+ const e=d.emisor||{};
+ if(emisorObligatorioDecisionMiner(key)||e.requerido){if(e.confirmado!==true||String(e.canal||'').trim().length<3||String(e.referencia||'').trim().length<5||!fechaDecisionValidaMiner(e.fecha)||e.fecha>hoy)return 'Falta registrar la comprobación con el emisor: canal, referencia y fecha válida.';}
+ return '';
+}
+function ultimoRegistroDecisionMiner(c,key,firma){return (Array.isArray(c.decisionesLaborales)?c.decisionesLaborales:[]).slice().reverse().find(d=>d?.version===1&&d.key===key&&d.firma===firma&&['Aprobado','Pendiente','Rechazado'].includes(d.estado)&&typeof d.motivo==='string'&&d.motivo.trim().length>=8&&d.responsableConfirmado===true&&typeof d.revisorId==='string'&&d.revisorId&&typeof d.revisor==='string'&&d.revisor&&typeof d.registradoEn==='string'&&Number.isFinite(Date.parse(d.registradoEn)));}
+function estadoDocumentoDecisionMiner(c,key){
+ const cap=capturaDecisionMiner(c,key);if(!cap.firma)return {estado:'Pendiente',motivo:cap.motivo};
+ const d=ultimoRegistroDecisionMiner(c,key,cap.firma);if(!d)return {estado:'Pendiente',motivo:cap.archivos.length?'El responsable aún no ha registrado una decisión para estos originales.':'Falta el archivo de este documento.'};
+ if(d.estado==='Aprobado'){const motivo=motivoAprobacionDocumentoMiner(d,key,cap.archivos.length);if(motivo)return {estado:motivo.startsWith('Vencimiento confirmado:')?'Rechazado':'Pendiente',motivo,registro:d};}
+ return {estado:d.estado,motivo:d.motivo,registro:d};
+}
+function capturaCarpetaDecisionMiner(c){
+ const cap=capturaDecisionMiner(c,'carpeta');if(!cap.firma)return cap;
+ const documentos=clavesDecisionMiner(c).map(key=>({key,...estadoDocumentoDecisionMiner(c,key)}));
+ return {...cap,documentos,firma:JSON.stringify([cap.firma,documentos.map(d=>[d.key,d.estado,d.registro?.id||''])])};
+}
+function motivoAprobacionCarpetaMiner(c,cap){
+ if(!rutValidoContenido(c.rut)||!normalizar(c.trabajador)||normalizar(c.trabajador)==='sinnombre'||!c.faena||nombreFaenaClave(c.faena)==='sinfaena')return 'Completa y confirma nombre, RUN/RUT válido y faena antes de aprobar.';
+ if(!cap.firma)return cap.motivo;
+ const faltan=cap.documentos.filter(d=>d.estado!=='Aprobado');return faltan.length?'Falta aprobar o resolver: '+faltan.map(d=>nombreReq(d.key)).join(', ')+'.':'';
+}
+function estadoCarpetaDecisionMiner(c){
+ const cap=capturaCarpetaDecisionMiner(c);if(!cap.firma)return {estado:'Pendiente',motivo:cap.motivo};
+ const d=ultimoRegistroDecisionMiner(c,'carpeta',cap.firma);
+ if(!d)return {estado:'Pendiente',motivo:motivoAprobacionCarpetaMiner(c,cap)||'Documentos revisados. Falta la decisión final del responsable.'};
+ if(d.estado==='Aprobado'){const motivo=motivoAprobacionCarpetaMiner(c,cap);if(motivo)return {estado:'Pendiente',motivo,registro:d};}
+ return {estado:d.estado,motivo:d.motivo,registro:d};
+}
+function badgeDecisionMiner(d){const esc=escaparPerfilDocumento,color=d.estado==='Aprobado'?'verde':d.estado==='Rechazado'?'rojo':'amarillo';return '<span class="decision-pill '+color+'"><span aria-hidden="true">●</span> '+esc(d.estado)+'</span><p class="meta">'+esc(d.motivo)+'</p>'+(d.registro?'<p class="small">Registro del responsable: '+esc(d.registro.revisor)+' · '+esc(new Date(d.registro.registradoEn).toLocaleString('es-CL'))+'</p>':'');}
+function botonesDecisionMiner(c,key){return '<button class="mini blue" onclick="'+escaparPerfilDocumento('abrirDecisionMiner('+JSON.stringify(c.id)+','+JSON.stringify(key)+')')+'">'+(key==='carpeta'?'Decisión final de la carpeta':'Registrar decisión')+'</button>';}
+function vigenteContextoDecisionMiner(t){
+ if(!t||contextoDecisionMiner!==t||!sigueContextoLocal(t.contexto)||!carpetasTrabajadores.includes(t.c)||perfilDecisionMiner(t.c)!==t.perfil)return false;
+ const cap=t.key==='carpeta'?capturaCarpetaDecisionMiner(t.c):capturaDecisionMiner(t.c,t.key);return cap.firma===t.firma&&Boolean(cap.firma);
+}
+async function abrirDecisionMiner(id,key){
+ if(lecturaContenidoActiva||guardandoDecisionMiner){mostrarToast('Espera a que termine la operación actual.','warn');return;}
+ const c=carpetasTrabajadores.find(c=>c.id===id);if(!c||(key!=='carpeta'&&!clavesDecisionMiner(c).includes(key)))return;
+ const contexto=contextoLocalMiner(),perfil=perfilDecisionMiner(c),token={c,key,contexto,perfil,firma:''};contextoDecisionMiner=token;
+ const estado=document.getElementById('estadoDecisionMiner');estado.textContent='Comprobando los originales…';
+ const modal=document.getElementById('decisionLaboralMiner');document.getElementById('formDecisionMiner').reset();document.getElementById('guardarDecisionMiner').disabled=true;
+ document.getElementById('tituloDecisionMiner').textContent=key==='carpeta'?'Decisión documental de la carpeta':'Decisión · '+nombreReq(key);
+ document.getElementById('identidadDecisionMiner').textContent=c.trabajador+' · '+c.rut+' · '+c.faena;
+ document.getElementById('camposDocumentoDecisionMiner').hidden=key==='carpeta';
+ document.getElementById('columnasDecisionMiner').hidden=key!=='cero_dano';document.getElementById('sinVencimientoDecisionMiner').disabled=['cedula',...CLAVES_MEDICAS_LABORAL,'cero_dano'].includes(key);
+ document.getElementById('sinVencimientoDecisionMiner').checked=key==='cero_dano';document.getElementById('vencimientoDecisionMiner').disabled=key==='cero_dano';
+ document.getElementById('requiereEmisorDecisionMiner').checked=emisorObligatorioDecisionMiner(key);document.getElementById('requiereEmisorDecisionMiner').disabled=emisorObligatorioDecisionMiner(key);
+ document.getElementById('originalesDecisionMiner').replaceChildren();modal.showModal();
+ const archivos=key==='carpeta'?(c.archivos||[]):(c.archivos||[]).filter(a=>tipoCarpetaLaboralMiner(a)===key),promesas=[];
+ for(const a of archivos){const f=(c.archivosFisicos||[]).find(f=>f.name===a.nombre);if(f)promesas.push(hashDecisionMiner(f).promesa);}
+ await Promise.all(promesas);
+ if(contextoDecisionMiner!==token||!sigueContextoLocal(contexto)||!carpetasTrabajadores.includes(c)||perfilDecisionMiner(c)!==perfil){estado.textContent='Cambió la cuenta, el día o la ficha. Cierra y abre de nuevo la decisión.';return;}
+ const cap=key==='carpeta'?capturaCarpetaDecisionMiner(c):capturaDecisionMiner(c,key);token.firma=cap.firma;
+ if(!cap.firma){estado.textContent=cap.motivo;return;}
+ const lista=document.getElementById('originalesDecisionMiner');
+ if(key==='carpeta'){for(const d of cap.documentos){const p=document.createElement('p');p.textContent=nombreReq(d.key)+': '+d.estado;lista.append(p);}estado.textContent=motivoAprobacionCarpetaMiner(c,cap)||'Todos los documentos tienen una aprobación vigente. La decisión final sigue a tu cargo.';}
+ else{for(const a of cap.archivos){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.className='original-decision-check';label.append(input,document.createTextNode(' Revisé el original: '+a.nombre));lista.append(label);}estado.textContent=cap.archivos.length?'Compara cada original antes de registrar tu decisión. No hay comprobación automática de autenticidad.':'Falta el archivo: puedes registrar el motivo pendiente o rechazado; no aprobarlo.';}
+ document.getElementById('guardarDecisionMiner').disabled=false;
+}
+function cerrarDecisionMiner(){if(guardandoDecisionMiner)return;contextoDecisionMiner=null;document.getElementById('decisionLaboralMiner').close();}
+function leerFormularioDecisionMiner(){
+ const el=id=>document.getElementById(id),text=id=>el(id).value.trim();
+ return {version:1,estado:el('estadoElegidoDecisionMiner').value,motivo:text('motivoDecisionMiner'),responsableConfirmado:el('responsableDecisionMiner').checked,originalesRevisados:[...document.querySelectorAll('#originalesDecisionMiner .original-decision-check')].every(i=>i.checked),datosComparados:el('datosDecisionMiner').checked,criteriosCumplidos:el('criteriosDecisionMiner').checked,fechaRevisada:el('fechaRevisadaDecisionMiner').checked,sinVencimiento:el('sinVencimientoDecisionMiner').checked,vencimiento:el('vencimientoDecisionMiner').value,columnasRevisadas:el('aceptarColumnasDecisionMiner').checked,emisor:{requerido:el('requiereEmisorDecisionMiner').checked,confirmado:el('emisorConfirmadoDecisionMiner').checked,canal:text('canalEmisorDecisionMiner'),referencia:text('referenciaEmisorDecisionMiner'),fecha:el('fechaEmisorDecisionMiner').value}};
+}
+function validarDecisionSolicitadaMiner(t,d){
+ if(!vigenteContextoDecisionMiner(t))throw new Error('Cambió la cuenta, el día, la ficha o los originales. Abre de nuevo la decisión.');
+ if(!['Aprobado','Pendiente','Rechazado'].includes(d.estado)||d.motivo.length<8||d.motivo.length>1200)throw new Error('Elige un estado y escribe un motivo de al menos 8 caracteres.');
+ if(!d.responsableConfirmado||!usuarioActual?.id||!usuarioActual?.name)throw new Error('Confirma que eres responsable de esta revisión con tu sesión iniciada.');
+ if(d.estado==='Aprobado'){const cap=t.key==='carpeta'?capturaCarpetaDecisionMiner(t.c):capturaDecisionMiner(t.c,t.key),motivo=t.key==='carpeta'?motivoAprobacionCarpetaMiner(t.c,cap):motivoAprobacionDocumentoMiner(d,t.key,cap.archivos.length);if(motivo)throw new Error(motivo);}
+ if(d.emisor.canal.length>200||d.emisor.referencia.length>1200)throw new Error('La referencia del emisor supera el límite permitido.');
+}
+async function guardarDecisionLaboralMiner(event){
+ event?.preventDefault();if(guardandoDecisionMiner)return;
+ const t=contextoDecisionMiner,estado=document.getElementById('estadoDecisionMiner');let anteriores=null,registro=null;
+ try{
+  const d=leerFormularioDecisionMiner();validarDecisionSolicitadaMiner(t,d);
+  if((t.c.decisionesLaborales||[]).length>=5000)throw new Error('Este historial alcanzó el límite. Conserva un respaldo y revisa la carpeta.');
+  registro={...d,id:crypto.randomUUID(),key:t.key,firma:t.firma,revisorId:String(usuarioActual.id),revisor:usuarioActual.name,registradoEn:new Date().toISOString()};
+  anteriores=t.c.decisionesLaborales;t.c.decisionesLaborales=[...(anteriores||[]),registro];guardandoDecisionMiner=true;document.getElementById('guardarDecisionMiner').disabled=true;estado.textContent='Guardando decisión y responsable en este navegador…';
+  await guardarLocal(false);if(errorOriginalesLocales)throw new Error(errorOriginalesLocales);
+  if(!sigueContextoLocal(t.contexto)||contextoDecisionMiner!==t){return;}
+  estado.textContent='Decisión guardada. No constituye una verificación automática del emisor ni una autorización de acceso.';contextoDecisionMiner=null;document.getElementById('decisionLaboralMiner').close();renderizarCarpetas();if(document.getElementById('centroRevision')?.classList.contains('active'))pintarDocumentosCentroRevision();mostrarToast('Decisión documental guardada.','ok');
+ }catch(e){if(registro&&t?.c.decisionesLaborales?.includes(registro)){t.c.decisionesLaborales=anteriores||[];renderizarCarpetas();}estado.textContent=e.message||'No se guardó la decisión.';}
+ finally{guardandoDecisionMiner=false;document.getElementById('guardarDecisionMiner').disabled=false;}
+}
+function historialDecisionMiner(c){const esc=escaparPerfilDocumento;const historial=(Array.isArray(c.decisionesLaborales)?c.decisionesLaborales:[]).filter(d=>d&&typeof d==='object');return '<details class="extra-options"><summary>Historial de decisiones ('+historial.length+')</summary>'+historial.slice(-20).reverse().map(d=>'<p class="meta"><b>'+esc(d.key==='carpeta'?'Carpeta':nombreReq(d.key))+' · '+esc(d.estado)+'</b><br>'+esc(d.revisor)+' · '+esc(d.registradoEn)+'<br>'+esc(d.motivo)+'<br>Registro histórico; el estado actual se muestra en la tarjeta.</p>').join('')+'</details>';}
+
 function tipoCarpetaLaboralMiner(a){
  const nombre=String(a.nombre||a.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
  return /cero[ _-]*dano/i.test(nombre)?'cero_dano':a.tipo||detectarTipoArchivo(nombre);
@@ -3361,23 +3477,24 @@ function abrirDocumentoCarpetaLaboralMiner(id,key){
  if(!(c.archivos||[]).some(a=>tipoCarpetaLaboralMiner(a)===key)){mostrarToast('Este documento no está cargado. Añádelo a la carpeta.','warn');return;}
  return abrirLectorContenido(c.trabajador,c.rut,key==='cedula'?'cedula':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key,c.faena,key);
 }
+function tarjetaDocumentoDecisionMiner(c,key){
+ const esc=escaparPerfilDocumento,arr=(c.archivos||[]).filter(a=>tipoCarpetaLaboralMiner(a)===key),d=estadoDocumentoDecisionMiner(c,key);
+ const abrir=()=>esc('abrirDocumentoCarpetaLaboralMiner('+JSON.stringify(c.id)+','+JSON.stringify(key)+')');
+ return '<div class="check-card"><h4>'+esc(nombreReq(key))+'</h4>'+badgeDecisionMiner(d)+'<p class="meta">'+arr.length+' archivo(s)</p><div class="folder-actions">'+(arr.length?'<button class="mini blue" onclick="'+abrir()+'">Revisar '+esc(nombreReq(key))+'</button>':'')+botonesDecisionMiner(c,key)+'</div></div>';
+}
 function renderizarCarpetasLaboralesMiner(){
  const grid=document.getElementById('carpetasGrid');if(!grid)return;
- const q=normalizar(document.getElementById('buscarCarpeta')?.value||'');
+ const q=normalizar(document.getElementById('buscarCarpeta')?.value||''),esc=escaparPerfilDocumento;
  const lista=carpetasTrabajadores.filter(c=>!q||normalizar([c.trabajador,c.rut,c.faena,...(c.archivos||[]).map(a=>a.nombre)].join(' ')).includes(q));
- const esc=escaparPerfilDocumento;
  grid.innerHTML=lista.map(c=>{
-  const resumen=resumenCarpetaLaboralMiner(c),recibidos=resumen.filter(i=>i.archivos.length).length;
-  const pendientesIdentidad=!rutValidoContenido(c.rut)||!c.faena||c.faena==='Sin faena';
-  const botones=(key,label)=>esc('abrirDocumentoCarpetaLaboralMiner('+JSON.stringify(c.id)+','+JSON.stringify(key)+')');
-  const medicos=(c.archivos||[]).filter(a=>CLAVES_MEDICAS_LABORAL.includes(tipoCarpetaLaboralMiner(a)));
-  return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3><p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de 5 tipos de documento presentes</b> · Revisión pendiente</p>${pendientesIdentidad?'<p class="meta">Completa el RUN/RUT y la faena al comparar los originales.</p>':''}<div class="check-grid">${resumen.map(i=>`<div class="check-card"><b>${esc(i.nombre)}</b><p class="meta">${i.archivos.length?i.archivos.length+' archivo(s) · Contenido por revisar':'Sin archivo cargado'}</p>${i.archivos.length?`<button class="mini blue" onclick="${botones(i.key)}">Revisar ${esc(i.nombre)}</button>`:''}</div>`).join('')}</div>${medicos.length?'<h4 style="margin-top:16px">Exámenes médicos</h4><p class="meta">Autenticidad pendiente de comprobar con el emisor.</p>'+[...new Set(medicos.map(tipoCarpetaLaboralMiner))].map(k=>`<button class="mini blue" onclick="${botones(k)}">Revisar ${esc(nombreReq(k))}</button>`).join(''):''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button><button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div><details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
+  const resumen=resumenCarpetaLaboralMiner(c),recibidos=resumen.filter(i=>i.archivos.length).length,decision=estadoCarpetaDecisionMiner(c),extras=clavesDecisionMiner(c).filter(k=>!CLAVES_CARPETA_LABORAL.includes(k));
+  return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3>${badgeDecisionMiner(decision)}<p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de 5 tipos de documento presentes</b></p><p class="meta">Decisión documental de la carpeta. No determina aptitud médica ni autoriza acceso a faena.</p><div class="check-grid">${CLAVES_CARPETA_LABORAL.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')}</div>${extras.length?'<h4 style="margin-top:16px">Otros documentos cargados</h4><div class="check-grid">'+extras.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')+'</div>':''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button>${botonesDecisionMiner(c,'carpeta')}<button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div>${historialDecisionMiner(c)}<details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
  }).join('')||'<p class="empty">Elige una carpeta o varios archivos para empezar. Se esperan cédula, Cero Daño, antecedentes, contrato y EPP.</p>';
  pintarPendientesCarpetaLaboralMiner();
 }
 function pintarPendientesCarpetaLaboralMiner(){
  const panel=document.getElementById('pendientesCarpetaLaboral');if(!panel)return;const esc=escaparPerfilDocumento;
- panel.innerHTML=carpetasTrabajadores.map(c=>{const faltan=resumenCarpetaLaboralMiner(c).filter(i=>!i.archivos.length).map(i=>i.nombre);return '<div class="section"><h3>'+esc(c.trabajador)+'</h3><p class="meta">'+(faltan.length?'Sin archivo: '+esc(faltan.join(', ')):'Los cinco tipos están cargados. Falta revisar su contenido y, donde corresponda, comprobarlo con el emisor.')+'</p><p class="meta">Este resumen no acredita al trabajador ni confirma acceso a faena.</p><button class="mini blue" onclick="'+esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')+'">Abrir carpeta</button></div>';}).join('')||'<p class="meta">No hay carpetas cargadas para este día.</p>';
+ panel.innerHTML=carpetasTrabajadores.map(c=>'<div class="section"><h3>'+esc(c.trabajador)+'</h3>'+badgeDecisionMiner(estadoCarpetaDecisionMiner(c))+'<p class="meta">El color corresponde a la decisión documental registrada. No certifica identidad ni aptitud.</p><div class="folder-actions"><button class="mini blue" onclick="'+esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')+'">Abrir carpeta</button>'+botonesDecisionMiner(c,'carpeta')+'</div></div>').join('')||'<p class="meta">No hay carpetas cargadas para este día.</p>';
 }
 
 function renderizarCarpetas(){
@@ -5452,13 +5569,27 @@ function validarDatosLocales(d){
    revisarCampos(v);
   }
  }
+ function revisarDecisiones(lista){
+  if(!Array.isArray(lista)||lista.length>5000)fallo();
+  const ids=new Set();
+  for(const r of lista){
+   if(!objeto(r)||r.version!==1||!['Aprobado','Pendiente','Rechazado'].includes(r.estado))fallo();
+   for(const k of ['id','key','firma','motivo','revisorId','revisor','registradoEn','vencimiento'])if(typeof r[k]!=='string')fallo();
+   if(!r.id||ids.has(r.id)||!r.key||!r.firma||!r.revisorId||!r.revisor||r.motivo.trim().length<8||r.motivo.length>1200||!Number.isFinite(Date.parse(r.registradoEn)))fallo();
+   ids.add(r.id);
+   for(const k of ['responsableConfirmado','originalesRevisados','datosComparados','criteriosCumplidos','fechaRevisada','sinVencimiento','columnasRevisadas'])if(typeof r[k]!=='boolean')fallo();
+   if(!objeto(r.emisor)||typeof r.emisor.requerido!=='boolean'||typeof r.emisor.confirmado!=='boolean')fallo();
+   for(const k of ['canal','referencia','fecha'])if(typeof r.emisor[k]!=='string')fallo();
+   if(r.emisor.canal.length>200||r.emisor.referencia.length>1200)fallo();
+  }
+ }
  revisarJSON(d);revisarCampos(d);
  for(const k of ['docs','archivos','errores','carpetasTrabajadores','historialOperacional','trabajadores'])if(!Array.isArray(d[k])||d[k].some(x=>!objeto(x)))fallo();
  if(!objeto(d.requisitosFaena)||Object.values(d.requisitosFaena).some(a=>!Array.isArray(a)||a.some(k=>typeof k!=='string')))fallo();
  if(d.configuracionFaenas!=null&&!objeto(d.configuracionFaenas))fallo();
  const registros=(lista)=>{if(!Array.isArray(lista)||lista.some(x=>!objeto(x)))fallo();};
  for(const a of d.archivos)if(a.items!==undefined)registros(a.items);
- const ids=new Set();for(const c of d.carpetasTrabajadores){if(!['string','number'].includes(typeof c.id)||!c.id||ids.has(String(c.id)))fallo();ids.add(String(c.id));registros(c.archivos);if(c.archivos.some(a=>typeof a.nombre!=='string'||!a.nombre))fallo();for(const k of ['fotosPrincipales','checklist','revisionesHumanas'])if(c[k]!==undefined)registros(c[k]);}
+ const ids=new Set();for(const c of d.carpetasTrabajadores){if(!['string','number'].includes(typeof c.id)||!c.id||ids.has(String(c.id)))fallo();ids.add(String(c.id));registros(c.archivos);if(c.archivos.some(a=>typeof a.nombre!=='string'||!a.nombre))fallo();if(c.decisionesLaborales!==undefined)revisarDecisiones(c.decisionesLaborales);for(const k of ['fotosPrincipales','checklist','revisionesHumanas'])if(c[k]!==undefined)registros(c[k]);}
 }
 
 function validarLecturaLocal(row){
@@ -5561,5 +5692,33 @@ async function eliminarDatosLocales(ids,todo){
 window.addEventListener('beforeunload',event=>{if(pendientesOriginalesLocales||errorOriginalesLocales||respaldoOcupado){event.preventDefault();event.returnValue='';}});
 
 </script>
+<dialog id="decisionLaboralMiner" aria-labelledby="tituloDecisionMiner" style="margin:auto;width:min(780px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;background:var(--panel);color:var(--text);padding:24px">
+<button class="mini blue" onclick="cerrarDecisionMiner()" style="float:right">Cerrar decisión</button>
+<h2 id="tituloDecisionMiner">Decisión documental</h2><p id="identidadDecisionMiner" class="meta"></p>
+<p class="meta">El estado registra la revisión del responsable. No certifica autenticidad ni determina aptitud médica o acceso a faena.</p>
+<form id="formDecisionMiner" onsubmit="guardarDecisionLaboralMiner(event)">
+<div id="originalesDecisionMiner" class="decision-originales"></div>
+<label>Estado <select id="estadoElegidoDecisionMiner" class="search"><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select></label>
+<label>Motivo de la decisión <textarea class="note" id="motivoDecisionMiner" required minlength="8" maxlength="1200" placeholder="Indica qué comprobaste o qué incumplimiento encontraste."></textarea></label>
+<div id="camposDocumentoDecisionMiner">
+<label><input type="checkbox" id="datosDecisionMiner"> Comparé el nombre, RUN/RUT y datos del documento con la ficha.</label>
+<label><input type="checkbox" id="criteriosDecisionMiner"> El documento cumple los requisitos documentales definidos para esta revisión.</label>
+<label><input type="checkbox" id="fechaRevisadaDecisionMiner"> Comprobé las fechas aplicables en el original.</label>
+<label>Vencimiento o próximo control confirmado <input type="date" class="search" id="vencimientoDecisionMiner"></label>
+<label><input type="checkbox" id="sinVencimientoDecisionMiner" onchange="document.getElementById('vencimientoDecisionMiner').disabled=this.checked"> No aplica vencimiento único para este documento; comprobé el criterio aplicable.</label>
+<label id="columnasDecisionMiner" hidden><input type="checkbox" id="aceptarColumnasDecisionMiner"> Revisé por separado las fechas y los estados de las calificaciones del portal.</label>
+<fieldset class="section" style="margin:14px 0"><legend>Comprobación con el emisor</legend>
+<label><input type="checkbox" id="requiereEmisorDecisionMiner"> Este documento requiere comprobar su emisión.</label>
+<p class="meta">Obligatorio en exámenes médicos y antecedentes. Registra la respuesta obtenida mediante el canal oficial; MinerControl no hace esa consulta ni certifica la respuesta.</p>
+<label><input type="checkbox" id="emisorConfirmadoDecisionMiner"> Comprobé con el emisor que corresponde a este documento y trabajador.</label>
+<label>Canal oficial utilizado <input class="search" id="canalEmisorDecisionMiner" maxlength="200" placeholder="Portal oficial o contacto autorizado"></label>
+<label>Referencia de la comprobación <textarea class="note" id="referenciaEmisorDecisionMiner" maxlength="1200" placeholder="Folio o referencia de la respuesta; evita datos médicos innecesarios."></textarea></label>
+<label>Fecha de comprobación <input class="search" type="date" id="fechaEmisorDecisionMiner"></label>
+</fieldset></div>
+<label><input type="checkbox" id="responsableDecisionMiner" required> Soy responsable de esta revisión y confirmo que el estado y el motivo reflejan mis comprobaciones.</label>
+<p id="estadoDecisionMiner" role="status" aria-live="polite" class="meta"></p>
+<button class="mini green" type="submit" id="guardarDecisionMiner">Guardar decisión del responsable</button>
+</form></dialog>
+
 </body>
 </html>
