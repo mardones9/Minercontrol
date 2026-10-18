@@ -2940,7 +2940,7 @@ const DOCS_REQUERIDOS=[
   {key:"contrato", nombre:"Contrato / anexo", peso:16, aliases:["contrato","anexo","contratodetrabajo","adendum","relacionlaboral"]},
   {key:"odi", nombre:"ODI / Derecho a Saber", peso:15, aliases:["odi","derechoasaber","obligaciondeinformar","charla","das","induccionodi"]},
   {key:"antecedentes", nombre:"Certificado antecedentes", peso:13, aliases:["antecedentes","certificadoantecedentes","penales","criminal","registrocivil"]},
-  {key:"hoja_vida", nombre:"Hoja de vida conductor", peso:12, aliases:["hojadevida","hojadevidadelconductor","vida conductor","vidaconductor","hvconductor"]},
+  {key:"hoja_vida", nombre:"Hoja de vida conductor", peso:12, aliases:["hojadevida","hojavida","hojadevidadelconductor","vida conductor","vidaconductor","hvconductor"]},
   {key:"epp", nombre:"EPP / entrega de elementos", peso:12, aliases:["epp","entregaepp","elementosproteccion","proteccionpersonal","casco","zapatos","guantes"]},
   {key:"curso", nombre:"Curso / certificación", peso:11, aliases:["curso","certificacion","certificado","capacitacion","induccion","credencial","habilitacion"]},
   {key:"foto", nombre:"Foto trabajador / credencial", peso:8, aliases:["foto","selfie","imagen","perfil","credencial","avatar"]},
@@ -2974,7 +2974,7 @@ function textoSinRut(txt){
 
 function quitarTituloDocumentoMiner(txt){
   return String(txt||" ")
-    .replace(/\bhoja[\s_.-]*de[\s_.-]*vida(?:[\s_.-]*(?:del?[\s_.-]*)?conductor)?\b/ig," ")
+    .replace(/\bhoja[\s_.-]*(?:de[\s_.-]*)?vida(?:[\s_.-]*(?:del?[\s_.-]*)?conductor)?\b/ig," ")
     .replace(/\b(?:c[eé]dula[\s_.-]+(?:de[\s_.-]+)?identidad|licencia[\s_.-]+(?:de[\s_.-]+)?conduc(?:ir|tor)|contrato[\s_.-]+(?:de[\s_.-]+)?trabajo|certificado[\s_.-]+(?:de[\s_.-]+)?antecedentes|(?:certificado[\s_.-]+de[\s_.-]+)?examen[\s_.-]+ocupacional)\b/ig," ");
 }
 
@@ -3067,7 +3067,7 @@ function detectarDocumentoArchivo(nombre,ruta=""){
     if(score>mejor.peso)mejor={key:req.key,nombre:req.nombre,confianza:Math.min(98,45+score),senales,peso:score};
   });
 
-  const especial=n.includes("hojadevida")?"hoja_vida":n.includes("psicosensometrico")?"psicosensometrico":n.includes("alturafisica")||n.includes("trabajoaltura")?"altura":"";
+  const especial=(n.includes("hojadevida")||n.includes("hojavida"))?"hoja_vida":n.includes("psicosensometrico")?"psicosensometrico":n.includes("alturafisica")||n.includes("trabajoaltura")?"altura":"";
   if(especial){const req=DOCS_REQUERIDOS.find(r=>r.key===especial);mejor={key:req.key,nombre:req.nombre,confianza:85,senales:[especial],peso:85};}
 
   if(mejor.key==="otro"){
@@ -3583,9 +3583,13 @@ async function eliminarCarpeta(id){
  await eliminarDatosLocales([id],false);
 }
 function faltantesOriginalesDespacho(c){
- const disponibles=[...(c.archivosFisicos||[])];
- return (c.archivos||[]).filter(a=>{const i=disponibles.findIndex(f=>f instanceof Blob&&f.name===a.nombre&&(a.tamano==null||f.size===a.tamano));if(i<0)return true;disponibles.splice(i,1);return false;}).map(a=>a.nombre||'Archivo sin nombre');
+ const disponibles=[...(c.archivosFisicos||[])],faltantes=new Set();
+ // Reservar primero las coincidencias con tamaño conocido; cada binario se usa una sola vez.
+ const entradas=(c.archivos||[]).map((a,i)=>({a,i})).sort((x,y)=>Number(x.a.tamano==null)-Number(y.a.tamano==null));
+ for(const {a,i} of entradas){const indice=disponibles.findIndex(f=>f instanceof Blob&&f.name===a.nombre&&(a.tamano==null||f.size===a.tamano));if(indice<0)faltantes.add(i);else disponibles.splice(indice,1);}
+ return (c.archivos||[]).filter((a,i)=>faltantes.has(i)).map(a=>a.nombre||'Archivo sin nombre');
 }
+
 async function validarOriginalesDespacho(lista){
  const contexto=contextoLocalMiner();
  await colaOriginalesLocales;await recuperarCarpetasLocales();
@@ -3824,13 +3828,15 @@ function estadoHistorialBadge(estado){
 }
 
 function tipoAccionHistorial(h){
-  const t=normalizar((h.accion||"")+" "+(h.estado||""));
-  if(t.includes("aprob") || t.includes("acredit") || t.includes("lista"))return "aprobado";
-  if(t.includes("bloque") || t.includes("elimin") || t.includes("vencido") || t.includes("pendiente"))return "bloqueado";
-  if(t.includes("observ") || t.includes("revisar") || t.includes("porvencer"))return "observado";
-  if(t.includes("subida") || t.includes("import"))return "subida";
-  if(t.includes("despacho") || t.includes("zip"))return "despacho";
-  return "otro";
+  const accion=normalizar(h.accion||''),estado=normalizar(h.estado||'');
+  // Registrar una operación no significa aprobar sus documentos.
+  if(/import|subida/.test(accion)||accion.startsWith('carga'))return 'subida';
+  if(/despacho|zip/.test(accion))return 'despacho';
+  if(/envi/.test(accion)&&/acreditacion|revision/.test(accion))return 'observado';
+  if(/noaprob|noacredit|bloque|elimin|rechaz/.test(accion)||['bloqueado','bloqueada','eliminado','eliminada','vencido','vencida','pendiente','rechazado','rechazada','noaprobado','noaprobada'].includes(estado))return 'bloqueado';
+  if(/aprobacion|aprobad[oa]|acreditad[oa]/.test(accion)||['acreditado','acreditada','aprobado','aprobada','lista','listo','cumple'].includes(estado))return 'aprobado';
+  if(/observ|revis/.test(accion)||['observado','observada','revisar','porvencer','incompleta','incompleto'].includes(estado))return 'observado';
+  return 'otro';
 }
 
 function obtenerHistorialFiltrado(){
@@ -4463,7 +4469,7 @@ async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=
   document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':tipoDocumentoContenido==='medico'?'Leer documento médico':'Leer cédula de identidad chilena';
   document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
   document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
-  contextoFechaContenido={trabajador:nombre,rut,faena,requisito:requisito||(tipo==='medico'?'examen':tipo)};
+  contextoFechaContenido={trabajador:nombre,rut,faena,requisito:requisito||(tipo==='medico'?'examen':tipo),contextoLocal:contextoLocalMiner()};
   document.getElementById('estadoGuardadoLector').textContent='';
   const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida'].includes(contextoFechaContenido.requisito);
   document.getElementById('leerContenido').hidden=!admiteLectura;
@@ -4563,11 +4569,12 @@ function fechaDocumentoChileno(texto,tipo){
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const meses={ENE:1,ENERO:1,FEB:2,FEBRERO:2,MAR:3,MARZO:3,ABR:4,ABRIL:4,MAY:5,MAYO:5,JUN:6,JUNIO:6,JUL:7,JULIO:7,AGO:8,AGOSTO:8,SEP:9,SEPT:9,SET:9,SEPTIEMBRE:9,SETIEMBRE:9,OCT:10,OCTUBRE:10,NOV:11,NOVIEMBRE:11,DIC:12,DICIEMBRE:12};
   const formato=/\b(\d{1,2})\s*(?:[/.\-]\s*(\d{1,2})\s*[/.\-]\s*|([A-Z]{3,10})\.?\s*)(\d{4})\b|\b(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})\b/g;
-  const etiquetas=/(?:FECHA\s*(?:DE\s*)?)?(?:ULTIMO\s*CONTROL|ULTIMA\s*EVALUACION|NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|VENCIMIENTO|CADUCIDAD|EXPIRACION)|(?:VIGENTE|VIGENCIA|VALID[OA])\s*HASTA|PROXIMO\s*CONTROL|FECHA\s*(?:DE\s*)?CONTROL/g;
-  const resultados=[],excluidas=new Set();let invalida=false,ambigua=false;
+  const etiquetas=/\b(?:(?:FECHA\s*(?:DE\s*)?)?(?:ULTIMO\s*CONTROL|ULTIMA\s*EVALUACION|NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|INGRESO|INICIO|TERMINO|REGISTRO|VENCIMIENTO|CADUCIDAD|EXPIRACION)|(?:VIGENTE|VIGENCIA|VALID[OA])\s*HASTA|PROXIMO\s*CONTROL|FECHA\s*(?:DE\s*)?CONTROL)\b/g;
+  const resultados=[],excluidas=new Set();let invalida=false,ambigua=false,malformada=false,ausente=false;
   function fechas(linea){return [...linea.matchAll(formato)].map(m=>{
+    const extendida=/(?:\d\s*[/.-]\s*)$/.test(linea.slice(0,m.index))||/^\s*[/.-]\s*\d/.test(linea.slice(m.index+m[0].length));
     const dia=Number(m[7]||m[1]),mes=m[6]?Number(m[6]):m[2]?Number(m[2]):meses[m[3]],anio=Number(m[5]||m[4]),d=new Date(Date.UTC(anio,(mes||0)-1,dia));
-    return {x:m.index,fin:m.index+m[0].length,raw:m[0],fecha:mes&&anio>=1900&&anio<=2199&&d.getUTCFullYear()===anio&&d.getUTCMonth()+1===mes&&d.getUTCDate()===dia?d.toISOString().slice(0,10):''};
+    return {x:m.index,fin:m.index+m[0].length,raw:m[0],fecha:!extendida&&mes&&anio>=1900&&anio<=2199&&d.getUTCFullYear()===anio&&d.getUTCMonth()+1===mes&&d.getUTCDate()===dia?d.toISOString().slice(0,10):''};
   });}
   for(const pasada of normal.split(/FIN DE LECTURA|\nPAGINA\s+\d+\n/)){
     const lineas=pasada.split(/\r?\n/);
@@ -4575,14 +4582,20 @@ function fechaDocumentoChileno(texto,tipo){
       const linea=lineas[i],rotulos=[...linea.matchAll(etiquetas)];
       for(let j=0;j<rotulos.length;j++){
         const r=rotulos[j],label=r[0],previo=linea.slice(Math.max(0,r.index-12),r.index);
-        const prohibida=/NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|ULTIMO|ULTIMA/.test(label)||/ULTIM[OA]\s*$/.test(previo);
+        const prohibida=/NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|INGRESO|INICIO|TERMINO|REGISTRO|ULTIMO|ULTIMA/.test(label)||/ULTIM[OA]\s*$/.test(previo);
         const permitida=!prohibida&&(/VENCIMIENTO|CADUCIDAD|EXPIRACION|HASTA/.test(label)||(tipo==='licencia'&&/CONTROL/.test(label)));
+        if(permitida&&/\b(?:SIN|NO\s+TIENE|NO\s+POSEE)\s*$/.test(previo)){ausente=true;continue;}
         const limite=j+1<rotulos.length?rotulos[j+1].index:linea.length;
-        let valores=fechas(linea.slice(r.index+label.length,limite));
+        const segmento=linea.slice(r.index+label.length,limite);
+        if(permitida&&/\b(?:SIN\s+(?:FECHA|VENCIMIENTO)|NO\s+(?:APLICA|INFORMAD[OA])|PENDIENTE|ILEGIBLE)\b/.test(segmento)){ausente=true;continue;}
+        let valores=fechas(segmento);
+        const incompleta=t=>/\b(?:\d{3,4}[/.\-]\d{4}|\d{1,2}[/.\-]\d{5,6})\b/.test(t);
+        const resto=segmento.replace(formato,' ');
+        if(permitida&&incompleta(resto)){malformada=true;if(valores.length)ambigua=true;}
         if(!valores.length){
           for(let k=i+1;k<Math.min(lineas.length,i+4);k++){
             if([...lineas[k].matchAll(etiquetas)].length)break;
-            const todas=fechas(lineas[k]);if(!todas.length)continue;
+            const todas=fechas(lineas[k]);if(!todas.length){if(permitida&&incompleta(lineas[k]))malformada=true;continue;}
             if(rotulos.length>1){
               // Conservar columnas: la fecha de emisión a la izquierda no pertenece al vencimiento de la derecha.
               valores=todas.filter(f=>f.x>=Math.max(0,r.index-4)&&(j+1===rotulos.length||f.x<rotulos[j+1].index-4));
@@ -4599,11 +4612,13 @@ function fechaDocumentoChileno(texto,tipo){
     }
   }
   const fechasUnicas=[...new Set(resultados.map(r=>r.fecha))];
+  if(ausente)return {fecha:'',motivo:'El vencimiento figura sin fecha, no aplica o está pendiente. Revisa el original.'};
+  if(ambigua)return {fecha:'',motivo:'No se puede asociar una única fecha completa al vencimiento.'};
   if(invalida)return {fecha:'',motivo:'La fecha junto al vencimiento no es válida.'};
   if(resultados.some(r=>excluidas.has(r.fecha)))return {fecha:'',motivo:'La lectura mezcla el vencimiento con emisión, nacimiento o realización del examen. Revisa el original.'};
-  if(fechasUnicas.length!==1)return {fecha:'',motivo:fechasUnicas.length?'Las lecturas muestran vencimientos distintos.':ambigua?'No se puede asociar una única fecha al vencimiento.':'No se encontró una fecha inequívoca de vencimiento, vigencia hasta o próximo control.'};
+  if(fechasUnicas.length!==1)return {fecha:'',motivo:fechasUnicas.length?'Las lecturas muestran vencimientos distintos.':malformada?'El OCR devolvió una fecha incompleta o malformada junto al vencimiento. No se completaron dígitos ni separadores.':ambigua?'No se puede asociar una única fecha al vencimiento.':'No se encontró una fecha inequívoca de vencimiento, vigencia hasta o próximo control.'};
   const elegido=resultados.find(r=>r.fecha===fechasUnicas[0]);
-  return {...elegido,motivo:''};
+  return {...elegido,motivo:'',aviso:malformada?'Algunas pasadas devolvieron fechas incompletas. Se muestra solo la fecha completa leída; compruébala en el original.':''};
 }
 function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
  const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -4615,7 +4630,9 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
  const esperado=String(rutEsperado||'').toUpperCase().replace(/[.\s-]/g,''),tokens=String(nombreEsperado||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().match(/[A-Z]+/g)||[],palabras=new Set(normal.match(/[A-Z]+/g)||[]);
  const campos=[];
  const agregar=(etiqueta,patron)=>{const m=normal.match(patron);if(m)campos.push({etiqueta,valor:m[1].trim()});};
- agregar('Fecha de emisión',/(?:FECHA\s*(?:DE\s*)?(?:EMISION|EXPEDICION)|EMITIDO\s*EL)\s*[:\-]?\s*([^\n]{1,60})/);
+ const emision=normal.match(/(?:FECHA\s*(?:DE\s*)?(?:EMISION|EXPEDICION)|EMITIDO\s*EL)\s*[:\-]?\s*([^\n]{1,60})/);
+ if(emision){const raw=emision[1].trim(),leida=fechaDocumentoChileno('VENCIMIENTO '+raw,'cedula');campos.push({etiqueta:'Fecha de emisión',valor:leida.fecha?leida.fecha.split('-').reverse().join('/'):'No confirmada: lectura incompleta o inválida ('+raw+')'});}
+
  if(tipo==='antecedentes'){
   agregar('Finalidad',/(?:PARA\s*)?FINES\s+(ESPECIALES|PARTICULARES)/);
   agregar('Folio',/FOLIO\s*[:\-]?\s*([^\n]{1,60})/);
@@ -4633,7 +4650,7 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
   agregar('Registro informado',/(?:ANOTACIONES|INFRACCIONES)\s*[:\-]\s*([^\n]{1,150})/);
  }
  const f=reconocido===tipo?fechaDocumentoChileno(normal,tipo):{fecha:'',motivo:'El título no corresponde a un único documento.'};
- return {tipo:reconocido,evidenciaTipo:reconocido==='sin identificar'?'Título ausente o documentos mezclados':'Título de '+({antecedentes:'antecedentes',contrato:'contrato de trabajo',hoja_vida:'hoja de vida del conductor'}[reconocido]||'documento')+' leído',compatible:reconocido===tipo&&validos.length===1&&ruts.length===1,coincideTipo:reconocido===tipo,ruts,validos,indicios:[reconocido===tipo,validos.length===1,tokens.length>0&&tokens.every(t=>palabras.has(t)),campos.length>0],fecha:f.fecha,fechaMotivo:f.motivo||'No hay vencimiento explícito; no se deduce desde la emisión.',etiquetaFecha:'Vencimiento explícito',evidenciaFecha:f.fragmento||'',estado:'Revisar',nombre:tokens.length&&tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta',rut:!esperado?'Sin RUT de referencia':!rutValidoContenido(esperado)?'RUT de referencia inválido':validos.length===1&&validos[0]===esperado?'Coincide':ruts.length>1?'Varios RUT detectados; distinguir trabajador y empleador manualmente':'No coincide o lectura incompleta',camposLaborales:campos,avisoLaboral:tipo==='antecedentes'?'La antigüedad admisible debe definirse según la faena. No se asigna vencimiento desde la emisión ni se comprueba el folio.':tipo==='contrato'?'Comprueba trabajador y empleador, plazo, cargo, jornada, anexos y contrato comercial. No se evalúa validez legal.':'Requisito separado de la licencia. Comprueba emisión y registros en el original; no se decide habilitación del conductor.'};
+ return {tipo:reconocido,evidenciaTipo:reconocido==='sin identificar'?'Título ausente o documentos mezclados':'Título de '+({antecedentes:'antecedentes',contrato:'contrato de trabajo',hoja_vida:'hoja de vida del conductor'}[reconocido]||'documento')+' leído',compatible:reconocido===tipo&&validos.length===1&&ruts.length===1,coincideTipo:reconocido===tipo,ruts,validos,indicios:[reconocido===tipo,validos.length===1,tokens.length>0&&tokens.every(t=>palabras.has(t)),campos.length>0],fecha:f.fecha,avisoFecha:f.aviso||'',fechaMotivo:f.motivo||'No hay vencimiento explícito; no se deduce desde la emisión.',etiquetaFecha:'Vencimiento explícito',evidenciaFecha:f.fragmento||'',estado:'Revisar',nombre:tokens.length&&tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta',rut:!esperado?'Sin RUT de referencia':!rutValidoContenido(esperado)?'RUT de referencia inválido':validos.length===1&&validos[0]===esperado?'Coincide':ruts.length>1?'Varios RUT detectados; distinguir trabajador y empleador manualmente':'No coincide o lectura incompleta',camposLaborales:campos,avisoLaboral:tipo==='antecedentes'?'La antigüedad admisible debe definirse según la faena. No se asigna vencimiento desde la emisión ni se comprueba el folio.':tipo==='contrato'?'Comprueba trabajador y empleador, plazo, cargo, jornada, anexos y contrato comercial. No se evalúa validez legal.':'Requisito separado de la licencia. Comprueba emisión y registros en el original; no se decide habilitación del conductor.'};
 }
 function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsperado='cedula',hoy=hoyMiner()){
   if(['antecedentes','contrato','hoja_vida'].includes(tipoEsperado))return analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipoEsperado);
@@ -4663,7 +4680,7 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
   const compatible=indicios[0]&&indicios[1]&&validos.length===1&&ruts.length===1&&(Boolean(fecha)||indicios[2]&&indicios[3]);
   const dias=fecha?Math.round((Date.parse(fecha+'T12:00:00Z')-Date.parse(hoy+'T12:00:00Z'))/86400000):null;
   const estado=compatible&&tipo===tipoEsperado&&fecha?(dias<0?'Vencido':dias<=30?'Por vencer':'Vigente'):'Revisar';
-  return {tipo,evidenciaTipo:tipo==='cedula'?(tituloCedula?'Título de cédula o documento de identidad leído':'Título separado por columnas, encabezado chileno y '+camposCedula+' campos de cédula'):tipo==='licencia'?(tituloLicencia?'Título de licencia de conductor leído':'Título separado por columnas, encabezado chileno, municipalidad y clase'):tipo==='medico'?'Título de documento médico leído':'No se leyó un título inequívoco',compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,fechaMotivo:lecturaFecha.motivo,estado,
+  return {tipo,evidenciaTipo:tipo==='cedula'?(tituloCedula?'Título de cédula o documento de identidad leído':'Título separado por columnas, encabezado chileno y '+camposCedula+' campos de cédula'):tipo==='licencia'?(tituloLicencia?'Título de licencia de conductor leído':'Título separado por columnas, encabezado chileno, municipalidad y clase'):tipo==='medico'?'Título de documento médico leído':'No se leyó un título inequívoco',compatible,coincideTipo:tipo===tipoEsperado,ruts,validos,indicios,fecha,avisoFecha:lecturaFecha.aviso||'',fechaMotivo:lecturaFecha.motivo,estado,
     etiquetaFecha:lecturaFecha.etiqueta|| (tipo==='licencia'?'Vencimiento o próximo control':'Fecha de vencimiento'),evidenciaFecha:lecturaFecha.fragmento||'',
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
@@ -4714,6 +4731,29 @@ function limpiarLecturaContenido(){
 // Coordenadas del texto leído: no se usan los datos esperados para dibujar la evidencia.
 function lineasOCRNombre(datos){
   return (datos.blocks||[]).flatMap(b=>(b.paragraphs||[]).flatMap(p=>(p.lines||[]).map(l=>({texto:l.text||'',palabras:l.words||[],caja:l.bbox}))));
+}
+function zonasFechaTablaMiner(datos,origen){
+ const palabras=lineasOCRNombre(datos).flatMap(l=>l.palabras).filter(w=>w.bbox&&Number(w.confidence)>=30);
+ const norm=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z]/g,'');
+ const zonas=[];
+ for(const w of palabras){
+  const n=norm(w.text),b=w.bbox,h=Math.max(1,b.y1-b.y0);let borde=b.x1,rotulo='';
+  if(['VENCIMIENTO','CADUCIDAD','EXPIRACION'].includes(n))rotulo=n;
+  else if(['VIGENTE','VIGENCIA','VALIDO','VALIDA'].includes(n)){
+   const hasta=palabras.find(o=>norm(o.text)==='HASTA'&&o.bbox.x0>=b.x1&&o.bbox.x0-b.x1<h*8&&Math.abs((o.bbox.y0+o.bbox.y1-b.y0-b.y1)/2)<h);
+   if(hasta){borde=hasta.bbox.x1;rotulo=n+' HASTA';}
+  }
+  if(!rotulo)continue;
+  const candidatos=palabras.filter(o=>o.bbox.x0>borde&&Math.abs((o.bbox.y0+o.bbox.y1-b.y0-b.y1)/2)<h&&/\d/.test(o.text)).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+  const valor=candidatos[0];if(!valor)continue;
+  const intermedio=palabras.some(o=>o.bbox.x0>borde&&o.bbox.x0<valor.bbox.x0&&Math.abs(o.bbox.y0-b.y0)<h&&/^(EMISION|NACIMIENTO|EXAMEN|VENCIMIENTO|CADUCIDAD|EXPIRACION)$/.test(norm(o.text)));
+  if(intermedio)continue;
+  const v=valor.bbox,alto=Math.max(h,v.y1-v.y0),x=Math.max(0,Math.floor(origen.x+v.x0-alto*.6)),y=Math.max(0,Math.floor(origen.y+v.y0-alto*.6));
+  const ancho=Math.min(origen.base.width-x,Math.ceil(v.x1-v.x0+alto*1.2)),altura=Math.min(origen.base.height-y,Math.ceil(alto*2.2));
+  if(ancho>0&&altura>0&&!zonas.some(z=>Math.abs(z.x-x)<h&&Math.abs(z.y-y)<h))zonas.push({x,y,w:ancho,h:altura,rotulo});
+  if(zonas.length>=4)break;
+ }
+ return zonas;
 }
 function localizarNombreOCR(datos){
   const lineas=lineasOCRNombre(datos).sort((a,b)=>(a.caja?.y0||0)-(b.caja?.y0||0)||(a.caja?.x0||0)-(b.caja?.x0||0)),campos=[];
@@ -4785,7 +4825,7 @@ function dibujarEvidenciaNombre(base,campos,origen,pagina){
   const ctx=canvas.getContext('2d');ctx.drawImage(base,0,0,canvas.width,canvas.height);ctx.strokeStyle='#ffb000';ctx.fillStyle='rgba(255,176,0,.16)';ctx.lineWidth=3;
   for(const campo of campos)for(const b of campo.cajas){const x=(origen.x+b.x0-4)*escala,y=(origen.y+b.y0-4)*escala,w=(b.x1-b.x0+8)*escala,h=(b.y1-b.y0+8)*escala;ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h);}
   const imagen=canvas.toDataURL('image/jpeg',.85);canvas.width=0;canvas.height=0;
-  return {campos:campos.map(c=>({etiqueta:c.etiqueta,texto:c.texto})),imagen,pagina,cajas:campos.flatMap(c=>c.cajas.map(b=>({x:(origen.x+b.x0)/base.width,y:(origen.y+b.y0)/base.height,w:(b.x1-b.x0)/base.width,h:(b.y1-b.y0)/base.height})))};
+  return {campos:campos.map(c=>({etiqueta:c.etiqueta,texto:c.texto})),imagen,pagina,rotacion:origen.rotacion||0,cajas:campos.flatMap(c=>c.cajas.map(b=>({x:(origen.x+b.x0)/base.width,y:(origen.y+b.y0)/base.height,w:(b.x1-b.x0)/base.width,h:(b.y1-b.y0)/base.height})))};
 }
 function renderEvidenciaNombre(e){
   const esc=escaparPerfilDocumento;
@@ -4801,16 +4841,71 @@ function evidenciaNombreEnFicha(d,t){
     const f=(c.archivosFisicos||[]).filter(f=>f.name===d.archivo);if(f.length!==1)continue;
     if(evidenciasNombreOriginal.has(f[0]))return renderEvidenciaNombre(evidenciasNombreOriginal.get(f[0]));
     const a=(c.archivos||[]).find(a=>a.nombre===d.archivo);
-    if(a?.evidenciaNombre&&a.esImagen&&/^blob:/.test(a.previewURL||''))return renderEvidenciaNombre({...a.evidenciaNombre,imagen:a.previewURL,original:true});
+    if(a?.evidenciaNombre&&!a.evidenciaNombre.rotacion&&a.esImagen&&/^blob:/.test(a.previewURL||''))return renderEvidenciaNombre({...a.evidenciaNombre,imagen:a.previewURL,original:true});
   }
   return '';
 }
+// Releer píxeles reales de la celda: no se corrigen ni completan tokens del OCR.
+async function releerFechaTablaMiner(origen,zona,leer){
+ const celda=document.createElement('canvas'),salidas=[];
+ celda.width=Math.min(1800,Math.max(1,Math.round(zona.w*4)));
+ celda.height=Math.max(1,Math.round(zona.h*celda.width/zona.w));
+ try{
+  const cc=celda.getContext('2d',{willReadFrequently:true});cc.imageSmoothingEnabled=false;
+  cc.fillStyle='#fff';cc.fillRect(0,0,celda.width,celda.height);
+  cc.drawImage(origen.base,zona.x,zona.y,zona.w,zona.h,0,0,celda.width,celda.height);
+  for(const modo of ['7','13'])salidas.push(await leer(celda,modo,'spa'));
+  // Ampliar el rango de grises y el ancho para separar trazos muy próximos.
+  const px=cc.getImageData(0,0,celda.width,celda.height);let min=255,max=0;
+  for(let i=0;i<px.data.length;i+=4){const g=(px.data[i]+px.data[i+1]+px.data[i+2])/3;min=Math.min(min,g);max=Math.max(max,g);}
+  if(max>min){for(let i=0;i<px.data.length;i+=4){const g=(px.data[i]+px.data[i+1]+px.data[i+2])/3,v=Math.round((g-min)*255/(max-min));px.data[i]=px.data[i+1]=px.data[i+2]=v;}cc.putImageData(px,0,0);}
+  const copia=document.createElement('canvas');
+  try{copia.width=celda.width;copia.height=celda.height;copia.getContext('2d').drawImage(celda,0,0);
+   celda.width=Math.min(2400,copia.width*2);cc.imageSmoothingEnabled=true;cc.drawImage(copia,0,0,celda.width,celda.height);
+  }finally{copia.width=0;copia.height=0;}
+  const grises=cc.getImageData(0,0,celda.width,celda.height),original=new Uint8ClampedArray(grises.data);
+  for(const umbral of [null,130,200]){
+   grises.data.set(original);
+   if(umbral!==null)for(let i=0;i<grises.data.length;i+=4){const v=grises.data[i]<umbral?0:255;grises.data[i]=grises.data[i+1]=grises.data[i+2]=v;}
+   cc.putImageData(grises,0,0);salidas.push(await leer(celda,'7','eng'));
+  }
+ }finally{celda.width=0;celda.height=0;}
+ return salidas.filter(t=>String(t||'').trim()).map(t=>'\n\nFIN DE LECTURA\n'+zona.rotulo+' '+t).join('');
+}
 // Variantes independientes: nunca completar dígitos ausentes ni usar el RUT esperado para corregir OCR.
-async function leerImagenDocumento(imagen,reconocer,informar,pagina=1){
+function puntajeOrientacionDocumento(texto){
+  const t=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  const a=analizarDocumentoChileno(texto,'','','');
+  const rotulos=t.match(/\b(?:NOMBRES|APELLIDOS|NACIMIENTO|EMISION|VENCIMIENTO|VIGENTE|OCUPACIONAL|TRABAJADOR|CONDUCTOR|ANTECEDENTES|CONTRATO)\b/g)||[];
+  return (a.tipo!=='sin identificar'?20:0)+(a.validos.length?12:0)+(a.fecha?10:0)+Math.min(8,new Set(rotulos).size*2);
+}
+async function leerImagenDocumento(imagen,reconocer,informar,pagina=1,registrarOrientacion=()=>{}){
   const base=document.createElement('canvas');
   const escala=Math.min(4,2600/Math.max(imagen.width,imagen.height));
   base.width=Math.round(imagen.width*escala);base.height=Math.round(imagen.height*escala);
   const ctx=base.getContext('2d',{willReadFrequently:true});ctx.fillStyle='#fff';ctx.fillRect(0,0,base.width,base.height);ctx.drawImage(imagen,0,0,base.width,base.height);
+  const textos=[];
+  try{
+  // Comparar orientaciones por señales del documento, sin usar nombre ni RUN de referencia.
+  // Los textos de prueba no se concatenan: solo la orientación elegida pasa a la lectura detallada.
+  let giro=0,mejor=-1;
+  for(const grados of [0,90,180,270]){
+    informar('Comprobando orientación '+grados+'°…');
+    const prueba=document.createElement('canvas'),lateral=grados===90||grados===270;
+    const escalaPrueba=Math.min(1,1800/Math.max(base.width,base.height));
+    prueba.width=Math.max(1,Math.round((lateral?base.height:base.width)*escalaPrueba));
+    prueba.height=Math.max(1,Math.round((lateral?base.width:base.height)*escalaPrueba));
+    try{const pc=prueba.getContext('2d');pc.fillStyle='#fff';pc.fillRect(0,0,prueba.width,prueba.height);pc.translate(prueba.width/2,prueba.height/2);pc.rotate(grados*Math.PI/180);pc.scale(escalaPrueba,escalaPrueba);pc.drawImage(base,-base.width/2,-base.height/2);
+      const textoPrueba=await reconocer(prueba,'6',null);
+      const puntos=puntajeOrientacionDocumento(textoPrueba)+Math.max(0,Math.min(100,Number(reconocer.confianzaOrientacion)||0))/100;
+      if(puntos>mejor){mejor=puntos;giro=grados;}
+    }finally{prueba.width=0;prueba.height=0;}
+  }
+  if(giro){const rotada=document.createElement('canvas'),lateral=giro===90||giro===270;rotada.width=lateral?base.height:base.width;rotada.height=lateral?base.width:base.height;
+    const rc=rotada.getContext('2d');rc.fillStyle='#fff';rc.fillRect(0,0,rotada.width,rotada.height);rc.translate(rotada.width/2,rotada.height/2);rc.rotate(giro*Math.PI/180);rc.drawImage(base,-base.width/2,-base.height/2);
+    base.width=rotada.width;base.height=rotada.height;ctx.drawImage(rotada,0,0);rotada.width=0;rotada.height=0;
+  }
+  registrarOrientacion({pagina,grados:giro,puntaje:mejor});
   // Buscar el rectángulo de color del documento cuando la imagen contiene un margen blanco.
   const pix=ctx.getImageData(0,0,base.width,base.height),cols=new Uint32Array(base.width),rows=new Uint32Array(base.height);
   for(let y=0;y<base.height;y+=3)for(let x=0;x<base.width;x+=3){const i=(y*base.width+x)*4,r=pix.data[i],g=pix.data[i+1],b=pix.data[i+2];if(Math.max(r,g,b)-Math.min(r,g,b)>22&&Math.min(r,g,b)<230){cols[x]++;rows[y]++;}}
@@ -4819,13 +4914,12 @@ async function leerImagenDocumento(imagen,reconocer,informar,pagina=1){
   if(xs.length&&ys.length){const x=xs[0],y=ys[0],w=xs.at(-1)-x,h=ys.at(-1)-y;if(w>base.width*.45&&h>base.height*.45)rect=[Math.max(0,x-8),Math.max(0,y-8),Math.min(base.width-x,w+16),Math.min(base.height-y,h+16)];}
   const [x,y,w,h]=rect;
   const zonas=[[0,0,1,1,false],[0,0,1,1,true],[.30,0,.70,1,true],[0,.67,1,.33,true],[.62,.38,.38,.49,true],[0,0,.36,.23,true],[0,.77,.43,.20,true]];
-  const textos=[];
-  try{for(let n=0;n<zonas.length;n++){
+  for(let n=0;n<zonas.length;n++){
     informar('Lectura '+(n+1)+' de '+zonas.length+' · ajustando contraste y zonas…');
     const [zx,zy,zw,zh,filtrar]=zonas[n],c=document.createElement('canvas');c.width=Math.round(w*zw);c.height=Math.round(h*zh);
     try{const cctx=c.getContext('2d',{willReadFrequently:true});cctx.drawImage(base,x+w*zx,y+h*zy,w*zw,h*zh,0,0,c.width,c.height);
       if(filtrar){const d=cctx.getImageData(0,0,c.width,c.height);for(let i=0;i<d.data.length;i+=4){const a=Math.max(d.data[i],d.data[i+1],d.data[i+2]);const gris=Math.max(0,Math.min(255,(a-100)*255/130));d.data[i]=d.data[i+1]=d.data[i+2]=gris;}cctx.putImageData(d,0,0);}
-      textos.push(await reconocer(c,n>=2?'6':'3',{base,x:x+w*zx,y:y+h*zy,pagina}));
+      textos.push(await reconocer(c,n>=2?'6':'3',{base,x:x+w*zx,y:y+h*zy,pagina,rotacion:giro,tabla:n===0}));
     }finally{c.width=0;c.height=0;}
   }}finally{base.width=0;base.height=0;}
   return textos.join('\n\nFIN DE LECTURA\n\n');
@@ -4839,20 +4933,36 @@ async function revisarContenidoCedula(){
   if(archivo.size>12*1024*1024){mostrarToast('El archivo supera 12 MB. Usa una copia de menor tamaño.','warn');return;}
   const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value,tipo=tipoDocumentoContenido;
   const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
+  const contextoLectura=contextoLocalMiner(),fichaLectura=contextoFechaContenido;
+  const comprobarLectura=()=>{if(!sigueContextoLocal(contextoLectura)||contextoFechaContenido!==fichaLectura||(fichaLectura?.contextoLocal&&!sigueContextoLocal(fichaLectura.contextoLocal)))throw new Error('Cambió la cuenta, el día o la ficha durante la lectura. Se descartó el resultado; vuelve a abrir el documento.');};
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
-  let worker=null,pdf=null,evidenciaNombre=null,lecturaTerminada=false;
+  let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,lecturaTerminada=false;
   try{
-    const motores=await cargarMotorContenido();
+    const motores=await cargarMotorContenido();comprobarLectura();
     async function reconocer(imagen,modo='3',origen=null){
       if(!worker)worker=await motores.ocr.createWorker('spa',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',logger:m=>{if(m.status==='recognizing text')estado.textContent='Leyendo contenido: '+Math.round((m.progress||0)*100)+' %';}});
-      await worker.setParameters({tessedit_pageseg_mode:modo,preserve_interword_spaces:'1'});
-      const {data}=await worker.recognize(imagen,{}, {text:true,blocks:true});
+      await worker.setParameters({tessedit_pageseg_mode:modo,preserve_interword_spaces:'1',tessedit_char_whitelist:''});
+      const {data}=await worker.recognize(imagen,{}, {text:true,blocks:true});comprobarLectura();
+      reconocer.confianzaOrientacion=Number(data.confidence)||0;
       if(origen){const campos=localizarCamposCedulaOCR(data);if(campos.length&&(!evidenciaNombre||puntajeCamposCedula(campos)>puntajeCamposCedula(evidenciaNombre.campos)))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
-      return data.text||'';
+      let texto=data.text||'';
+      if(origen?.tabla)for(const zona of zonasFechaTablaMiner(data,origen)){
+       texto+=await releerFechaTablaMiner(origen,zona,async(celda,modoCelda,idioma)=>{
+        let motor=worker;
+        if(idioma==='eng'){
+         if(falloNumeros)return '';
+         try{if(!workerNumeros)workerNumeros=await motores.ocr.createWorker('eng',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js'});motor=workerNumeros;}
+         catch{falloNumeros=true;return '';}
+        }
+        await motor.setParameters({tessedit_pageseg_mode:modoCelda,preserve_interword_spaces:'1',tessedit_char_whitelist:''});
+        const r=await motor.recognize(celda,{}, {text:true});return r.data.text||'';
+       });
+      }
+      return texto;
     }
-    let texto='',paginas=1,limitado=false;
+    let texto='',paginas=1,limitado=false;const orientaciones=[];
     if(esPDF){
       pdf=await motores.pdf.getDocument({data:new Uint8Array(await archivo.arrayBuffer()),isEvalSupported:false}).promise;
       paginas=pdf.numPages;
@@ -4865,7 +4975,7 @@ async function revisarContenidoCedula(){
           const inicial=pagina.getViewport({scale:1}),escala=Math.min(2,2400/Math.max(inicial.width,inicial.height));
           const viewport=pagina.getViewport({scale:escala}),canvas=document.createElement('canvas');
           canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-          try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport}).promise;parcial+='\n'+await leerImagenDocumento(canvas,reconocer,mensaje=>estado.textContent='Página '+i+' · '+mensaje,i);}finally{canvas.width=0;canvas.height=0;}
+          try{await pagina.render({canvasContext:canvas.getContext('2d'),viewport}).promise;parcial+='\n'+await leerImagenDocumento(canvas,reconocer,mensaje=>estado.textContent='Página '+i+' · '+mensaje,i,o=>orientaciones.push(o));}finally{canvas.width=0;canvas.height=0;}
         }
         texto+='\nPágina '+i+'\n'+parcial;pagina.cleanup();
         await new Promise(resolve=>setTimeout(resolve,0));
@@ -4873,9 +4983,10 @@ async function revisarContenidoCedula(){
     }else{
       const imagen=await createImageBitmap(archivo);
       try{
-        texto=await leerImagenDocumento(imagen,reconocer,mensaje=>estado.textContent=mensaje);
+        texto=await leerImagenDocumento(imagen,reconocer,mensaje=>estado.textContent=mensaje,1,o=>orientaciones.push(o));
       }finally{imagen.close();}
     }
+    comprobarLectura();
     const analisis=analizarDocumentoChileno(texto,nombre,rut,tipo);
     const fechasCedula=tipo==='cedula'?fechasCamposCedulaMiner(texto):null;
     // Una zona recortada puede perder su rótulo o su valor. No mostrar recuadros
@@ -4887,6 +4998,7 @@ async function revisarContenidoCedula(){
     const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':analisis.tipo==='antecedentes'?'certificado de antecedentes':analisis.tipo==='contrato'?'contrato de trabajo':analisis.tipo==='hoja_vida'?'hoja de vida del conductor':'documento sin identificar';
     const lineas=[limitado?'Lectura parcial: quedan páginas pendientes.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':analisis.tipo!=='sin identificar'?'Tipo de documento reconocido. Falta confirmar el RUN o completar la lectura antes de asociarlo.':'No se pudo identificar el documento. Prueba una foto más nítida y encuadrada.',
       ...(tipo==='cedula'?[coberturaCedulaMiner(texto).mensaje,...Object.entries(fechasCedula).map(([k,v])=>k+' (texto etiquetado): '+(v||'No confirmado'))]:[]),
+      ...orientaciones.filter(o=>o.grados).map(o=>'Orientación de lectura: página '+o.pagina+' girada '+o.grados+'°. El original se conserva sin cambios.'),
       'Tipo leído: '+tipoLeido,
       ...(analisis.camposLaborales||[]).map(c=>c.etiqueta+': '+c.valor),
       ...(analisis.avisoLaboral?[analisis.avisoLaboral]:[]),
@@ -4897,6 +5009,7 @@ async function revisarContenidoCedula(){
       'Comparación de RUT: '+analisis.rut,'Comparación de nombre: '+analisis.nombre,
       analisis.etiquetaFecha+': '+(analisis.fecha?analisis.fecha.split('-').reverse().join('/'):'No confirmada. '+analisis.fechaMotivo),
       'Origen de la fecha: '+(analisis.evidenciaFecha||'Sin evidencia suficiente'),
+      ...(analisis.avisoFecha?[analisis.avisoFecha]:[]),
       'Estado por fecha detectada: '+(limitado?'Revisar (lectura parcial)':tipo==='cedula'&&(!coberturaCedulaMiner(texto).frente||!coberturaCedulaMiner(texto).reverso)?'Revisar (ambos lados pendientes)':analisis.estado),
       'Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.',
       'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
@@ -4904,12 +5017,13 @@ async function revisarContenidoCedula(){
     const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);
     if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
-    estado.textContent='Lectura terminada · '+paginas+' página(s).';
+    estado.textContent='Lectura terminada · '+paginas+' página(s).'+(analisis.tipo==='sin identificar'||!analisis.fecha?' Datos sin confirmar: revisa el original.':'');
     ultimaLecturaGuardable={archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre};
     await guardarDesdeLector().catch(errorGuardarLector);lecturaTerminada=true;
-  }catch(error){estado.textContent='No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
+  }catch(error){estado.textContent=/^Cambió la cuenta, el día o la ficha/.test(error.message)?error.message:'No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
   finally{
     try{if(worker)await worker.terminate();}catch{}
+    try{if(workerNumeros)await workerNumeros.terminate();}catch{}
     try{if(pdf)await pdf.destroy();}catch{}
     lecturaContenidoActiva=false;
     for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
@@ -5141,6 +5255,7 @@ async function operarOriginalFicha(key,valor){const db=await abrirDBOriginalesFi
 function errorGuardarLector(e){document.getElementById('estadoGuardadoLector').textContent=e.message||'No se guardó el documento. Conserva el archivo y vuelve a intentarlo.';}
 async function guardarDesdeLector(){
  const t=contextoFechaContenido;if(!t?.faena||!t.rut)throw new Error('Abre la lectura desde la ficha del trabajador para guardar el documento.');
+ if(t.contextoLocal&&!sigueContextoLocal(t.contextoLocal))throw new Error('Cambió la cuenta o el día. Abre nuevamente la ficha antes de guardar.');
  const key=claveOriginalFicha(t,t.requisito),file=document.getElementById('archivoContenido').files?.[0]||originalRecuperadoLector?.file||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
  if(!file)throw new Error('Selecciona el documento que quieres guardar en esta ficha.');
  if(file.size>12*1024*1024||!(/image\/(jpeg|png)/.test(file.type)||file.type==='application/pdf'||/\.pdf$/i.test(file.name)))throw new Error('Usa JPG, PNG o PDF de hasta 12 MB.');
@@ -5226,10 +5341,11 @@ async function capturarDiaLocal(c){
 }
 async function hashArchivoLocal(blob){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))].map(n=>n.toString(16).padStart(2,'0')).join('');}
 async function crearZipLocal(c,copia){
+ validarCopiaLocal(c,copia);
  const zip=new JSZip(),manifest={format:'MinerControl-local',version:1,day:c.dia,createdAt:new Date().toISOString(),data:copia.data,folders:[],readers:[],files:[]};let bytes=0;
  async function agregar(file){if(!(file instanceof Blob))throw new Error('Un original no está disponible.');bytes+=file.size;if(bytes>LIMITE_RESPALDO_LOCAL||manifest.files.length>=10000)throw new Error('El respaldo local admite hasta 512 MB y 10000 archivos.');const path='originales/'+manifest.files.length;manifest.files.push({path,name:file.name,type:file.type,size:file.size,lastModified:file.lastModified,sha256:await hashArchivoLocal(file)});zip.file(path,await file.arrayBuffer());return path;}
  const faltantes=[];
- for(const f of copia.folders){manifest.folders.push({id:f.id,files:[]});for(const file of f.files)manifest.folders.at(-1).files.push(await agregar(file));const carpeta=copia.data.carpetasTrabajadores.find(x=>x.id===f.id);for(const a of carpeta?.archivos||[])if(!f.files.some(x=>x.name===a.nombre))faltantes.push(a.nombre);}
+ for(const f of copia.folders){manifest.folders.push({id:f.id,files:[]});for(const file of f.files)manifest.folders.at(-1).files.push(await agregar(file));const carpeta=copia.data.carpetasTrabajadores.find(x=>x.id===f.id);faltantes.push(...faltantesOriginalesDespacho({...carpeta,archivosFisicos:f.files}));}
  if(faltantes.length)throw new Error('Faltan '+faltantes.length+' originales de carpetas. Vuelve a cargarlos antes de descargar un respaldo completo.');
  for(const row of copia.readers){const {file,key,...datos}=row;manifest.readers.push({...datos,file:await agregar(file)});}
  const json=JSON.stringify(manifest);if(new TextEncoder().encode(json).length>32*1024*1024)throw new Error('Las lecturas y datos superan 32 MB. Divide la carga por días.');zip.file('minercontrol.json',json);
@@ -5304,7 +5420,7 @@ async function leerZipLocal(file,c){
  for(const f of m.files){const bytes=await zip.file(f.path).async('uint8array'),blob=new File([bytes],f.name,{type:f.type,lastModified:f.lastModified});if(blob.size!==f.size||await hashArchivoLocal(blob)!==f.sha256)throw new Error('Un original está incompleto o alterado. No se restauró nada.');files.set(f.path,blob);}
  const ids=new Set();const usados=new Set();const folders=m.folders.map(f=>{if(ids.has(String(f.id))||!m.data.carpetasTrabajadores.some(x=>x.id===f.id)||!Array.isArray(f.files))throw new Error('Carpeta no válida.');ids.add(String(f.id));return {id:f.id,files:f.files.map(p=>{if(!files.get(p)||usados.has(p))throw new Error('Original ausente o repetido.');usados.add(p);return files.get(p);})};});
  if(folders.length!==m.data.carpetasTrabajadores.length)throw new Error('Faltan carpetas en el respaldo.');
- for(const f of folders)for(const a of m.data.carpetasTrabajadores.find(x=>x.id===f.id).archivos)if(!f.files.some(x=>x.name===a.nombre))throw new Error('El respaldo no incluye todos los originales.');
+ for(const f of folders)if(faltantesOriginalesDespacho({...m.data.carpetasTrabajadores.find(x=>x.id===f.id),archivosFisicos:f.files}).length)throw new Error('El respaldo no incluye todos los originales: cada documento necesita su propio archivo.');
  const claves=new Set();const readers=m.readers.map(row=>{validarLecturaLocal(row);const {file,...datos}=row;const t={rut:row.rut,trabajador:row.trabajador,faena:row.faena};if(!row.rut||!row.faena||typeof row.requisito!=='string'||!files.get(file)||usados.has(file))throw new Error('Ficha de original no válida.');usados.add(file);const key=c.clave+':original:'+claveTrabajador(t)+':'+row.requisito;if(claves.has(key))throw new Error('Ficha duplicada.');claves.add(key);return {...datos,key,file:files.get(file)};});
  if(usados.size!==files.size)throw new Error('Hay originales sin asociación.');return {data:m.data,folders,readers};
 }
@@ -5319,6 +5435,7 @@ function validarCopiaLocal(c,copia){
  if(!Array.isArray(copia.folders)||!Array.isArray(copia.readers))throw new Error('Copia local incompleta.');
  const ids=new Set();for(const f of copia.folders){if(!f||ids.has(String(f.id))||!copia.data.carpetasTrabajadores.some(x=>x.id===f.id)||!Array.isArray(f.files)||f.files.some(x=>!(x instanceof Blob)))throw new Error('Originales de carpeta no válidos.');ids.add(String(f.id));}
  if(ids.size!==copia.data.carpetasTrabajadores.length)throw new Error('Faltan carpetas en la copia.');
+ for(const f of copia.folders){const faltantes=faltantesOriginalesDespacho({...copia.data.carpetasTrabajadores.find(x=>x.id===f.id),archivosFisicos:f.files});if(faltantes.length)throw new Error('Faltan originales de carpetas: '+faltantes.length+'. Cada documento necesita su propio archivo.');}
  const keys=new Set();for(const row of copia.readers){validarLecturaLocal(row);if(!row||!(row.file instanceof Blob)||!row.rut||!row.faena||typeof row.requisito!=='string'||!row.key.startsWith(c.clave+':original:')||keys.has(row.key))throw new Error('Originales de ficha no válidos.');keys.add(row.key);}
 }
 async function escribirDiaAtomico(c,copia,anterior){
