@@ -127,7 +127,15 @@ canvas{width:100%!important;max-height:320px!important}
 textarea.note{width:100%;min-height:90px;background:#081726;color:white;border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
 
 
-/* Importador automático nivel dios */
+.sidebar{overflow-y:auto;flex-shrink:0}
+.nav summary,.extra-options>summary{cursor:pointer;padding:12px;color:var(--muted);font-weight:700}
+.nav-extra{display:grid;gap:8px;margin-top:8px}
+.pasos-inicio{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}
+.pasos-inicio li{background:#081726;border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.pasos-inicio li .meta{line-height:1.5;flex:1}
+#guiaPrimerUso{margin-bottom:18px}
+@media(max-width:900px){.pasos-inicio{grid-template-columns:1fr}.sidebar{width:190px;padding:12px}}
+/* Importador automático */
 .smart-import-panel{
   display:grid;
   grid-template-columns:1.2fr .8fr;
@@ -303,6 +311,9 @@ button{transition:.15s ease}
 #crearUsuarioForm button{padding:12px 18px;border-radius:12px;color:white}
 #usuarios button:disabled,#usuarios select:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
+.hero{padding:18px 24px;margin-bottom:14px}.hero h1{font-size:30px}#panelDiaMiner{padding:16px}#panelDiaMiner .actions{margin-bottom:0}
+@media(max-width:900px){.sidebar{width:190px}.nav button{font-size:14px}}
+@media(max-width:650px){.layout{flex-direction:column}.sidebar{width:100%;max-height:260px;padding:12px}.sidebar .logo{font-size:18px;margin-bottom:12px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.nav details{grid-column:1/-1}.main{padding:14px;min-height:0}.hero h1{font-size:26px}.pasos-inicio{grid-template-columns:1fr}}
 </style>
 </head>
 
@@ -323,27 +334,30 @@ button{transition:.15s ease}
 
 <aside class="sidebar">
   <button type="button" id="logoHome" class="logo logo-home" title="Volver al ingreso y cerrar sesión">MinerControl<br><span>Enterprise</span></button>
-  <div class="nav">
-    <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Inicio</button>
-    <button onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
-    <button onclick="mostrarModulo('documentos',this)">📁 Documentos</button>
-    <button onclick="mostrarModulo('faenas',this)">🏗️ Faenas</button>
-    <button onclick="mostrarModulo('requisitos',this)">📋 Requisitos</button>
-    <button onclick="mostrarModulo('acreditacion',this)">✅ Acreditación</button>
-    <button onclick="mostrarModulo('carpetas',this)">📦 Carpetas</button>
-    <button onclick="mostrarModulo('reportes',this)">📈 Reportes</button>
-    <button onclick="mostrarModulo('historial',this)">📜 Historial</button>
-    <button id="navUsuarios" hidden onclick="mostrarModulo('usuarios',this)">👥 Usuarios</button>
-    <button id="navRevisionDocumentos" onclick="abrirCentroRevision()">🔎 Revisar documentos</button>
-    <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
-  </div>
+  <nav class="nav" aria-label="Menú principal">
+    <button class="active" data-modulo="dashboard" onclick="mostrarModulo('dashboard',this)">Inicio</button>
+    <button data-modulo="carpetas" onclick="mostrarModulo('carpetas',this)">1. Cargar documentos</button>
+    <button id="navRevisionDocumentos" data-modulo="centroRevision" onclick="abrirCentroRevision()">2. Revisar documentos</button>
+    <button data-modulo="acreditacion" onclick="mostrarModulo('acreditacion',this)">3. Ver pendientes</button>
+    <button data-modulo="trabajadores" onclick="mostrarModulo('trabajadores',this)">Trabajadores</button>
+    <details id="herramientasMenu"><summary>Más herramientas</summary><div class="nav-extra">
+      <button data-modulo="documentos" onclick="mostrarModulo('documentos',this)">Todos los archivos</button>
+      <button data-modulo="faenas" onclick="mostrarModulo('faenas',this)">Faenas</button>
+      <button data-modulo="requisitos" onclick="mostrarModulo('requisitos',this)">Requisitos</button>
+      <button data-modulo="reportes" onclick="mostrarModulo('reportes',this)">Reportes</button>
+      <button data-modulo="historial" onclick="mostrarModulo('historial',this)">Historial</button>
+      <button id="navUsuarios" data-modulo="usuarios" hidden onclick="mostrarModulo('usuarios',this)">Usuarios</button>
+      <button onclick="abrirRespaldoMiner()">Guardar una copia</button>
+    </div></details>
+    <button onclick="cerrarSesion()">Cerrar sesión</button>
+  </nav>
 </aside>
 
 <main class="main">
 
 <div class="hero">
   <div>
-    <h1>Bienvenido Dylan 👋</h1>
+    <h1>Bienvenido a MinerControl</h1>
     <p>Carga archivos y consulta trabajadores por faena.</p>
   </div>
   <div>
@@ -354,7 +368,7 @@ button{transition:.15s ease}
 
 <div id="avisoSuscripcion" class="alert" role="status" hidden></div>
 <div id="avisoCobrosAdministrador" class="alert" role="status" hidden></div>
-<div class="card" style="margin-bottom:16px"><h2 style="font-size:20px">Documentación por día · <span id="diaVisibleMiner"></span></h2>
+<div class="card" id="panelDiaMiner" style="margin-bottom:16px"><h2 style="font-size:20px">Documentación por día · <span id="diaVisibleMiner"></span></h2>
   <div class="actions history-filters" style="margin-top:14px">
     <button class="blue" onclick="moverDiaMiner(-1)" aria-label="Día anterior">◀</button>
     <label for="diaMiner">Documentación del día</label>
@@ -368,12 +382,10 @@ button{transition:.15s ease}
   <div id="accionesDiaCuentaMiner" class="file-actions"></div>
 </div>
 
-<div class="actions">
+<details class="extra-options" style="margin-bottom:16px"><summary>Importar una nómina Excel o guardar una copia</summary><div class="actions" style="margin-top:12px">
   <label class="blue primary-upload" for="inputExcelPro">Cargar Excel</label>
-  <button class="green" onclick="mostrarModulo('carpetas',this)">Cargar documentos</button>
-  <button class="purple" onclick="mostrarModulo('trabajadores',this)">Ver trabajadores</button>
-  <button class="purple" onclick="abrirRespaldoMiner()">Respaldo de mi cuenta</button>
-</div>
+  <button class="purple" onclick="abrirRespaldoMiner()">Guardar una copia</button>
+</div></details>
 
 
 
@@ -383,21 +395,22 @@ button{transition:.15s ease}
 </div>
 
 <section id="dashboard" class="module active">
-  <details class="section" id="guiaPrimerUso">
-    <summary style="cursor:pointer;font-weight:700;font-size:1.1rem">Cómo empezar en MinerControl</summary>
+  <div class="section" id="guiaPrimerUso">
+    <h2>Empieza aquí</h2><p class="meta" style="margin-top:8px">Tres pasos para revisar los documentos de tus trabajadores.</p>
     <p class="meta" style="margin:12px 0">Elige primero el día de trabajo en el calendario. Después sigue estos pasos.</p>
-    <ol style="padding-left:22px;display:grid;gap:16px">
-      <li><b>Carga los documentos.</b><p class="meta">Agrupa los archivos por trabajador y faena. Comprueba el nombre y RUN detectados y usa «Enviar a acreditación» para incorporarlos a la ficha; quedarán pendientes de revisión.</p><button class="mini blue" onclick="irModuloRapido('carpetas')">Ir a cargar documentos</button></li>
-      <li><b>Revisa el original.</b><p class="meta">En «Revisar documentos», elige al trabajador, abre su archivo y compara los datos y el vencimiento con el original.</p><button class="mini blue" onclick="abrirCentroRevision()">Ir a revisar documentos</button></li>
-      <li><b>Consulta lo pendiente y guarda una copia.</b><p class="meta">En «Acreditación» verás qué falta por revisar. Leer un archivo o enviarlo a revisión no lo aprueba. Descarga un respaldo para conservar los originales.</p><button class="mini blue" onclick="irModuloRapido('acreditacion')">Ver pendientes de acreditación</button></li>
+    <ol class="pasos-inicio">
+      <li><b>1. Carga tus documentos</b><p class="meta">Elige una carpeta o varios archivos. Después comprueba el nombre, RUN/RUT y faena detectados.</p><button class="mini blue" onclick="irModuloRapido('carpetas')">Ir a cargar documentos</button></li>
+      <li><b>2. Revisa cada trabajador</b><p class="meta">Envía la carpeta a revisión. Abre el original y compara sus datos y fechas con la ficha.</p><button class="mini blue" onclick="abrirCentroRevision()">Ir a revisar documentos</button></li>
+      <li><b>3. Consulta qué falta</b><p class="meta">Revisa los documentos faltantes, vencidos o pendientes. La lectura no los aprueba automáticamente.</p><button class="mini blue" onclick="irModuloRapido('acreditacion')">Ver pendientes</button></li>
     </ol>
-  </details>
+  </div>
 
   <div class="section" id="documentacionDiaPanel">
     <h2 id="tituloDocumentacionDia">Documentación del día</h2>
     <p class="meta" id="resumenDocumentacionDia"></p>
     <div class="table-wrap"><table><thead><tr><th>Carga del día</th><th>Trabajadores</th><th>Documentos</th><th>Consultar</th></tr></thead><tbody id="documentacionDiaFilas"></tbody></table></div>
   </div>
+  <details class="extra-options" id="detalleIndicadores"><summary>Ver indicadores, gráficos y alertas</summary><div style="margin-top:16px">
   <div class="grid">
     <div class="card kpi-pro nav-card" onclick="irModuloRapido('trabajadores')" title="Abrir módulo Trabajadores"><small>Trabajadores</small><h2 id="kTrabajadores">0</h2></div>
     <div class="card kpi-pro nav-card" onclick="irModuloRapido('documentos')" title="Abrir módulo Documentos / Archivos"><small>Archivos</small><h2 id="kArchivos">0</h2></div>
@@ -457,6 +470,7 @@ button{transition:.15s ease}
       </table>
     </div>
   </div>
+</div></details>
 </section>
 
 <section id="documentos" class="module">
@@ -627,13 +641,14 @@ button{transition:.15s ease}
 <div class="section" style="margin-bottom:0">
 <button class="mini blue" onclick="cerrarLectorContenido()" style="float:right">Cerrar</button>
   <h2 id="tituloLectorContenido">Leer contenido de una cédula chilena</h2>
-  <p class="meta">Selecciona una imagen JPG/PNG o un PDF (hasta 12 MB). Se lee el contenido, independientemente del nombre del archivo. Se recorren todas las páginas del PDF, una por una. Para la cédula, incluye frente y reverso en el mismo PDF o en una imagen con ambos lados. Una sola cara queda pendiente de revisión.</p>
+  <p class="meta">Selecciona JPG, PNG, PDF, Word (.docx) o Excel (.xlsx, .xls, .csv), hasta 12 MB. Word antiguo (.doc) debe convertirse a DOCX o PDF. Se lee el contenido, independientemente del nombre del archivo. Se recorren todas las páginas del PDF, una por una. Para la cédula, incluye frente y reverso en el mismo PDF o en una imagen con ambos lados. Una sola cara queda pendiente de revisión.</p>
   <div class="actions">
     <input class="search" id="nombreContenido" aria-label="Nombre esperado del trabajador" placeholder="Nombre del trabajador para comparar" maxlength="150" oninput="invalidarLecturaContenido()">
     <input class="search" id="rutContenido" aria-label="RUN/RUT esperado del trabajador" placeholder="RUT del trabajador para comparar" maxlength="20" oninput="invalidarLecturaContenido()">
   </div>
   <p class="meta">El nombre y RUN/RUT de la ficha se completan como referencia. Compara el resultado con el documento original.</p>
-  <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf" aria-label="Archivo para leer contenido" onchange="invalidarLecturaContenido()">
+  <p class="meta">Registro Civil: la lectura no confirma autenticidad. <a href="https://www.registrocivil.cl/OficinaInternet/verificacion/verificacioncertificado.srcei" target="_blank" rel="noopener noreferrer">Abrir verificación oficial de certificados</a>. Introduce el código del certificado en el servicio oficial; esta aplicación no transmite datos ni registra una verificación automática.</p>
+  <input id="archivoContenido" type="file" accept="image/jpeg,image/png,application/pdf,.docx,.xlsx,.xls,.csv" aria-label="Archivo para leer contenido" onchange="invalidarLecturaContenido()">
   <div class="file-actions" style="margin-top:14px">
     <button class="mini blue" id="leerContenido" onclick="revisarContenidoCedula()">Leer contenido</button>
     <button class="mini blue" id="detectarFotoDocumento" onclick="detectarFotoDocumentoMiner()">Detectar foto de rostro</button>
@@ -667,33 +682,34 @@ button{transition:.15s ease}
     <div class="head">
       <div>
         <h2>Cargar documentos</h2>
-        <p style="color:#9eb3cb;margin-top:6px">Sube carpetas o archivos sueltos. MinerControl organiza los datos por sus nombres y prepara el checklist. Revisa los originales antes de confirmar su aprobación.</p><p class="meta">La carga inicial organiza por nombres de archivo. Si allí no figura el RUN/RUT, abre la cédula para leerlo y compruébalo antes de editar los datos. No se deduce el número a partir del nombre de la persona.</p>
+        <p style="color:#9eb3cb;margin-top:6px">Elige una carpeta o varios archivos. Comprueba a quién corresponden y pulsa «Enviar a revisión».</p><p class="meta">La carga inicial organiza por nombres de archivo. Si allí no figura el RUN/RUT, abre la cédula para leerlo y compruébalo antes de editar los datos. No se deduce el número a partir del nombre de la persona.</p>
       </div>
       <input class="search" id="buscarCarpeta" placeholder="Buscar trabajador, RUT, empresa, faena, documento..." oninput="renderizarCarpetas()">
     </div>
 
-<div class="alert" role="note"><h3>Revisión humana</h3><p class="meta" style="margin-top:8px;margin-bottom:0">MinerControl no tiene acceso al Registro Civil y no verifica la identidad ni la autenticidad de la cédula. El encargado debe revisar el documento original, comprobar que los datos correspondan a la ficha y realizar la validación que exija la empresa o faena mediante sus canales autorizados. Confirmar esta revisión no equivale a una validación del Registro Civil.</p></div>
+<details class="extra-options"><summary>Qué comprueba MinerControl y qué debes revisar tú</summary><div class="alert" role="note"><h3>Revisión humana</h3><p class="meta" style="margin-top:8px;margin-bottom:0">MinerControl no tiene acceso al Registro Civil y no verifica la identidad ni la autenticidad de la cédula. El encargado debe revisar el documento original, comprobar que los datos correspondan a la ficha y realizar la validación que exija la empresa o faena mediante sus canales autorizados. Confirmar esta revisión no equivale a una validación del Registro Civil.</p></div></details>
 
     <div class="smart-import-panel">
       <div class="smart-drop">
-        <label for="inputCarpeta">📂 Subir carpeta completa automática</label>
+        <label for="inputCarpeta">Elegir una carpeta</label>
         <p style="color:#9eb3cb;margin-top:8px">Ideal: una carpeta por trabajador o subcarpetas con RUT/nombre. Organiza PDF, imágenes, Word y Excel por sus nombres y rutas.</p>
         <input id="inputCarpeta" type="file" webkitdirectory directory multiple onchange="importarCarpetaTrabajador(event)">
       </div>
       <div class="smart-drop">
-        <label for="inputArchivosSueltos">⚡ Subir archivos sueltos automáticos</label>
+        <label for="inputArchivosSueltos">Elegir varios archivos</label>
         <p style="color:#9eb3cb;margin-top:8px">Si no tienes carpetas, sube todos los documentos juntos. Se agrupan por RUT/nombre detectado.</p>
         <input id="inputArchivosSueltos" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.csv" onchange="importarArchivosSueltos(event)">
       </div>
     </div>
 
-    <div class="ai-note">
+    <details class="extra-options"><summary>Ayuda para nombrar los archivos</summary><div class="ai-note">
       <b>Ejemplos de nombres para organizar los archivos:</b><br>
       <span>12.345.678-9 Juan Perez - Collahuasi - Licencia conducir - vence 2026-12-30.pdf</span><br>
       <span>20.111.333-5 Camila Rojas - Spence - Cedula identidad.jpg</span><br>
       <span>Carpeta: 12345678-9 Juan Perez / contrato.pdf / examen ocupacional.pdf / odi.pdf</span>
-    </div>
+    </div></details>
 
+    <details class="extra-options"><summary>Ver resumen y opciones de exportación</summary>
     <div class="grid">
       <div class="card kpi-pro"><small>Carpetas cargadas</small><h2 id="cCarpetas">0</h2></div>
       <div class="card kpi-pro kpi-ok"><small>Listas para despacho</small><h2 id="cListas">0</h2></div>
@@ -716,6 +732,7 @@ button{transition:.15s ease}
       <button class="red" onclick="borrarCarpetas()">Borrar carpetas</button>
     </div>
 
+    </details>
     <details class="extra-options"><summary>Revisar una carpeta sin incorporarla a los registros</summary><div class="section"><h2>Revisar carpeta sin guardar</h2><p>Sube una carpeta, revisa el diagnóstico, exporta y finaliza antes de subir la siguiente. La revisión se conserva solo mientras esta pestaña siga abierta.</p>
 <p class="meta">Se detectan nombres y rutas. El contenido de PDF e imágenes requiere revisión; no se acredita automáticamente.</p>
 <div class="smart-import-panel"><div class="smart-drop"><label for="inputRevisionTemporal">📂 Subir carpeta para revisar</label><input id="inputRevisionTemporal" type="file" webkitdirectory directory multiple onchange="cargarRevisionTemporal(this)"></div><div class="smart-drop"><label for="inputRevisionTemporalArchivos">Subir archivos de prueba</label><input id="inputRevisionTemporalArchivos" type="file" multiple onchange="cargarRevisionTemporal(this)"></div></div>
@@ -1015,24 +1032,13 @@ function mostrarModulo(id,btn){
   document.querySelectorAll(".module").forEach(m=>m.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
-  if(btn)btn.classList.add("active");
+  if(btn){btn.classList.add("active");const grupo=btn.closest?.("details");if(grupo)grupo.open=true;}
   const main=document.querySelector(".main");
   if(main)main.scrollTo({top:0,behavior:"smooth"});
   renderizar();
 }
 
-const MODULOS_NAV={
-  dashboard:0,
-  trabajadores:1,
-  documentos:2,
-  faenas:3,
-  requisitos:4,
-  acreditacion:5,
-  carpetas:6,
-  reportes:7,
-  historial:8,
-  usuarios:9
-};
+
 const MODULOS_TITULOS={
   dashboard:"Dashboard",
   trabajadores:"Trabajadores",
@@ -1045,8 +1051,7 @@ const MODULOS_TITULOS={
   historial:"Historial"
 };
 function botonModulo(id){
-  const botones=document.querySelectorAll(".nav button");
-  return botones[MODULOS_NAV[id]] || null;
+  return document.querySelector('.nav button[data-modulo="'+id+'"]') || null;
 }
 function limpiarFiltrosModulo(id){
   if(id==="trabajadores"){
@@ -2430,7 +2435,7 @@ function renderTarjetaRequisito(item,trabajador){
     const estadoDoc=d.estado==='Acreditado'?'Vigente':d.estado;
     return `<div class="doc-chip" style="flex-wrap:wrap"><span title="${escaparPerfilDocumento(d.documento)}">${visual?nombre:escaparPerfilDocumento(d.documento)}</span><span>${escaparPerfilDocumento(estadoDoc)}</span>${imagen?`<a href="${escaparPerfilDocumento(imagen)}" target="_blank" rel="noopener" aria-label="Abrir imagen de ${nombre}" style="display:block;width:100%"><img src="${escaparPerfilDocumento(imagen)}" alt="Miniatura de ${nombre}" loading="lazy" style="display:block;width:100%;height:110px;object-fit:contain;border-radius:10px"></a>`:visual?'<span class="small">Este registro no contiene una imagen. Puedes cargar y guardar el original con el botón de esta ficha.</span>':''}${origenDocumentoRequisito(d)}${evidenciaNombreEnFicha(d,trabajador)}</div>`;
   }).join('');
-  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div>${originalGuardadoEnTarjeta(item,trabajador)}<div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+','+JSON.stringify(item.key)+')')}">${['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida'].includes(item.key)?'Leer':'Ver / cargar'} ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
+  return `<div class="check-card ${clase}"><b>${nombre}</b><div style="margin-top:6px"><span class="badge ${item.estado==='Cumple'?'ok':item.estado==='Por vencer'?'warn':'bad'}">${escaparPerfilDocumento(estado)}</span></div>${originalGuardadoEnTarjeta(item,trabajador)}<div class="doc-list">${cuerpo||`<div class="doc-chip"><span>${nombre}</span><span class="small">Sin documento cargado</span></div>`}</div>${lector?`<button class="mini blue" style="margin-top:12px" onclick="${escaparPerfilDocumento('abrirLectorContenido('+JSON.stringify(trabajador.trabajador||'')+','+JSON.stringify(trabajador.rut||'')+','+JSON.stringify(visual?item.key:'medico')+','+JSON.stringify(trabajador.faena||'')+','+JSON.stringify(item.key)+')')}">${['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida','epp','curso','odi','otro'].includes(item.key)?'Leer':'Ver / cargar'} ${item.key==='licencia'?'licencia de conducir':item.key==='cedula'?'cédula de identidad':nombre}</button>`:''}${documentos.length>3?`<div class="small">Y ${documentos.length-3} documento(s) más en el detalle.</div>`:''}</div>`;
 }
 
 function crearFaenaRequisito(){crearFaenaDesde(document.getElementById('nuevaFaenaReq'));}
@@ -2677,7 +2682,7 @@ function renderizarAcreditacion(){
 
   acreditacionBody.innerHTML=filtrados.length?filtrados.map(d=>`
     <tr>
-      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',document.querySelectorAll('.nav button')[1])">${escaparPerfilDocumento(trabajadorDeRegistro(d).trabajador)}</a></td>
+      <td><a class="worker-link" onclick="abrirPerfilTrabajador('${encodeURIComponent((d.rut||'')+'||'+(d.trabajador||'')+'||'+(d.faena||''))}');mostrarModulo('trabajadores',botonModulo('trabajadores'))">${escaparPerfilDocumento(trabajadorDeRegistro(d).trabajador)}</a></td>
       <td>${escaparPerfilDocumento(d.rut)}</td>
       <td>${escaparPerfilDocumento(d.faena)}</td>
       <td>${escaparPerfilDocumento(d.documento)}</td>
@@ -3360,7 +3365,7 @@ function renderizarCarpetas(){
   if(document.getElementById("cConfianzaBar"))cConfianzaBar.style.width=confianza+"%";
 
   if(!filtradas.length){
-    grid.innerHTML=`<div class="empty">Todavía no hay carpetas cargadas. Sube una carpeta o usa la demo nivel dios.</div>`;
+    grid.innerHTML=`<div class="empty">Todavía no hay documentos cargados. Elige una carpeta o varios archivos para empezar.</div>`;
     return;
   }
 
@@ -3424,7 +3429,7 @@ function renderizarCarpetas(){
 
       <div class="folder-actions">
         ${!rutIdentidad(c.rut)&&(c.archivos||[]).some(a=>a.tipo==='cedula')?`<button class="mini blue" onclick="${escaparPerfilDocumento('revisarRunCarpeta('+JSON.stringify(c.id)+')')}">Leer RUN/RUT en cédula</button>`:''}
-        <button class="mini green" onclick="${escaparPerfilDocumento('integrarCarpetaADocumentos('+JSON.stringify(c.id)+')')}">Enviar a acreditación</button>
+        <button class="mini green" onclick="${escaparPerfilDocumento('integrarCarpetaADocumentos('+JSON.stringify(c.id)+')')}">Enviar a revisión</button>
         <button class="mini green" onclick="${escaparPerfilDocumento('despacharCarpeta('+JSON.stringify(c.id)+')')}">Despachar ZIP</button>
         <button class="mini blue" onclick="${escaparPerfilDocumento('marcarCarpetaLista('+JSON.stringify(c.id)+')')}">Confirmar revisión humana</button>
         <button class="mini yellow" onclick="${escaparPerfilDocumento('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Editar datos</button>
@@ -4498,13 +4503,13 @@ let evidenciaLecturaContenido=null;
 async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=''){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
   limpiarLecturaContenido();
-  tipoDocumentoContenido=['antecedentes','contrato','hoja_vida'].includes(requisito)?requisito:['cedula','licencia','medico','antecedentes','contrato','hoja_vida'].includes(tipo)?tipo:'cedula';
+  tipoDocumentoContenido=requisito==='otro'?'portal':['antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(requisito)?requisito:['cedula','licencia','medico','antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(tipo)?tipo:'cedula';
   document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':tipoDocumentoContenido==='medico'?'Leer documento médico':'Leer cédula de identidad chilena';
   document.getElementById('nombreContenido').value=nombre==='Sin nombre'?'':nombre;
   document.getElementById('rutContenido').value=rut==='Sin RUT'?'':rut;
   contextoFechaContenido={trabajador:nombre,rut,faena,requisito:requisito||(tipo==='medico'?'examen':tipo),contextoLocal:contextoLocalMiner()};
   document.getElementById('estadoGuardadoLector').textContent='';
-  const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida'].includes(contextoFechaContenido.requisito);
+  const admiteLectura=['cedula','licencia','examen','altura','psicosensometrico','antecedentes','contrato','hoja_vida','epp','curso','odi','otro'].includes(contextoFechaContenido.requisito);
   document.getElementById('leerContenido').hidden=!admiteLectura;
   document.getElementById('detectarFotoDocumento').hidden=!['cedula','licencia'].includes(contextoFechaContenido.requisito);
   if(requisito)document.getElementById('tituloLectorContenido').textContent='Documento · '+nombreReq(requisito);
@@ -4526,6 +4531,47 @@ function prepararConfirmacionFechaContenido(){
   document.getElementById('confirmacionFechaContenido').hidden=!destinosFechaContenido.length;
   mostrarOriginalContenido();
 }
+
+function formatoLecturaMiner(file){
+ const ext=String(file?.name||'').split('.').pop().toLowerCase();
+ if(['docx','xlsx','xls','csv'].includes(ext))return ext;
+ if(ext==='pdf'||file?.type==='application/pdf')return 'pdf';
+ if(/image\/(jpeg|png)$/.test(file?.type||''))return 'imagen';
+ return '';
+}
+async function zipOfficeSeguroMiner(buffer){
+ const zip=await JSZip.loadAsync(buffer),entradas=Object.values(zip.files);let total=0;
+ if(entradas.length>1000)throw new Error('El documento contiene demasiados componentes.');
+ for(const e of entradas){if(e.dir)continue;const n=e._data?.uncompressedSize;if(!Number.isSafeInteger(n)||n<0||(total+=n)>40*1024*1024)throw new Error('El documento comprimido supera el límite de lectura.');if(/vbaProject\.bin$/i.test(e.name))throw new Error('Usa una copia sin macros.');}
+ return zip;
+}
+async function leerOfficeMiner(archivo){
+ const formato=formatoLecturaMiner(archivo);if(!['docx','xlsx','xls','csv'].includes(formato))throw new Error('Formato no admitido.');
+ if(archivo.size>12*1024*1024)throw new Error('El archivo supera 12 MB.');
+ const buffer=await archivo.arrayBuffer();
+ if(formato==='docx'){
+  const zip=await zipOfficeSeguroMiner(buffer),parte=zip.file('word/document.xml');
+  if(!parte||parte._data.uncompressedSize>4*1024*1024)throw new Error('Word no contiene texto legible dentro del límite.');
+  const xml=await parte.async('string');if(/<!DOCTYPE|<!ENTITY/i.test(xml))throw new Error('Estructura XML no admitida.');
+  const doc=new DOMParser().parseFromString(xml,'application/xml');if(doc.getElementsByTagName('parsererror').length)throw new Error('El archivo Word está dañado.');
+  const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const texto=Array.from(doc.getElementsByTagNameNS(ns,'p')).map(p=>Array.from(p.getElementsByTagNameNS(ns,'t')).map(t=>t.textContent).join(' ')).join('\n');
+  if(!texto.trim())throw new Error('Este Word contiene imágenes o no tiene texto. Conviértelo a PDF para leerlo con OCR.');
+  return {texto,aviso:'Word: se leyó el texto del documento. Las imágenes, firmas y cuadros no se verifican; compáralos con el original.'};
+ }
+ if(formato==='xlsx'||new Uint8Array(buffer)[0]===0x50&&new Uint8Array(buffer)[1]===0x4b)await zipOfficeSeguroMiner(buffer);
+ const libro=XLSX.read(formato==='csv'?new TextDecoder('utf-8',{fatal:true}).decode(buffer):buffer,{type:formato==='csv'?'string':'array',raw:true,cellHTML:false,cellFormula:true,sheetRows:10001,dateNF:'yyyy-mm-dd'});
+ if(libro.SheetNames.length>20)throw new Error('Máximo 20 hojas por lectura.');
+ let texto='',formulas=false;
+ for(const nombre of libro.SheetNames){const hoja=libro.Sheets[nombre],ref=hoja['!fullref']||hoja['!ref'];if(!ref)continue;const rango=XLSX.utils.decode_range(ref);
+  if(rango.e.r>=10000||rango.e.c>=100)throw new Error('Máximo 10.000 filas y 100 columnas por hoja. Divide el archivo.');
+  formulas ||= Object.keys(hoja).some(k=>!k.startsWith('!')&&Boolean(hoja[k]?.f));
+  texto+='\nHoja: '+nombre+'\n'+XLSX.utils.sheet_to_csv(hoja,{FS:' | ',RS:'\n',blankrows:false});if(texto.length>2000000)throw new Error('Demasiado texto para una sola lectura.');
+ }
+ if(!texto.trim())throw new Error('La planilla no contiene celdas legibles.');
+ return {texto,aviso:'Planilla: lectura de celdas; no importa trabajadores automáticamente. Para una nómina usa Cargar Excel.'+(formulas?' Hay fórmulas: se muestran sus valores guardados, sin recalcular.':'')};
+}
+
 function mostrarOriginalContenido(){
   document.getElementById('resultadoFotoDocumento').replaceChildren();
   document.getElementById('estadoFotoDocumento').textContent='La detección de foto localiza rostros; no identifica a la persona.';
@@ -4538,6 +4584,7 @@ function mostrarOriginalContenido(){
   document.getElementById('fechaConfirmadaContenido').value=d?.a.fechaVencimiento||'';
   if(file){
     urlOriginalContenido=URL.createObjectURL(file);
+    if(['docx','xlsx','xls','csv'].includes(formatoLecturaMiner(file))){const enlace=document.createElement('a');enlace.href=urlOriginalContenido;enlace.download=file.name;enlace.textContent='Descargar original: '+file.name;panel.append(enlace);estadoFechaContenido();return;}
     const elemento=document.createElement(file.type==='application/pdf'||/\.pdf$/i.test(file.name)?'iframe':'img');
     elemento.src=urlOriginalContenido;elemento.title='Documento original';elemento.setAttribute('aria-label','Documento original');
     elemento.style.cssText='width:100%;height:320px;object-fit:contain;border:0;border-radius:12px';panel.append(elemento);
@@ -4655,7 +4702,7 @@ function fechaDocumentoChileno(texto,tipo){
 }
 function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
  const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
- const titulos={antecedentes:/CERTIFICADO\s*(?:DE\s*)?ANTECEDENTES/,contrato:/CONTRATO\s*(?:INDIVIDUAL\s*)?(?:DE\s*)?TRABAJO/,hoja_vida:/HOJA\s*(?:DE\s*)?VIDA\s*(?:DEL?\s*)?CONDUCTOR/};
+ const titulos={antecedentes:/CERTIFICADO\s*(?:DE\s*)?ANTECEDENTES/,contrato:/CONTRATO\s*(?:INDIVIDUAL\s*)?(?:DE\s*)?TRABAJO/,epp:/(?:ENTREGA|REGISTRO|RECEPCION)[^\n]{0,80}(?:EPP|ELEMENTOS?\s*(?:DE\s*)?PROTECCION)|ELEMENTOS?\s*(?:DE\s*)?PROTECCION\s*PERSONAL/,curso:/(?:CERTIFICADO[^\n]{0,60})?(?:CURSO|CAPACITACION|INDUCCION)/,odi:/OBLIGACION\s*(?:DE\s*)?INFORMAR|DERECHO\s*A\s*SABER|\bODI\b/,hoja_vida:/HOJA\s*(?:DE\s*)?VIDA\s*(?:DEL?\s*)?CONDUCTOR/};
  const tipos=Object.keys(titulos).filter(k=>titulos[k].test(normal));
  const medico=/EXAMEN\s*(?:OCUPACIONAL|PREOCUPACIONAL)|CEDULA\s*(?:DE\s*)?IDENTIDAD/.test(normal);
  const reconocido=tipos.length===1&&!medico?tipos[0]:'sin identificar';
@@ -4668,7 +4715,12 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
 
  if(tipo==='antecedentes'){
   agregar('Finalidad',/(?:PARA\s*)?FINES\s+(ESPECIALES|PARTICULARES)/);
+  agregar('Código de verificación (sin comprobar)',/CODIGO\s*(?:DE\s*)?VERIFICACION\s*[:\-]?\s*([^\n]{1,80})/);
   agregar('Folio',/FOLIO\s*[:\-]?\s*([^\n]{1,60})/);
+ }
+ if(['epp','curso','odi'].includes(tipo)){
+  agregar('Empresa',/(?:EMPRESA|RAZON\s*SOCIAL)\s*[:\-]\s*([^\n]{1,100})/);
+  agregar('Curso / actividad',/(?:NOMBRE\s*(?:DEL?\s*)?(?:CURSO|ACTIVIDAD)|ACTIVIDAD)\s*[:\-]\s*([^\n]{1,100})/);
  }
  if(tipo==='contrato'){
   agregar('Empleador',/(?:EMPLEADOR|RAZON\s*SOCIAL)\s*[:\-]\s*([^\n]{1,100})/);
@@ -4683,10 +4735,18 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
   agregar('Registro informado',/(?:ANOTACIONES|INFRACCIONES)\s*[:\-]\s*([^\n]{1,150})/);
  }
  const f=reconocido===tipo?fechaDocumentoChileno(normal,tipo):{fecha:'',motivo:'El título no corresponde a un único documento.'};
- return {tipo:reconocido,evidenciaTipo:reconocido==='sin identificar'?'Título ausente o documentos mezclados':'Título de '+({antecedentes:'antecedentes',contrato:'contrato de trabajo',hoja_vida:'hoja de vida del conductor'}[reconocido]||'documento')+' leído',compatible:reconocido===tipo&&validos.length===1&&ruts.length===1,coincideTipo:reconocido===tipo,ruts,validos,indicios:[reconocido===tipo,validos.length===1,tokens.length>0&&tokens.every(t=>palabras.has(t)),campos.length>0],fecha:f.fecha,avisoFecha:f.aviso||'',fechaMotivo:f.motivo||'No hay vencimiento explícito; no se deduce desde la emisión.',etiquetaFecha:'Vencimiento explícito',evidenciaFecha:f.fragmento||'',estado:'Revisar',nombre:tokens.length&&tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta',rut:!esperado?'Sin RUT de referencia':!rutValidoContenido(esperado)?'RUT de referencia inválido':validos.length===1&&validos[0]===esperado?'Coincide':ruts.length>1?'Varios RUT detectados; distinguir trabajador y empleador manualmente':'No coincide o lectura incompleta',camposLaborales:campos,avisoLaboral:tipo==='antecedentes'?'La antigüedad admisible debe definirse según la faena. No se asigna vencimiento desde la emisión ni se comprueba el folio.':tipo==='contrato'?'Comprueba trabajador y empleador, plazo, cargo, jornada, anexos y contrato comercial. No se evalúa validez legal.':'Requisito separado de la licencia. Comprueba emisión y registros en el original; no se decide habilitación del conductor.'};
+ return {tipo:reconocido,evidenciaTipo:reconocido==='sin identificar'?'Título ausente o documentos mezclados':'Título de '+({antecedentes:'antecedentes',contrato:'contrato de trabajo',hoja_vida:'hoja de vida del conductor'}[reconocido]||'documento')+' leído',compatible:reconocido===tipo&&validos.length===1&&ruts.length===1,coincideTipo:reconocido===tipo,ruts,validos,indicios:[reconocido===tipo,validos.length===1,tokens.length>0&&tokens.every(t=>palabras.has(t)),campos.length>0],fecha:f.fecha,avisoFecha:f.aviso||'',fechaMotivo:f.motivo||'No hay vencimiento explícito; no se deduce desde la emisión.',etiquetaFecha:'Vencimiento explícito',evidenciaFecha:f.fragmento||'',estado:'Revisar',nombre:tokens.length&&tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta',rut:!esperado?'Sin RUT de referencia':!rutValidoContenido(esperado)?'RUT de referencia inválido':validos.length===1&&validos[0]===esperado?'Coincide':ruts.length>1?'Varios RUT detectados; distinguir trabajador y empleador manualmente':'No coincide o lectura incompleta',camposLaborales:campos,avisoLaboral:['epp','curso','odi'].includes(tipo)?'Comprueba fecha, trabajador, contenido y firmas en el original. La lectura no acredita entrega, asistencia ni aprobación.':tipo==='antecedentes'?'La antigüedad admisible debe definirse según la faena. No se asigna vencimiento desde la emisión ni se comprueba el folio.':tipo==='contrato'?'Comprueba trabajador y empleador, plazo, cargo, jornada, anexos y contrato comercial. No se evalúa validez legal.':'Requisito separado de la licencia. Comprueba emisión y registros en el original; no se decide habilitación del conductor.'};
+}
+function analizarPortalMiner(texto){
+ const n=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+ const categorias=[...n.matchAll(/CALIFICACION\s*(?:DE\s*)?(SALUD|LEGAL|ENTRENAMIENTO)/g)];
+ const reconocido=categorias.length>=2&&/FAENA|MINERA/.test(n);
+ const campos=categorias.map((m,i)=>({etiqueta:'Calificación '+m[1].toLowerCase(),valor:n.slice(m.index+m[0].length,categorias[i+1]?.index||m.index+160).trim().slice(0,160)}));
+ return {tipo:reconocido?'portal':'sin identificar',evidenciaTipo:reconocido?'Varias calificaciones de un portal de faena':'No se identifican varias calificaciones de portal',compatible:false,coincideTipo:reconocido,ruts:[],validos:[],indicios:[],fecha:'',fechaMotivo:'Cada calificación puede tener una fecha diferente. No se asigna un vencimiento global.',etiquetaFecha:'Vencimiento global no aplicable',estado:'Revisar',nombre:'Comprobar en el original',rut:'Comprobar en el original',camposLaborales:campos,avisoLaboral:'Captura informativa del portal. Comprueba por separado salud, legal y entrenamiento, sus fechas y los mensajes de acceso. No acredita acceso a faena ni se convierte en certificado de curso.'};
 }
 function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsperado='cedula',hoy=hoyMiner()){
-  if(['antecedentes','contrato','hoja_vida'].includes(tipoEsperado))return analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipoEsperado);
+  if(tipoEsperado==='portal')return analizarPortalMiner(texto);
+  if(['antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(tipoEsperado))return analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipoEsperado);
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const ruts=[...new Set((normal.match(/\b(?:\d{1,2}[. ]\s*\d{3}[. ]?\s*\d{3}|\d{7,8})\s*[-–—:]\s*[0-9K]\b/g)||[]).map(r=>r.replace(/[.\s–—:-]/g,'')))];
   const validos=ruts.filter(rutValidoContenido);
@@ -4967,8 +5027,8 @@ async function revisarContenidoCedula(){
   if(lecturaContenidoActiva)return;
   const input=document.getElementById('archivoContenido'),archivo=input.files?.[0]||originalRecuperadoLector?.file||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
   if(!archivo){mostrarToast('Selecciona una imagen JPG/PNG o un PDF.','warn');return;}
-  const esPDF=archivo.type==='application/pdf'||/\.pdf$/i.test(archivo.name);
-  if(!esPDF&&!/image\/(jpeg|png)/.test(archivo.type)){mostrarToast('Usa JPG, PNG o PDF.','warn');return;}
+  const formato=formatoLecturaMiner(archivo),esPDF=formato==='pdf',esOffice=['docx','xlsx','xls','csv'].includes(formato);
+  if(!formato){mostrarToast('Usa JPG, PNG, PDF, DOCX, XLSX, XLS o CSV. Convierte DOC a DOCX o PDF.','warn');return;}
   if(archivo.size>12*1024*1024){mostrarToast('El archivo supera 12 MB. Usa una copia de menor tamaño.','warn');return;}
   const nombre=document.getElementById('nombreContenido').value,rut=document.getElementById('rutContenido').value,tipo=tipoDocumentoContenido;
   const estado=document.getElementById('estadoContenido'),resultado=document.getElementById('resultadoContenido'),textoPanel=document.getElementById('textoContenido');
@@ -4979,7 +5039,7 @@ async function revisarContenidoCedula(){
   ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
   let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,lecturaTerminada=false;
   try{
-    const motores=await cargarMotorContenido();comprobarLectura();
+    const motores=esOffice?null:await cargarMotorContenido();comprobarLectura();
     async function reconocer(imagen,modo='3',origen=null){
       if(!worker)worker=await motores.ocr.createWorker('spa',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',logger:m=>{if(m.status==='recognizing text')estado.textContent='Leyendo contenido: '+Math.round((m.progress||0)*100)+' %';}});
       await worker.setParameters({tessedit_pageseg_mode:modo,preserve_interword_spaces:'1',tessedit_char_whitelist:''});
@@ -5001,8 +5061,8 @@ async function revisarContenidoCedula(){
       }
       return texto;
     }
-    let texto='',paginas=1,limitado=false;const orientaciones=[];
-    if(esPDF){
+    let texto='',avisoOffice='',paginas=1,limitado=false;const orientaciones=[];
+    if(esOffice){const lectura=await leerOfficeMiner(archivo);texto=lectura.texto;avisoOffice=lectura.aviso;}else if(esPDF){
       pdf=await motores.pdf.getDocument({data:new Uint8Array(await archivo.arrayBuffer()),isEvalSupported:false}).promise;
       paginas=pdf.numPages;
       for(let i=1;i<=paginas;i++){
@@ -5034,10 +5094,11 @@ async function revisarContenidoCedula(){
     evidenciaLecturaContenido={archivo,fecha:analisis.fecha,tipo:analisis.tipo,fragmento:analisis.evidenciaFecha,paginas,limitado};
     document.getElementById('fechaConfirmadaContenido').value=analisis.fecha||'';
     document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido();
-    const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':analisis.tipo==='antecedentes'?'certificado de antecedentes':analisis.tipo==='contrato'?'contrato de trabajo':analisis.tipo==='hoja_vida'?'hoja de vida del conductor':'documento sin identificar';
+    const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':analisis.tipo==='antecedentes'?'certificado de antecedentes':analisis.tipo==='contrato'?'contrato de trabajo':analisis.tipo==='portal'?'captura de calificaciones de portal':analisis.tipo==='hoja_vida'?'hoja de vida del conductor':({epp:'registro de entrega EPP',curso:'curso / inducción',odi:'ODI / derecho a saber'}[analisis.tipo]||'documento sin identificar');
     const lineas=[limitado?'Lectura parcial: quedan páginas pendientes.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':analisis.tipo!=='sin identificar'?'Tipo de documento reconocido. Falta confirmar el RUN o completar la lectura antes de asociarlo.':'No se pudo identificar el documento. Prueba una foto más nítida y encuadrada.',
       ...(tipo==='cedula'?[coberturaCedulaMiner(texto).mensaje,...Object.entries(fechasCedula).map(([k,v])=>k+' (texto etiquetado): '+(v||'No confirmado'))]:[]),
       ...orientaciones.filter(o=>o.grados).map(o=>'Orientación de lectura: página '+o.pagina+' girada '+o.grados+'°. El original se conserva sin cambios.'),
+      ...(avisoOffice?[avisoOffice]:[]),
       'Tipo leído: '+tipoLeido,
       ...(analisis.camposLaborales||[]).map(c=>c.etiqueta+': '+c.valor),
       ...(analisis.avisoLaboral?[analisis.avisoLaboral]:[]),
@@ -5053,13 +5114,13 @@ async function revisarContenidoCedula(){
       'Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.',
       'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
     for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
-    const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);
+    if(!esOffice){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);}
     if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
-    estado.textContent='Lectura terminada · '+paginas+' página(s).'+(analisis.tipo==='sin identificar'||!analisis.fecha?' Datos sin confirmar: revisa el original.':'');
+    estado.textContent='Lectura terminada · '+(esOffice?'archivo '+formato.toUpperCase():paginas+' página(s).')+(analisis.tipo==='sin identificar'||!analisis.fecha?' Datos sin confirmar: revisa el original.':'');
     ultimaLecturaGuardable={archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre};
-    await guardarDesdeLector().catch(errorGuardarLector);lecturaTerminada=true;
-  }catch(error){estado.textContent=/^Cambió la cuenta, el día o la ficha/.test(error.message)?error.message:'No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
+    if(!esOffice)await guardarDesdeLector().catch(errorGuardarLector);else document.getElementById('estadoGuardadoLector').textContent='Revisa el texto y la ficha antes de guardar este archivo Office.';lecturaTerminada=true;
+  }catch(error){estado.textContent=/^Cambió la cuenta, el día o la ficha/.test(error.message)?error.message:esOffice?'No se completó la lectura: '+String(error.message||'Archivo no legible').slice(0,240):'No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
   finally{
     try{if(worker)await worker.terminate();}catch{}
     try{if(workerNumeros)await workerNumeros.terminate();}catch{}
@@ -5067,7 +5128,7 @@ async function revisarContenidoCedula(){
     lecturaContenidoActiva=false;
     for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=false;
   }
-  if(lecturaTerminada&&['cedula','licencia'].includes(tipo))await detectarFotoDocumentoMiner();
+  if(lecturaTerminada&&!esOffice&&['cedula','licencia'].includes(tipo))await detectarFotoDocumentoMiner();
 }
 
 </script>
@@ -5297,7 +5358,7 @@ async function guardarDesdeLector(){
  if(t.contextoLocal&&!sigueContextoLocal(t.contextoLocal))throw new Error('Cambió la cuenta o el día. Abre nuevamente la ficha antes de guardar.');
  const key=claveOriginalFicha(t,t.requisito),file=document.getElementById('archivoContenido').files?.[0]||originalRecuperadoLector?.file||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
  if(!file)throw new Error('Selecciona el documento que quieres guardar en esta ficha.');
- if(file.size>12*1024*1024||!(/image\/(jpeg|png)/.test(file.type)||file.type==='application/pdf'||/\.pdf$/i.test(file.name)))throw new Error('Usa JPG, PNG o PDF de hasta 12 MB.');
+ if(file.size>12*1024*1024||!formatoLecturaMiner(file))throw new Error('Usa JPG, PNG, PDF, DOCX, XLSX, XLS o CSV de hasta 12 MB.');
  const lectura=ultimaLecturaGuardable?.archivo===file?ultimaLecturaGuardable:null;
  const elementosFoto=[...document.getElementById('resultadoFotoDocumento').querySelectorAll('img,p')].map(e=>e.tagName==='IMG'?{imagen:e.src,alt:e.alt}:{texto:e.textContent});
  const rostros=elementosFoto.length?{elementos:elementosFoto,estado:document.getElementById('estadoFotoDocumento').textContent}:originalRecuperadoLector?.file===file?originalRecuperadoLector.rostros:null;
@@ -5326,8 +5387,8 @@ function originalGuardadoEnTarjeta(item,t){
   const consulta=operarOriginalFicha(key).then(r=>{originalesFichaCache.set(key,r?{...r,url:URL.createObjectURL(r.file)}:null);if(r){renderizar();if(document.getElementById('centroRevision')?.classList.contains('active'))pintarDocumentosCentroRevision();}}).catch(()=>{});consultasOriginalesFicha.set(key,consulta);
  }
  if(!r)return '';
- const pdf=r.tipo==='application/pdf'||/\.pdf$/i.test(r.nombre);
- return `<div style="margin-top:12px"><b>Original guardado en esta ficha</b><p class="small">${esc(r.nombre)} · Revisión humana pendiente</p>${pdf?`<a href="${esc(r.url)}" target="_blank" rel="noopener">Abrir PDF original</a>`:`<img src="${esc(r.url)}" alt="Original guardado de ${esc(item.nombre)}" style="display:block;width:100%;max-height:220px;object-fit:contain">`}${r.lectura?.nombreVisual?.imagen?.startsWith('data:image/jpeg')?renderEvidenciaNombre(r.lectura.nombreVisual):''}<p class="small">Guardado en este navegador. Los datos importados de Excel se muestran por separado.</p></div>`;
+ const pdf=r.tipo==='application/pdf'||/\.pdf$/i.test(r.nombre),office=/\.(docx|xlsx|xls|csv)$/i.test(r.nombre);
+ return `<div style="margin-top:12px"><b>Original guardado en esta ficha</b><p class="small">${esc(r.nombre)} · Revisión humana pendiente</p>${office?`<a href="${esc(r.url)}" download="${esc(r.nombre)}">Descargar original</a>`:pdf?`<a href="${esc(r.url)}" target="_blank" rel="noopener">Abrir PDF original</a>`:`<img src="${esc(r.url)}" alt="Original guardado de ${esc(item.nombre)}" style="display:block;width:100%;max-height:220px;object-fit:contain">`}${r.lectura?.nombreVisual?.imagen?.startsWith('data:image/jpeg')?renderEvidenciaNombre(r.lectura.nombreVisual):''}<p class="small">Guardado en este navegador. Los datos importados de Excel se muestran por separado.</p></div>`;
 }
 </script>
 <script>
