@@ -318,7 +318,7 @@ button{transition:.15s ease}
 #navUsuarios{display:none!important}
 #lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>*{display:none}
 #lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>label:has(#destinoFechaContenido){display:block}
-.decision-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid;border-radius:999px;font-weight:800}.decision-pill.verde{background:#103b25;color:#bbf7d0;border-color:#4ade80}.decision-pill.amarillo{background:#3b2b08;color:#fef08a;border-color:#facc15}.decision-pill.rojo{background:#45151a;color:#fecaca;border-color:#fb7185}.decision-originales label,#formDecisionMiner>label,#camposDocumentoDecisionMiner>label,#formDecisionMiner fieldset label{display:block;margin:12px 0;line-height:1.5}#formDecisionMiner .search{max-width:100%;margin:6px 0}#estadoDecisionMiner{margin:12px 0}#decisionLaboralMiner [hidden]{display:none!important}
+#lectorContenidoModal.lector-inline{position:static;width:100%!important;max-height:none!important;margin:16px 0!important;overflow:visible!important;box-shadow:none;border:1px solid var(--line)!important}#lectorContenidoModal [hidden]{display:none!important}.check-card:has(.lector-inline[open]){grid-column:1/-1}.titulo-detectado{margin:16px 0;padding:16px;border:2px solid #22c55e;border-radius:16px}.titulo-detectado mark{background:#123c26;color:#bbf7d0;text-decoration:underline;text-decoration-thickness:2px;padding:4px 8px}.decision-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid;border-radius:999px;font-weight:800}.decision-pill.verde{background:#103b25;color:#bbf7d0;border-color:#4ade80}.decision-pill.amarillo{background:#3b2b08;color:#fef08a;border-color:#facc15}.decision-pill.rojo{background:#45151a;color:#fecaca;border-color:#fb7185}.decision-originales label,#formDecisionMiner>label,#camposDocumentoDecisionMiner>label,#formDecisionMiner fieldset label{display:block;margin:12px 0;line-height:1.5}#formDecisionMiner .search{max-width:100%;margin:6px 0}#estadoDecisionMiner{margin:12px 0}#decisionLaboralMiner [hidden]{display:none!important}
 </style>
 </head>
 
@@ -3471,26 +3471,70 @@ function abrirCarpetaLaboralMiner(id){
  const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
  abrirCentroRevision(idTrabajador(c));
 }
+// Un único lector conserva sus controles al desplegarse y al actualizar las tarjetas.
+let ubicacionLectorInlineMiner=null;
+function separarLectorInlineMiner(){const lector=document.getElementById('lectorContenidoModal');if(ubicacionLectorInlineMiner&&lector)document.body.append(lector);}
+function montarLectorInlineMiner(){
+ const t=ubicacionLectorInlineMiner,lector=document.getElementById('lectorContenidoModal');if(!t||!lector)return;
+ const c=carpetasTrabajadores.find(c=>String(c.id)===String(t.id));
+ const panel=[...document.querySelectorAll('[data-lector-carpeta]')].find(p=>p.dataset.lectorCarpeta===String(t.id)&&p.dataset.lectorTipo===t.key);
+ if(!sigueContextoLocal(t.contexto)||!c||!panel){lector.close();lector.classList.remove('lector-inline');document.body.append(lector);ubicacionLectorInlineMiner=null;return;}
+ panel.append(lector);lector.classList.add('lector-inline');
+}
+function tituloReconocidoVisualMiner(datos,tipo){
+ if(!['cedula','medico'].includes(tipo))return null;
+ const normal=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
+ const patrones=tipo==='cedula'?[/^CEDULA DE IDENTIDAD\b/,/^CEDULA IDENTIDAD\b/]:[/^(?:INFORME DE |CERTIFICADO DE |RESULTADO DE |EVALUACION DE )?EXAMEN(?:ES)? (?:PRE OCUPACIONAL|PREOCUPACIONAL|OCUPACIONAL|DE ALTURA|PSICOSENSOMETRICO)\b/,/^(?:CERTIFICADO|INFORME) (?:MEDICO|OCUPACIONAL)\b/];
+ const lineas=lineasOCRNombre(datos);
+ for(let i=0;i<lineas.length;i++){
+  let palabras=[...(lineas[i].palabras||[])];
+  for(let salto=0;salto<2;salto++){
+   if(salto){const siguiente=lineas[i+1],a=palabras.at(-1)?.bbox,b=siguiente?.palabras?.[0]?.bbox;if(!a||!b||b.y0<a.y0||b.y0-a.y1>Math.max(1,a.y1-a.y0)*2||Math.abs(b.x0-palabras[0].bbox.x0)>Math.max(1,a.y1-a.y0)*4)break;palabras.push(...siguiente.palabras);}
+   const texto=palabras.map(w=>normal(w.text)).join(' ').replace(/\s+/g,' ').trim();
+   const match=patrones.map(p=>texto.match(p)).find(Boolean);if(!match)continue;
+   const cantidad=match[0].split(' ').length,seleccion=palabras.slice(0,cantidad),cajas=seleccion.map(w=>w.bbox);
+   if(seleccion.length!==cantidad||seleccion.some(w=>Number(w.confidence)<45)||cajas.some(b=>!b||![b.x0,b.y0,b.x1,b.y1].every(Number.isFinite)||b.x0<0||b.y0<0||b.x1<=b.x0||b.y1<=b.y0))continue;
+   return {texto:seleccion.map(w=>w.text).join(' '),cajas};
+  }
+ }
+ return null;
+}
+function dibujarTituloVisualMiner(base,titulo,origen){
+ const cajas=titulo.cajas.map(b=>({x:b.x0+(origen.x||0),y:b.y0+(origen.y||0),w:b.x1-b.x0,h:b.y1-b.y0}));
+ if(!cajas.length||cajas.some(b=>b.x<0||b.y<0||b.x+b.w>base.width+1||b.y+b.h>base.height+1)||Math.min(...cajas.map(b=>b.y))>base.height*.6)return null;
+ const escala=Math.min(1,1400/base.width),canvas=document.createElement('canvas');canvas.width=Math.round(base.width*escala);canvas.height=Math.round(base.height*escala);
+ const ctx=canvas.getContext('2d');ctx.drawImage(base,0,0,canvas.width,canvas.height);ctx.strokeStyle='#008a3b';ctx.fillStyle='rgba(0,180,75,.12)';ctx.lineWidth=3;
+ for(const b of cajas){const x=b.x*escala,y=b.y*escala,w=b.w*escala,h=b.h*escala;ctx.fillRect(x-3,y-3,w+6,h+6);ctx.strokeRect(x-3,y-3,w+6,h+6);ctx.beginPath();ctx.moveTo(x,y+h+1);ctx.lineTo(x+w,y+h+1);ctx.stroke();}
+ const imagen=canvas.toDataURL('image/jpeg',.85);canvas.width=0;canvas.height=0;
+ return {texto:titulo.texto,imagen,pagina:origen.pagina||1,rotacion:origen.rotacion||0};
+}
+function renderTituloVisualMiner(e){
+ const esc=escaparPerfilDocumento;
+ if(!e||typeof e.texto!=='string'||!/^data:image\/jpeg;base64,/.test(e.imagen||''))return '<p class="meta">No se pudo localizar un título con coordenadas fiables. No se dibuja un recuadro estimado.</p>';
+ return '<section class="titulo-detectado"><h3>Título leído en el documento</h3><p><mark>'+esc(e.texto)+'</mark></p><p class="meta">Página '+esc(e.pagina)+' · Verde significa texto detectado; la revisión del documento sigue pendiente.</p><img src="'+esc(e.imagen)+'" alt="Título detectado, subrayado y encuadrado en verde" style="display:block;width:100%;height:auto"></section>';
+}
+
 function abrirDocumentoCarpetaLaboralMiner(id,key){
+ if(ubicacionLectorInlineMiner?.id===id&&ubicacionLectorInlineMiner.key===key&&document.getElementById('lectorContenidoModal').open){cerrarLectorContenido();return;}
  const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
  const permitido=[...CLAVES_CARPETA_LABORAL,...CLAVES_MEDICAS_LABORAL,'otro'];if(!permitido.includes(key))return;
  if(!(c.archivos||[]).some(a=>tipoCarpetaLaboralMiner(a)===key)){mostrarToast('Este documento no está cargado. Añádelo a la carpeta.','warn');return;}
- return abrirLectorContenido(c.trabajador,c.rut,key==='cedula'?'cedula':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key,c.faena,key);
+ return abrirLectorContenido(c.trabajador,c.rut,key==='cedula'?'cedula':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key,c.faena,key,{id:c.id,key,contexto:contextoLocalMiner()});
 }
 function tarjetaDocumentoDecisionMiner(c,key){
  const esc=escaparPerfilDocumento,arr=(c.archivos||[]).filter(a=>tipoCarpetaLaboralMiner(a)===key),d=estadoDocumentoDecisionMiner(c,key);
  const abrir=()=>esc('abrirDocumentoCarpetaLaboralMiner('+JSON.stringify(c.id)+','+JSON.stringify(key)+')');
- return '<div class="check-card"><h4>'+esc(nombreReq(key))+'</h4>'+badgeDecisionMiner(d)+'<p class="meta">'+arr.length+' archivo(s)</p><div class="folder-actions">'+(arr.length?'<button class="mini blue" onclick="'+abrir()+'">Revisar '+esc(nombreReq(key))+'</button>':'')+botonesDecisionMiner(c,key)+'</div></div>';
+ return '<div class="check-card"><h4>'+esc(nombreReq(key))+'</h4>'+badgeDecisionMiner(d)+'<p class="meta">'+arr.length+' archivo(s)</p><div class="folder-actions">'+(arr.length?'<button class="mini blue" onclick="'+abrir()+'">Revisar '+esc(nombreReq(key))+'</button>':'')+botonesDecisionMiner(c,key)+'</div><div data-lector-carpeta="'+esc(c.id)+'" data-lector-tipo="'+esc(key)+'"></div></div>';
 }
 function renderizarCarpetasLaboralesMiner(){
- const grid=document.getElementById('carpetasGrid');if(!grid)return;
+ const grid=document.getElementById('carpetasGrid');if(!grid)return;separarLectorInlineMiner();
  const q=normalizar(document.getElementById('buscarCarpeta')?.value||''),esc=escaparPerfilDocumento;
  const lista=carpetasTrabajadores.filter(c=>!q||normalizar([c.trabajador,c.rut,c.faena,...(c.archivos||[]).map(a=>a.nombre)].join(' ')).includes(q));
  grid.innerHTML=lista.map(c=>{
   const resumen=resumenCarpetaLaboralMiner(c),recibidos=resumen.filter(i=>i.archivos.length).length,decision=estadoCarpetaDecisionMiner(c),extras=clavesDecisionMiner(c).filter(k=>!CLAVES_CARPETA_LABORAL.includes(k));
   return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3>${badgeDecisionMiner(decision)}<p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de 5 tipos de documento presentes</b></p><p class="meta">Decisión documental de la carpeta. No determina aptitud médica ni autoriza acceso a faena.</p><div class="check-grid">${CLAVES_CARPETA_LABORAL.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')}</div>${extras.length?'<h4 style="margin-top:16px">Otros documentos cargados</h4><div class="check-grid">'+extras.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')+'</div>':''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button>${botonesDecisionMiner(c,'carpeta')}<button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div>${historialDecisionMiner(c)}<details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
  }).join('')||'<p class="empty">Elige una carpeta o varios archivos para empezar. Se esperan cédula, Cero Daño, antecedentes, contrato y EPP.</p>';
- pintarPendientesCarpetaLaboralMiner();
+ montarLectorInlineMiner();pintarPendientesCarpetaLaboralMiner();
 }
 function pintarPendientesCarpetaLaboralMiner(){
  const panel=document.getElementById('pendientesCarpetaLaboral');if(!panel)return;const esc=escaparPerfilDocumento;
@@ -4562,8 +4606,9 @@ let motorContenidoPromesa=null;
 let tipoDocumentoContenido='cedula';
 let contextoFechaContenido=null, destinosFechaContenido=[], urlOriginalContenido='';
 let evidenciaLecturaContenido=null;
-async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=''){
+async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito='',inline=null){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
+  const lector=document.getElementById('lectorContenidoModal');if(lector.open)lector.close();document.body.append(lector);lector.classList.remove('lector-inline');ubicacionLectorInlineMiner=inline;
   limpiarLecturaContenido();
   tipoDocumentoContenido=['otro','cero_dano'].includes(requisito)?'portal':['antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(requisito)?requisito:['cedula','licencia','medico','antecedentes','contrato','hoja_vida','epp','curso','odi'].includes(tipo)?tipo:'cedula';
   document.getElementById('tituloLectorContenido').textContent=tipoDocumentoContenido==='licencia'?'Leer licencia de conducir chilena':tipoDocumentoContenido==='medico'?'Leer documento médico':'Leer cédula de identidad chilena';
@@ -4582,8 +4627,11 @@ async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=
   document.getElementById('avisoIdentidadLector').hidden=tipoDocumentoContenido!=='cedula';
   for(const id of ['avisoCalidadVisualContenido','estadoFotoDocumento'])document.getElementById(id).hidden=!['cedula','licencia'].includes(tipoDocumentoContenido);
   prepararConfirmacionFechaContenido();
-  document.getElementById('lectorContenidoModal').showModal();
+  if(inline){montarLectorInlineMiner();lector.show();}else lector.showModal();
+  const apertura=contextoFechaContenido;
   await recuperarDocumentoLector().catch(errorGuardarLector);
+  if(contextoFechaContenido!==apertura)return;
+  if(inline&&contextoFechaContenido?.trabajador===nombre&&sigueContextoLocal(inline.contexto)&&(!originalRecuperadoLector?.lectura||(['cedula','medico'].includes(tipoDocumentoContenido)&&originalRecuperadoLector.lectura.tituloVisual===undefined))&&(originalRecuperadoLector?.file||destinosFechaContenido.length))revisarContenidoCedula();
 }
 function prepararConfirmacionFechaContenido(){
   destinosFechaContenido=[];
@@ -4690,7 +4738,7 @@ function confirmarFechaContenido(){
 function cerrarLectorContenido(){
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura antes de cerrar.','warn');return;}
   limpiarLecturaContenido();
-  document.getElementById('lectorContenidoModal').close();
+  const lector=document.getElementById('lectorContenidoModal');lector.close();lector.classList.remove('lector-inline');document.body.append(lector);ubicacionLectorInlineMiner=null;
 }
 document.getElementById('lectorContenidoModal').addEventListener('cancel',event=>{
   if(lecturaContenidoActiva)event.preventDefault();else limpiarLecturaContenido();
@@ -5113,7 +5161,7 @@ async function revisarContenidoCedula(){
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
-  let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,lecturaTerminada=false,paginaLectura=1,totalPaginasLectura=1;
+  let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,tituloVisual=null,lecturaTerminada=false,paginaLectura=1,totalPaginasLectura=1;
   try{
     const motores=esOffice?null:await cargarMotorContenido();comprobarLectura();
     async function reconocer(imagen,modo='3',origen=null){
@@ -5122,6 +5170,7 @@ async function revisarContenidoCedula(){
       const {data}=await worker.recognize(imagen,{}, {text:true,blocks:true});comprobarLectura();
       reconocer.confianzaOrientacion=Number(data.confidence)||0;
       if(origen&&tipo==='cedula'){const campos=localizarCamposCedulaOCR(data);if(campos.length&&(!evidenciaNombre||puntajeCamposCedula(campos)>puntajeCamposCedula(evidenciaNombre.campos)))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
+      if(origen?.tabla&&!tituloVisual){const titulo=tituloReconocidoVisualMiner(data,tipo);if(titulo)tituloVisual=dibujarTituloVisualMiner(origen.base,titulo,origen);}
       let texto=data.text||'';
       if(origen?.tabla)for(const zona of zonasFechaTablaMiner(data,origen)){
        texto+=await releerFechaTablaMiner(origen,zona,async(celda,modoCelda,idioma)=>{
@@ -5146,7 +5195,7 @@ async function revisarContenidoCedula(){
         const pagina=await pdf.getPage(i),contenido=await pagina.getTextContent();
         let parcial=contenido.items.map(x=>(x.str||'')+(x.hasEOL?'\n':' ')).join('');
         // Renderizar también PDFs con una capa de texto escasa o irrelevante.
-        if(parcial.replace(/\s/g,'').length<80||tipo==='cedula'||tipo==='licencia'){
+        if(parcial.replace(/\s/g,'').length<80||tipo==='cedula'||tipo==='licencia'||tipo==='medico'){
           const inicial=pagina.getViewport({scale:1}),escala=Math.min(2,2400/Math.max(inicial.width,inicial.height));
           const viewport=pagina.getViewport({scale:escala}),canvas=document.createElement('canvas');
           canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
@@ -5191,11 +5240,12 @@ async function revisarContenidoCedula(){
       'Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.',
       tipo==='portal'?'Comprueba por separado el estado y la fecha de cada calificación. No se guarda un vencimiento global ni se acredita acceso.':'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
     for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
+    if(!esOffice&&['cedula','medico'].includes(tipo)){const titulo=document.createElement('div');titulo.innerHTML=renderTituloVisualMiner(tituloVisual);resultado.prepend(titulo);}
     if(!esOffice&&tipo==='cedula'){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);}
     if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
     estado.textContent='Lectura terminada · '+(esOffice?'archivo '+formato.toUpperCase():paginas+' página(s).')+(analisis.tipo==='sin identificar'||!analisis.fecha?' Datos sin confirmar: revisa el original.':'');
-    ultimaLecturaGuardable={archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre};
+    ultimaLecturaGuardable={archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre,tituloVisual};
     if(!esOffice)await guardarDesdeLector().catch(errorGuardarLector);else document.getElementById('estadoGuardadoLector').textContent='Revisa el texto y la ficha antes de guardar este archivo Office.';lecturaTerminada=true;
   }catch(error){estado.textContent=/^Cambió la cuenta, el día o la ficha/.test(error.message)?error.message:esOffice?'No se completó la lectura: '+String(error.message||'Archivo no legible').slice(0,240):'No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
   finally{
@@ -5439,7 +5489,7 @@ async function guardarDesdeLector(){
  const lectura=ultimaLecturaGuardable?.archivo===file?ultimaLecturaGuardable:null;
  const elementosFoto=[...document.getElementById('resultadoFotoDocumento').querySelectorAll('img,p')].map(e=>e.tagName==='IMG'?{imagen:e.src,alt:e.alt}:{texto:e.textContent});
  const rostros=elementosFoto.length?{elementos:elementosFoto,estado:document.getElementById('estadoFotoDocumento').textContent}:originalRecuperadoLector?.file===file?originalRecuperadoLector.rostros:null;
- const registro={key,file,rostros,nombre:file.name,tipo:file.type,requisito:t.requisito,trabajador:t.trabajador,rut:t.rut,faena:t.faena,guardadoEn:new Date().toISOString(),lectura:lectura?{lineas:lectura.lineas,texto:lectura.texto,nombreVisual:lectura.nombreVisual}:originalRecuperadoLector?.file===file?originalRecuperadoLector.lectura:null};
+ const registro={key,file,rostros,nombre:file.name,tipo:file.type,requisito:t.requisito,trabajador:t.trabajador,rut:t.rut,faena:t.faena,guardadoEn:new Date().toISOString(),lectura:lectura?{lineas:lectura.lineas,texto:lectura.texto,nombreVisual:lectura.nombreVisual,tituloVisual:lectura.tituloVisual}:originalRecuperadoLector?.file===file?originalRecuperadoLector.lectura:null};
  document.getElementById('estadoGuardadoLector').textContent='Guardando original y lectura en este navegador…';
  await operarOriginalFicha(key,registro);
  const anteriorCache=originalesFichaCache.get(key);if(anteriorCache?.url)URL.revokeObjectURL(anteriorCache.url);
@@ -5452,7 +5502,7 @@ async function recuperarDocumentoLector(){
  if(!r||contextoFechaContenido!==t||claveOriginalFicha(t,t.requisito)!==key)return;
  originalRecuperadoLector=r;mostrarOriginalContenido();
  const resultado=document.getElementById('resultadoContenido');resultado.replaceChildren();
- if(r.lectura){for(const texto of r.lectura.lineas||[]){const p=document.createElement('p');p.className='meta';p.textContent=texto;resultado.append(p);}if(r.lectura.nombreVisual?.imagen?.startsWith('data:image/jpeg')){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(r.lectura.nombreVisual);resultado.prepend(visual);}document.getElementById('textoContenido').textContent=r.lectura.texto||'';}
+ if(r.lectura){for(const texto of r.lectura.lineas||[]){const p=document.createElement('p');p.className='meta';p.textContent=texto;resultado.append(p);}if(r.lectura.tituloVisual){const titulo=document.createElement('div');titulo.innerHTML=renderTituloVisualMiner(r.lectura.tituloVisual);resultado.prepend(titulo);}if(r.lectura.nombreVisual?.imagen?.startsWith('data:image/jpeg')){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(r.lectura.nombreVisual);resultado.prepend(visual);}document.getElementById('textoContenido').textContent=r.lectura.texto||'';}
  if(r.rostros){const panel=document.getElementById('resultadoFotoDocumento');panel.replaceChildren();for(const item of r.rostros.elementos||[]){if(item.imagen&&/^data:image\/(jpeg|png);base64,/.test(item.imagen)){const img=document.createElement('img');img.src=item.imagen;img.alt=item.alt||'Resultado de detección guardado';img.style.cssText='max-width:100%;max-height:340px;object-fit:contain';panel.append(img);}else if(item.texto){const p=document.createElement('p');p.textContent=item.texto;panel.append(p);}}document.getElementById('estadoFotoDocumento').textContent=r.rostros.estado||'Detección guardada; no verifica identidad.';}
  document.getElementById('estadoContenido').textContent='Original guardado: '+r.nombre;
  document.getElementById('estadoGuardadoLector').textContent='Documento recuperado de esta ficha · guardado el '+new Date(r.guardadoEn).toLocaleString('es-CL')+'. Revisa o vuelve a leer el original cuando lo necesites.';
@@ -5597,6 +5647,7 @@ function validarLecturaLocal(row){
  const fail=()=>{throw new Error('Lectura de ficha mal formada. No se restauró nada.');};
  if(!obj(row)||typeof row.nombre!=='string'||typeof row.tipo!=='string'||typeof row.trabajador!=='string'||typeof row.rut!=='string'||typeof row.faena!=='string'||typeof row.requisito!=='string')fail();
  if(row.lectura!=null){const l=row.lectura;if(!obj(l)||typeof l.texto!=='string'||!Array.isArray(l.lineas)||l.lineas.some(x=>typeof x!=='string'))fail();const e=l.nombreVisual;if(e!=null&&(!obj(e)||typeof e.imagen!=='string'||!Array.isArray(e.campos)||e.campos.some(x=>!obj(x)||typeof x.etiqueta!=='string'||typeof x.texto!=='string')))fail();}
+ if(row.lectura?.tituloVisual!=null){const t=row.lectura.tituloVisual;if(!obj(t)||typeof t.texto!=='string'||t.texto.length>300||typeof t.imagen!=='string'||!/^data:image\/jpeg;base64,/.test(t.imagen)||!Number.isInteger(t.pagina)||t.pagina<1)fail();}
  if(row.rostros!=null&&(!obj(row.rostros)||!Array.isArray(row.rostros.elementos)||row.rostros.elementos.some(x=>!obj(x)||(x.imagen!==undefined&&typeof x.imagen!=='string')||(x.texto!==undefined&&typeof x.texto!=='string'))))fail();
 }
 async function leerZipLocal(file,c){
