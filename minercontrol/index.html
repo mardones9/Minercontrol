@@ -383,6 +383,16 @@ button{transition:.15s ease}
 </div>
 
 <section id="dashboard" class="module active">
+  <details class="section" id="guiaPrimerUso">
+    <summary style="cursor:pointer;font-weight:700;font-size:1.1rem">Cómo empezar en MinerControl</summary>
+    <p class="meta" style="margin:12px 0">Elige primero el día de trabajo en el calendario. Después sigue estos pasos.</p>
+    <ol style="padding-left:22px;display:grid;gap:16px">
+      <li><b>Carga los documentos.</b><p class="meta">Agrupa los archivos por trabajador y faena. Comprueba el nombre y RUN detectados y usa «Enviar a acreditación» para incorporarlos a la ficha; quedarán pendientes de revisión.</p><button class="mini blue" onclick="irModuloRapido('carpetas')">Ir a cargar documentos</button></li>
+      <li><b>Revisa el original.</b><p class="meta">En «Revisar documentos», elige al trabajador, abre su archivo y compara los datos y el vencimiento con el original.</p><button class="mini blue" onclick="abrirCentroRevision()">Ir a revisar documentos</button></li>
+      <li><b>Consulta lo pendiente y guarda una copia.</b><p class="meta">En «Acreditación» verás qué falta por revisar. Leer un archivo o enviarlo a revisión no lo aprueba. Descarga un respaldo para conservar los originales.</p><button class="mini blue" onclick="irModuloRapido('acreditacion')">Ver pendientes de acreditación</button></li>
+    </ol>
+  </details>
+
   <div class="section" id="documentacionDiaPanel">
     <h2 id="tituloDocumentacionDia">Documentación del día</h2>
     <p class="meta" id="resumenDocumentacionDia"></p>
@@ -641,7 +651,7 @@ button{transition:.15s ease}
   <div class="alert" id="confirmacionFechaContenido" hidden>
     <h3>Confirmar vencimiento</h3>
     <p class="meta">Compara la fecha con el original. Esta confirmación guarda el vencimiento; la acreditación requiere revisar los demás requisitos.</p>
-    <label>Documento cargado <select class="search" id="destinoFechaContenido" onchange="mostrarOriginalContenido()"></select></label>
+    <label>Documento cargado <select class="search" id="destinoFechaContenido" onchange="cambiarOriginalContenido()"></select></label>
     <label>Fecha de vencimiento <input class="search" type="date" id="fechaConfirmadaContenido" onchange="document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido()"></label>
     <p id="estadoFechaContenido" role="status"></p>
     <label><input type="checkbox" id="aceptarFechaContenido"> Revisé la fecha de vencimiento en el documento original.</label>
@@ -699,7 +709,7 @@ button{transition:.15s ease}
     </div>
 
     <div class="actions">
-      <button class="blue" onclick="crearCarpetaDemoDios()">Cargar demo nivel dios</button>
+      <button class="blue" onclick="crearCarpetaDemoDios()">Cargar ejemplo ficticio</button>
       <button class="green" onclick="exportarCarpetasExcel()">Exportar carpetas Excel</button>
       <button class="purple" onclick="exportarMatrizControl()">Exportar matriz control</button>
       <button class="yellow" onclick="generarZIPMasivo()">ZIP masivo listas</button>
@@ -2154,10 +2164,16 @@ function seleccionarCentroRevision(cod){
  const t=personasCentroRevision().find(t=>idTrabajador(t)===cod);if(!t)return;trabajadorCentroRevision=t;
  pintarDocumentosCentroRevision();
 }
+function clavesDocumentosCentroRevision(t,req){
+ const cargados=documentosDelTrabajador(t).map(requisitoDeDocumento);
+ for(const carpeta of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,t)))for(const a of carpeta.archivos||[])cargados.push(a.tipo);
+ const conocidos=new Set(CATALOGO_REQUISITOS.map(r=>r.key));
+ return [...new Set(['cedula','licencia',...(req.reqs||[]),'examen',...cargados.filter(k=>conocidos.has(k))])];
+}
 function pintarDocumentosCentroRevision(){
  const t=trabajadorCentroRevision,panel=document.getElementById('documentosCentroRevision');if(!t||!panel)return;
  const esc=escaparPerfilDocumento,req=evaluarRequisitosTrabajador(t);
- const keys=[...new Set(['cedula','licencia',...(req.reqs||[]),'examen'])];
+ const keys=clavesDocumentosCentroRevision(t,req);
  panel.innerHTML='<h3>'+esc(t.trabajador)+' · '+esc(t.rut)+'</h3><p class="meta">Abre el documento para ver su original, los campos leídos y la detección de foto. Cada archivo se guarda en el requisito elegido.</p>';
  for(const key of keys){const item=req.checklist.find(i=>i.key===key)||{key,nombre:nombreReq(key),estado:'Falta',documentos:[]};const c=document.createElement('div');c.className='section';c.innerHTML='<h3>'+esc(item.nombre)+'</h3>'+originalGuardadoEnTarjeta(item,t);const b=document.createElement('button');b.className='mini blue';b.textContent='Abrir '+item.nombre;b.onclick=()=>abrirLectorContenido(t.trabajador,t.rut,key==='cedula'||key==='licencia'?key:'medico',t.faena,key);c.append(b);panel.append(c);}
 }
@@ -2985,6 +3001,7 @@ function formatearNombreDetectado(txt){
     .replace(/[-]+/g," ")
     .replace(/\b(cedula|cédula|carnet|identidad|licencia|conducir|examen|ocupacional|preocupacional|contrato|anexo|odi|derecho|saber|antecedentes|certificado|epp|curso|foto|vence|vto|vigente|aprobado|pendiente|vencido|rechazado|pdf|jpg|jpeg|png|docx?|xlsx?|csv)\b/ig," ")
     .replace(/\b(20\d{2}|19\d{2})[-_ .]?\d{1,2}[-_ .]?\d{1,2}\b/g," ")
+    .replace(/\b\d+\b/g," ")
     .replace(/\s+/g," ")
     .trim();
 
@@ -3303,7 +3320,7 @@ function importarCarpetasDesdeFiles(files,modo="carpeta"){
   if(resumen){
     resumen.innerHTML=`<div class="alert ${bajaConfianza?"problem":""}"><b>🤖 Importación automática lista</b><br>Carpetas/grupos creados: ${creadas}<br>Documentos clasificados: ${autoDocs} de ${files.length}<br>RUT detectados: ${ruts}<br>${bajaConfianza?"⚠️ Hay grupos con baja confianza. Revisa y edita datos si corresponde.":"✅ Detección estable."}</div>`;
   }
-  mostrarToast(`🤖 Importación nivel dios lista: ${creadas} grupo(s).`,"ok");
+  mostrarToast(`Carga de documentos lista: ${creadas} grupo(s).`,"ok");
 }
 
 function renderizarCarpetas(){
@@ -4704,6 +4721,12 @@ function analizarTextoCedula(texto,nombreEsperado='',rutEsperado=''){
   return analizarDocumentoChileno(texto,nombreEsperado,rutEsperado,'cedula');
 }
 
+function cambiarOriginalContenido(){
+ if(lecturaContenidoActiva)return;
+ originalRecuperadoLector=null;ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;
+ document.getElementById('archivoContenido').value='';
+ invalidarLecturaContenido();
+}
 function invalidarLecturaContenido(){
   if(lecturaContenidoActiva)return;
   evidenciaLecturaContenido=null;
