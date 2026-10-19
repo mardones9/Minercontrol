@@ -318,7 +318,7 @@ button{transition:.15s ease}
 #navUsuarios{display:none!important}
 #lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>*{display:none}
 #lectorContenidoModal[data-tipo="portal"] #confirmacionFechaContenido>label:has(#destinoFechaContenido){display:block}
-#lectorContenidoModal.lector-inline{position:static;width:100%!important;max-height:none!important;margin:16px 0!important;overflow:visible!important;box-shadow:none;border:1px solid var(--line)!important}#lectorContenidoModal [hidden]{display:none!important}.check-card:has(.lector-inline[open]){grid-column:1/-1}.titulo-detectado{margin:16px 0;padding:16px;border:2px solid #22c55e;border-radius:16px}.titulo-detectado mark{background:#123c26;color:#bbf7d0;text-decoration:underline;text-decoration-thickness:2px;padding:4px 8px}.decision-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid;border-radius:999px;font-weight:800}.decision-pill.verde{background:#103b25;color:#bbf7d0;border-color:#4ade80}.decision-pill.amarillo{background:#3b2b08;color:#fef08a;border-color:#facc15}.decision-pill.rojo{background:#45151a;color:#fecaca;border-color:#fb7185}.decision-originales label,#formDecisionMiner>label,#camposDocumentoDecisionMiner>label,#formDecisionMiner fieldset label{display:block;margin:12px 0;line-height:1.5}#formDecisionMiner .search{max-width:100%;margin:6px 0}#estadoDecisionMiner{margin:12px 0}#decisionLaboralMiner [hidden]{display:none!important}
+.resultado-documental-final ul{margin:12px 0 16px 22px}.resultado-documental-final li{margin:6px 0;overflow-wrap:anywhere}#lectorContenidoModal.lector-inline{position:static;width:100%!important;max-height:none!important;margin:16px 0!important;overflow:visible!important;box-shadow:none;border:1px solid var(--line)!important}#lectorContenidoModal [hidden]{display:none!important}.check-card:has(.lector-inline[open]){grid-column:1/-1}.titulo-detectado{margin:16px 0;padding:16px;border:2px solid #22c55e;border-radius:16px}.titulo-detectado mark{background:#123c26;color:#bbf7d0;text-decoration:underline;text-decoration-thickness:2px;padding:4px 8px}.decision-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid;border-radius:999px;font-weight:800}.decision-pill.verde{background:#103b25;color:#bbf7d0;border-color:#4ade80}.decision-pill.amarillo{background:#3b2b08;color:#fef08a;border-color:#facc15}.decision-pill.rojo{background:#45151a;color:#fecaca;border-color:#fb7185}.decision-originales label,#formDecisionMiner>label,#camposDocumentoDecisionMiner>label,#formDecisionMiner fieldset label{display:block;margin:12px 0;line-height:1.5}#formDecisionMiner .search{max-width:100%;margin:6px 0}#estadoDecisionMiner{margin:12px 0}#decisionLaboralMiner [hidden]{display:none!important}
 </style>
 </head>
 
@@ -3408,7 +3408,7 @@ function vigenteContextoDecisionMiner(t){
  const cap=t.key==='carpeta'?capturaCarpetaDecisionMiner(t.c):capturaDecisionMiner(t.c,t.key);return cap.firma===t.firma&&Boolean(cap.firma);
 }
 async function abrirDecisionMiner(id,key){
- if(lecturaContenidoActiva||guardandoDecisionMiner){mostrarToast('Espera a que termine la operación actual.','warn');return;}
+ if(lecturaContenidoActiva||guardandoDecisionMiner||(typeof loteDocumentalMiner!=='undefined'&&loteDocumentalMiner)){mostrarToast('Espera a que termine la operación actual.','warn');return;}
  const c=carpetasTrabajadores.find(c=>c.id===id);if(!c||(key!=='carpeta'&&!clavesDecisionMiner(c).includes(key)))return;
  const contexto=contextoLocalMiner(),perfil=perfilDecisionMiner(c),token={c,key,contexto,perfil,firma:''};contextoDecisionMiner=token;
  const estado=document.getElementById('estadoDecisionMiner');estado.textContent='Comprobando los originales…';
@@ -3481,6 +3481,40 @@ function montarLectorInlineMiner(){
  if(!sigueContextoLocal(t.contexto)||!c||!panel){lector.close();lector.classList.remove('lector-inline');document.body.append(lector);ubicacionLectorInlineMiner=null;return;}
  panel.append(lector);lector.classList.add('lector-inline');
 }
+function portalPorColumnasMiner(datos,origen){
+ const normal=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+ const palabras=lineasOCRNombre(datos).flatMap(l=>l.palabras||[]).filter(w=>w.bbox&&Number(w.confidence)>=40&&[w.bbox.x0,w.bbox.y0,w.bbox.x1,w.bbox.y1].every(Number.isFinite));
+ const anclas=[];
+ for(const w of palabras.filter(w=>/^CALIFICACION$/.test(normal(w.text)))){
+  const b=w.bbox,h=Math.max(1,b.y1-b.y0),candidatas=palabras.filter(v=>/^(SALUD|LEGAL|ENTRENAMIENTO)$/.test(normal(v.text))&&v.bbox.x0>b.x0&&v.bbox.x0-b.x1<h*16&&Math.abs(v.bbox.y0-b.y0)<h).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+  if(candidatas.length)anclas.push({categoria:normal(candidatas[0].text),caja:{x0:b.x0,y0:Math.min(b.y0,candidatas[0].bbox.y0),x1:candidatas[0].bbox.x1,y1:Math.max(b.y1,candidatas[0].bbox.y1)}});
+ }
+ for(const w of palabras.filter(w=>/^[A-Z0-9]+(?:-[A-Z0-9]+){2,5}$/.test(normal(w.text))&&normal(w.text).length<=60))anclas.push({categoria:normal(w.text),caja:{...w.bbox}});
+ const unicas=anclas.filter(a=>anclas.filter(b=>b.categoria===a.categoria).length===1);if(unicas.filter(a=>['SALUD','LEGAL','ENTRENAMIENTO'].includes(a.categoria)).length<2)return null;
+ const base=origen.base,ctx=base.getContext('2d',{willReadFrequently:true}),salida=[];
+ for(const a of unicas){
+  const b=a.caja,h=Math.max(1,b.y1-b.y0),vecinas=unicas.filter(v=>v.caja.x0>b.x1&&Math.abs(v.caja.y0-b.y0)<h*2),derecha=vecinas.length?Math.min(...vecinas.map(v=>v.caja.x0))-h*2:base.width-(origen.x||0);
+  const region=palabras.filter(v=>v.bbox.x0>=b.x0-h*.5&&v.bbox.x1<derecha&&v.bbox.y0>=b.y1-h*.1&&v.bbox.y0<b.y1+h*4).sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0);
+  let fecha='',sinFecha=false,detalle='Fecha no confirmada';
+  for(const inicio of region){
+   if(!/^(EXPIRA|VENCE|NO)$/.test(normal(inicio.text)))continue;
+   const fila=region.filter(v=>Math.abs(v.bbox.y0-inicio.bbox.y0)<h*.7).sort((a,b)=>a.bbox.x0-b.bbox.x0).map(v=>v.text).join(' '),n=normal(fila);
+   if(/NO\s+TIENE\s+FECHA\s+DE\s+EXPIRACION/.test(n)){sinFecha=true;detalle='Sin fecha de expiración indicada en la captura';break;}
+   const fechas=[...n.matchAll(/\b[0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{4}\b/g)];
+   if(fechas.length===1){fecha=fechaDocumentoChileno('VENCIMIENTO '+fechas[0][0],'cedula').fecha||'';if(fecha)detalle='Expira '+fecha.split('-').reverse().join('/');}break;
+  }
+  let color='sin confirmar';
+  const x=Math.floor((origen.x||0)+b.x0-h*1.9),y=Math.floor((origen.y||0)+b.y0-h*.15),w=Math.ceil(h*1.6),alto=Math.ceil(h*1.4);
+  if(x>=0&&y>=0&&x+w<=base.width&&y+alto<=base.height){const pix=ctx.getImageData(x,y,w,alto).data;let rojos=0,verdes=0;for(let i=0;i<pix.length;i+=4){const [r,g,b]=[pix[i],pix[i+1],pix[i+2]];if(r>g*1.4&&r>b*1.4&&r>90&&r-Math.min(g,b)>55)rojos++;if(g>r*1.18&&g>b*1.2&&g>65&&g-Math.min(r,b)>35)verdes++;}if(rojos>=5&&rojos>verdes*2)color='rojo';if(verdes>=5&&verdes>rojos*2)color='verde';}
+  salida.push({categoria:a.categoria,color,fecha,sinFecha,detalle,pagina:origen.pagina||1});
+ }
+ return {categorias:salida,pagina:origen.pagina||1};
+}
+function renderPortalColumnasMiner(e){
+ const esc=escaparPerfilDocumento;if(!Array.isArray(e?.categorias)||!e.categorias.length||e.categorias.some(c=>!c||typeof c!=='object'||!(['SALUD','LEGAL','ENTRENAMIENTO'].includes(c.categoria)||typeof c.categoria==='string'&&c.categoria.length<=60&&/^[A-Z0-9]+(?:-[A-Z0-9]+){2,5}$/.test(c.categoria))))return '';
+ return '<section class="section"><h3>Calificaciones por columna</h3><p class="meta">Lectura de esta captura, no una consulta al portal. Los colores describen los indicadores visibles; no aprueban documentos ni autorizan acceso.</p><div class="check-grid">'+e.categorias.map(c=>{const color=['rojo','verde'].includes(c.color)?c.color:'amarillo',vencida=c.fecha&&c.fecha<hoyMiner();return '<div class="check-card"><h4>'+esc(c.categoria)+'</h4><p class="decision-pill '+color+'">Indicador '+esc(c.color)+' en la captura</p><p>'+esc(c.detalle)+'</p>'+(vencida?'<p class="meta">Fecha superada respecto de hoy. Solicita una captura actualizada.</p>':'')+'</div>';}).join('')+'</div></section>';
+}
+
 function tituloReconocidoVisualMiner(datos,tipo){
  if(!['cedula','medico'].includes(tipo))return null;
  const normal=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
@@ -3495,6 +3529,16 @@ function tituloReconocidoVisualMiner(datos,tipo){
    const cantidad=match[0].split(' ').length,seleccion=palabras.slice(0,cantidad),cajas=seleccion.map(w=>w.bbox);
    if(seleccion.length!==cantidad||seleccion.some(w=>Number(w.confidence)<45)||cajas.some(b=>!b||![b.x0,b.y0,b.x1,b.y1].every(Number.isFinite)||b.x0<0||b.y0<0||b.x1<=b.x0||b.y1<=b.y0))continue;
    return {texto:seleccion.map(w=>w.text).join(' '),cajas};
+  }
+ }
+ if(tipo==='cedula'){
+  const todas=lineas.flatMap(l=>l.palabras||[]),contexto=normal(todas.map(w=>w.text).join(' '));
+  if(/REPUBLICA DE CHILE|REGISTRO CIVIL/.test(contexto))for(const inicio of todas.filter(w=>normal(w.text)==='CEDULA'&&Number(w.confidence)>=60&&w.bbox)){
+   const h=inicio.bbox.y1-inicio.bbox.y0;
+   const fin=todas.filter(w=>normal(w.text)==='IDENTIDAD'&&Number(w.confidence)>=60&&w.bbox&&Math.abs(w.bbox.x0-inicio.bbox.x0)<h*2&&w.bbox.y0>=inicio.bbox.y0&&w.bbox.y0-inicio.bbox.y1<h*3);
+   if(fin.length!==1)continue;
+   const de=todas.find(w=>normal(w.text)==='DE'&&Number(w.confidence)>=60&&w.bbox&&w.bbox.x0>=inicio.bbox.x1&&w.bbox.x0-inicio.bbox.x1<h*2&&Math.abs(w.bbox.y0-inicio.bbox.y0)<h);
+   const seleccion=[inicio,...(de?[de]:[]),fin[0]];return {texto:seleccion.map(w=>w.text).join(' '),cajas:seleccion.map(w=>w.bbox)};
   }
  }
  return null;
@@ -3515,12 +3559,114 @@ function renderTituloVisualMiner(e){
 }
 
 function abrirDocumentoCarpetaLaboralMiner(id,key){
+ if(loteDocumentalMiner){mostrarToast('El análisis de la carpeta está en curso.','warn');return;}
  if(ubicacionLectorInlineMiner?.id===id&&ubicacionLectorInlineMiner.key===key&&document.getElementById('lectorContenidoModal').open){cerrarLectorContenido();return;}
  const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
  const permitido=[...CLAVES_CARPETA_LABORAL,...CLAVES_MEDICAS_LABORAL,'otro'];if(!permitido.includes(key))return;
  if(!(c.archivos||[]).some(a=>tipoCarpetaLaboralMiner(a)===key)){mostrarToast('Este documento no está cargado. Añádelo a la carpeta.','warn');return;}
  return abrirLectorContenido(c.trabajador,c.rut,key==='cedula'?'cedula':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key,c.faena,key,{id:c.id,key,contexto:contextoLocalMiner()});
 }
+let loteDocumentalMiner=null;
+function validarResumenAutomaticoMiner(r,vinculado=false){
+ const obj=v=>v&&typeof v==='object'&&!Array.isArray(v),fallo=()=>{throw new Error('El resultado documental del respaldo está mal formado.');};
+ if(!obj(r)||r.version!==1)fallo();
+ for(const k of ['tipo','rut','vencimiento'])if(typeof r[k]!=='string')fallo();
+ for(const k of ['coincideTipo','nombreCoincide','ambosLados','indefinido'])if(typeof r[k]!=='boolean')fallo();
+ if(r.vencimiento&&!fechaDecisionValidaMiner(r.vencimiento)||!Array.isArray(r.camposCedula)||r.camposCedula.length>20||r.camposCedula.some(v=>typeof v!=='string'))fallo();
+ if(r.contrato!==null){if(!obj(r.contrato))fallo();for(const k of ['inicio','termino'])if(typeof r.contrato[k]!=='string'||r.contrato[k]&&!fechaDecisionValidaMiner(r.contrato[k]))fallo();}
+ if(r.portal!==null){const p=r.portal;if(!obj(p)||!Array.isArray(p.categorias)||p.categorias.length>10)fallo();const vistos=new Set();for(const c of p.categorias){if(!obj(c)||typeof c.categoria!=='string'||vistos.has(c.categoria)||!['rojo','verde','sin confirmar'].includes(c.color)||typeof c.fecha!=='string'||c.fecha&&!fechaDecisionValidaMiner(c.fecha)||typeof c.sinFecha!=='boolean'||typeof c.detalle!=='string')fallo();vistos.add(c.categoria);}}
+ if(vinculado){for(const k of ['versionLector','contexto','perfil','hash','leidoEn'])if(typeof r[k]!=='string'||!r[k])fallo();if(!/^[a-f0-9]{64}$/.test(r.hash)||!Number.isFinite(Date.parse(r.leidoEn)))fallo();}
+ return true;
+}
+
+function resumenLecturaAutomaticoMiner(analisis,texto,tipo,nombreVisual,portalVisual){
+ const rutRotulado=rutTrabajadorRotuladoMiner(texto),unico=analisis.validos?.length===1?extraerRutTexto(analisis.validos[0]):'';
+ return {version:1,tipo:analisis.tipo,coincideTipo:analisis.coincideTipo===true,rut:rutRotulado||unico,nombreCoincide:/^Coincidencia textual/.test(analisis.nombre||''),vencimiento:analisis.fecha||'',camposCedula:(nombreVisual?.campos||[]).map(c=>c.etiqueta),ambosLados:tipo==='cedula'?Boolean(coberturaCedulaMiner(texto).frente&&coberturaCedulaMiner(texto).reverso):false,contrato:tipo==='contrato'?fechasLaboralesContratoMiner(texto):null,indefinido:tipo==='contrato'&&/DURACION[^\n]{0,60}INDEFINID[OA]|PLAZO INDEFINIDO/i.test(texto),portal:portalVisual||null};
+}
+async function vincularResultadoAutomaticoMiner(t,file,lectura){
+ if(!lectura?.resumenAutomatico||!t?.contextoLocal||contextoFechaContenido!==t||!sigueContextoLocal(t.contextoLocal))return;
+ const destino=destinosFechaContenido.find(d=>d.file===file&&carpetasTrabajadores.includes(d.c)&&d.c.archivos.includes(d.a)&&(d.c.archivosFisicos||[]).includes(file));if(!destino)return;
+ const perfil=perfilDecisionMiner(destino.c),hash=await hashArchivoLocal(file);
+ if(contextoFechaContenido!==t||!sigueContextoLocal(t.contextoLocal)||!carpetasTrabajadores.includes(destino.c)||!destino.c.archivos.includes(destino.a)||!(destino.c.archivosFisicos||[]).includes(file)||perfilDecisionMiner(destino.c)!==perfil)return;
+ const anterior=destino.a.resultadoAutomatico;
+ destino.a.resultadoAutomatico={versionLector:VERSION_LECTOR_MINER,contexto:t.contextoLocal.clave,perfil,hash,leidoEn:new Date().toISOString(),...lectura.resumenAutomatico};
+ await guardarLocal(false);if(errorOriginalesLocales){destino.a.resultadoAutomatico=anterior;throw new Error(errorOriginalesLocales);}
+}
+function resultadoDocumentoAutomaticoMiner(c,key){
+ const archivos=(c.archivos||[]).filter(a=>tipoCarpetaLaboralMiner(a)===key),observaciones=[],pendientes=[];
+ if(!archivos.length)return {key,estado:'Pendiente',observaciones,pendientes:['Falta '+nombreReq(key)+'.']};
+ const hoy=hoyMiner(),decision=estadoDocumentoDecisionMiner(c,key);
+ if(decision.registro&&decision.estado==='Rechazado')observaciones.push(nombreReq(key)+': rechazo registrado por el responsable. '+decision.motivo);
+ if(decision.registro&&decision.estado==='Pendiente')pendientes.push(nombreReq(key)+': comprobación pendiente registrada por el responsable. '+decision.motivo);
+ for(const a of archivos){
+  const originales=(c.archivosFisicos||[]).filter(f=>f.name===a.nombre);if(originales.length!==1){pendientes.push('Falta un original único para '+a.nombre+'.');continue;}
+  const huella=hashDecisionMiner(originales[0]),r=a.resultadoAutomatico;
+  if(!huella.hash||!r||r.version!==1||r.versionLector!==VERSION_LECTOR_MINER||r.contexto!==contextoLocalMiner().clave||r.perfil!==perfilDecisionMiner(c)||r.hash!==huella.hash){pendientes.push('Falta una lectura actual de '+a.nombre+'.');continue;}
+  if(r.tipo==='sin identificar'){pendientes.push('No se pudo identificar el contenido de '+a.nombre+'.');continue;}
+  const esperado=['cero_dano','otro'].includes(key)?'portal':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key;
+  if(r.coincideTipo!==true||r.tipo!==esperado){observaciones.push('El contenido de '+a.nombre+' no coincide con '+nombreReq(key)+'.');continue;}
+  if(!r.rut||!rutValidoContenido(r.rut))pendientes.push(nombreReq(key)+': RUN del trabajador no confirmado.');
+  else if(rutValidoContenido(c.rut)&&rutIdentidad(r.rut)!==rutIdentidad(c.rut))observaciones.push(nombreReq(key)+': el RUN leído no coincide con la ficha.');
+  if(r.nombreCoincide!==true&&key!=='cero_dano'&&key!=='otro')pendientes.push(nombreReq(key)+': nombre sin coincidencia completa.');
+  if(r.vencimiento&&fechaDecisionValidaMiner(r.vencimiento)&&r.vencimiento<hoy)observaciones.push(nombreReq(key)+': vencimiento leído '+r.vencimiento.split('-').reverse().join('/')+'.');
+  if(key==='cedula'){
+   if(!r.ambosLados)pendientes.push('Cédula: no se leyeron ambos lados.');
+   if(!Array.isArray(r.camposCedula)||!['NOMBRES','APELLIDOS','RUN'].every(k=>r.camposCedula.includes(k)))pendientes.push('Cédula: faltan campos de identidad por leer.');
+   if(!fechaDecisionValidaMiner(r.vencimiento))pendientes.push('Cédula: vencimiento no confirmado por lectura.');
+  }
+  if(key==='contrato'){
+   if(!fechaDecisionValidaMiner(r.contrato?.inicio))pendientes.push('Contrato: inicio sin lectura inequívoca.');
+   if(!r.indefinido&&!fechaDecisionValidaMiner(r.contrato?.termino))pendientes.push('Contrato: término o duración sin lectura inequívoca.');
+   if(r.contrato?.termino&&r.contrato.termino<hoy)observaciones.push('Contrato: término leído '+r.contrato.termino.split('-').reverse().join('/')+'.');
+  }
+  if(['cero_dano','otro'].includes(key)){
+   const categorias=Array.isArray(r.portal?.categorias)?r.portal.categorias:[];
+   if(!['SALUD','LEGAL','ENTRENAMIENTO'].every(k=>categorias.some(c=>c.categoria===k)))pendientes.push('Cero Daño: falta separar alguna calificación.');
+   for(const categoria of categorias){if(!categoria||typeof categoria.categoria!=='string')continue;if(categoria.color==='rojo')observaciones.push('Cero Daño: '+categoria.categoria+' muestra un indicador rojo en la captura.');if(categoria.fecha&&fechaDecisionValidaMiner(categoria.fecha)&&categoria.fecha<hoy)observaciones.push('Cero Daño: '+categoria.categoria+' tiene fecha '+categoria.fecha.split('-').reverse().join('/')+' superada.');if(!['verde','rojo'].includes(categoria.color)||!categoria.sinFecha&&!fechaDecisionValidaMiner(categoria.fecha))pendientes.push('Cero Daño: '+categoria.categoria+' sin indicador o fecha legible.');}
+  }
+  if(CLAVES_MEDICAS_LABORAL.includes(key)&&!fechaDecisionValidaMiner(r.vencimiento))pendientes.push(nombreReq(key)+': vigencia sin lectura inequívoca.');
+ }
+ if(emisorObligatorioDecisionMiner(key)){
+  const d=estadoDocumentoDecisionMiner(c,key).registro;
+  if(d?.emisor?.confirmado!==true||!String(d.emisor.canal||'').trim()||!String(d.emisor.referencia||'').trim())pendientes.push(nombreReq(key)+': falta registrar la comprobación con el emisor.');
+ }
+ return {key,estado:observaciones.length?'Con observaciones':pendientes.length?'Pendiente':'Sin observaciones automáticas',observaciones:[...new Set(observaciones)],pendientes:[...new Set(pendientes)]};
+}
+function resultadoCarpetaAutomaticoMiner(c){
+ const documentos=clavesDecisionMiner(c).map(key=>resultadoDocumentoAutomaticoMiner(c,key)),observaciones=documentos.flatMap(d=>d.observaciones),pendientes=documentos.flatMap(d=>d.pendientes);
+ if(!rutValidoContenido(c.rut)||!normalizar(c.trabajador)||!c.faena||nombreFaenaClave(c.faena)==='sinfaena')pendientes.unshift('Completa y compara nombre, RUN/RUT y faena de la ficha.');
+ return {estado:observaciones.length?'Con observaciones':pendientes.length?'Pendiente de comprobaciones':'Sin observaciones automáticas',observaciones:[...new Set(observaciones)],pendientes:[...new Set(pendientes)],documentos};
+}
+function renderResultadoCarpetaAutomaticoMiner(c){
+ const r=resultadoCarpetaAutomaticoMiner(c),esc=escaparPerfilDocumento,color=r.observaciones.length?'rojo':r.pendientes.length?'amarillo':'verde';
+ return '<section class="section resultado-documental-final"><h3>Resultado final documental</h3><p class="decision-pill '+color+'">'+esc(loteDocumentalMiner?.id===c.id?'Análisis en curso':r.estado)+'</p><p class="meta">Conclusión de los controles automáticos sobre los originales de esta carpeta. No certifica autenticidad ni decide contratación o acceso a faena.</p>'+(r.observaciones.length?'<h4>Observaciones detectadas</h4><ul>'+r.observaciones.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul>':'')+(r.pendientes.length?'<details><summary>Comprobaciones pendientes ('+r.pendientes.length+')</summary><ul>'+r.pendientes.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></details>':'<p>No se detectaron observaciones en los controles configurados. La decisión del responsable se registra por separado.</p>')+'<button class="mini blue" '+(loteDocumentalMiner?'disabled':'')+' onclick="'+esc('analizarCarpetaCompletaMiner('+JSON.stringify(c.id)+')')+'">'+(loteDocumentalMiner?'Analizando carpeta…':'Analizar carpeta completa')+'</button>'+(loteDocumentalMiner?.id===c.id?'<p role="status">'+esc(loteDocumentalMiner.mensaje)+'</p>':'')+'</section>';
+}
+async function analizarCarpetaCompletaMiner(id){
+ if(loteDocumentalMiner||lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura actual.','warn');return;}
+ const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
+ const t={id,c,contexto:contextoLocalMiner(),perfil:perfilDecisionMiner(c),archivos:[...(c.archivos||[])],fisicos:[...(c.archivosFisicos||[])],mensaje:'Preparando originales…'};loteDocumentalMiner=t;
+ const vigente=()=>sigueContextoLocal(t.contexto)&&carpetasTrabajadores.includes(c)&&perfilDecisionMiner(c)===t.perfil&&c.archivos.length===t.archivos.length&&t.archivos.every(a=>c.archivos.includes(a))&&(c.archivosFisicos||[]).length===t.fisicos.length&&t.fisicos.every(f=>c.archivosFisicos.includes(f));
+ try{
+  for(let i=0;i<t.archivos.length;i++){
+   if(!vigente())throw new Error('Cambió la cuenta, el día o la carpeta. Análisis detenido.');
+   const a=t.archivos[i],key=tipoCarpetaLaboralMiner(a),files=(c.archivosFisicos||[]).filter(f=>f.name===a.nombre);
+   t.mensaje='Documento '+(i+1)+' de '+t.archivos.length+': '+nombreReq(key);renderizarCarpetas();
+   if(files.length!==1)continue;
+   const previa=a.resultadoAutomatico;if(previa?.version===1&&!(key==='contrato'&&!previa.rut)&&previa.coincideTipo===true&&previa.tipo===(['cero_dano','otro'].includes(key)?'portal':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key)&&previa.versionLector===VERSION_LECTOR_MINER&&previa.contexto===t.contexto.clave&&previa.perfil===t.perfil&&previa.hash===await hashArchivoLocal(files[0]))continue;
+   await abrirLectorContenido(c.trabajador,c.rut,key==='cedula'?'cedula':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key,c.faena,key,{id:c.id,key,contexto:t.contexto,lote:true});
+   if(!vigente())throw new Error('Cambió la carpeta. Análisis detenido.');
+   const indice=destinosFechaContenido.findIndex(d=>d.c===c&&d.a===a&&d.file===files[0]);if(indice<0)continue;
+   document.getElementById('destinoFechaContenido').value=indice;originalRecuperadoLector=null;mostrarOriginalContenido();
+   await revisarContenidoCedula();
+   if(ultimaLecturaGuardable?.archivo===files[0]&&['docx','xlsx','xls','csv'].includes(formatoLecturaMiner(files[0])))await guardarDesdeLector();
+   if(!vigente())throw new Error('Cambió la carpeta. Análisis detenido.');
+   t.cierreInterno=true;cerrarLectorContenido();t.cierreInterno=false;
+  }
+  mostrarToast('Análisis terminado. Consulta el resultado final documental.','ok');
+ }catch(e){if(sigueContextoLocal(t.contexto))mostrarToast(e.message||'No se completó el análisis.','warn');}
+ finally{loteDocumentalMiner=null;if(sigueContextoLocal(t.contexto)){renderizarCarpetas();document.getElementById('carpetasGrid')?.scrollIntoView({block:'start',behavior:'smooth'});}}
+}
+
 function tarjetaDocumentoDecisionMiner(c,key){
  const esc=escaparPerfilDocumento,arr=(c.archivos||[]).filter(a=>tipoCarpetaLaboralMiner(a)===key),d=estadoDocumentoDecisionMiner(c,key);
  const abrir=()=>esc('abrirDocumentoCarpetaLaboralMiner('+JSON.stringify(c.id)+','+JSON.stringify(key)+')');
@@ -3532,7 +3678,7 @@ function renderizarCarpetasLaboralesMiner(){
  const lista=carpetasTrabajadores.filter(c=>!q||normalizar([c.trabajador,c.rut,c.faena,...(c.archivos||[]).map(a=>a.nombre)].join(' ')).includes(q));
  grid.innerHTML=lista.map(c=>{
   const resumen=resumenCarpetaLaboralMiner(c),recibidos=resumen.filter(i=>i.archivos.length).length,decision=estadoCarpetaDecisionMiner(c),extras=clavesDecisionMiner(c).filter(k=>!CLAVES_CARPETA_LABORAL.includes(k));
-  return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3>${badgeDecisionMiner(decision)}<p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de 5 tipos de documento presentes</b></p><p class="meta">Decisión documental de la carpeta. No determina aptitud médica ni autoriza acceso a faena.</p><div class="check-grid">${CLAVES_CARPETA_LABORAL.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')}</div>${extras.length?'<h4 style="margin-top:16px">Otros documentos cargados</h4><div class="check-grid">'+extras.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')+'</div>':''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button>${botonesDecisionMiner(c,'carpeta')}<button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div>${historialDecisionMiner(c)}<details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
+  return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3>${renderResultadoCarpetaAutomaticoMiner(c)}<h4>Decisión del responsable</h4>${badgeDecisionMiner(decision)}<p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de 5 tipos de documento presentes</b></p><p class="meta">Decisión documental de la carpeta. No determina aptitud médica ni autoriza acceso a faena.</p><div class="check-grid">${CLAVES_CARPETA_LABORAL.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')}</div>${extras.length?'<h4 style="margin-top:16px">Otros documentos cargados</h4><div class="check-grid">'+extras.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')+'</div>':''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button>${botonesDecisionMiner(c,'carpeta')}<button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div>${historialDecisionMiner(c)}<details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
  }).join('')||'<p class="empty">Elige una carpeta o varios archivos para empezar. Se esperan cédula, Cero Daño, antecedentes, contrato y EPP.</p>';
  montarLectorInlineMiner();pintarPendientesCarpetaLaboralMiner();
 }
@@ -4601,6 +4747,7 @@ window.addEventListener('beforeunload',event=>{if(revisionTemporal){event.preven
 
 </script>
 <script>
+const VERSION_LECTOR_MINER='resultado-documental-2026-10-19';
 let lecturaContenidoActiva=false;
 let motorContenidoPromesa=null;
 let tipoDocumentoContenido='cedula';
@@ -4631,7 +4778,7 @@ async function abrirLectorContenido(nombre,rut,tipo='cedula',faena='',requisito=
   const apertura=contextoFechaContenido;
   await recuperarDocumentoLector().catch(errorGuardarLector);
   if(contextoFechaContenido!==apertura)return;
-  if(inline&&contextoFechaContenido?.trabajador===nombre&&sigueContextoLocal(inline.contexto)&&(!originalRecuperadoLector?.lectura||(['cedula','medico'].includes(tipoDocumentoContenido)&&originalRecuperadoLector.lectura.tituloVisual===undefined))&&(originalRecuperadoLector?.file||destinosFechaContenido.length))revisarContenidoCedula();
+  if(inline&&!inline.lote&&contextoFechaContenido?.trabajador===nombre&&sigueContextoLocal(inline.contexto)&&(!originalRecuperadoLector?.lectura||originalRecuperadoLector.lectura.versionLector!==VERSION_LECTOR_MINER)&&(originalRecuperadoLector?.file||destinosFechaContenido.length))revisarContenidoCedula();
 }
 function prepararConfirmacionFechaContenido(){
   destinosFechaContenido=[];
@@ -4736,6 +4883,7 @@ function confirmarFechaContenido(){
   document.getElementById('guardadoFechaContenido').textContent='Vencimiento guardado por '+revision.usuario+'. La revisión de acreditación sigue pendiente.';
 }
 function cerrarLectorContenido(){
+  if(loteDocumentalMiner&&!loteDocumentalMiner.cierreInterno){mostrarToast('El análisis de la carpeta está en curso.','warn');return;}
   if(lecturaContenidoActiva){mostrarToast('Espera a que termine la lectura antes de cerrar.','warn');return;}
   limpiarLecturaContenido();
   const lector=document.getElementById('lectorContenidoModal');lector.close();lector.classList.remove('lector-inline');document.body.append(lector);ubicacionLectorInlineMiner=null;
@@ -4818,6 +4966,27 @@ function fechaDocumentoChileno(texto,tipo){
   const elegido=resultados.find(r=>r.fecha===fechasUnicas[0]);
   return {...elegido,motivo:'',aviso:malformada?'Algunas pasadas devolvieron fechas incompletas. Se muestra solo la fecha completa leída; compruébala en el original.':''};
 }
+function rutTrabajadorRotuladoMiner(texto){
+ const n=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+ const patron=/(?:\bR[.]?U[.]?[NT][.]?\s*(?:DEL?\s*)?TRABAJADOR(?:A)?\s*[:\-]?\s*|\bCEDULA DE IDENTIDAD\s*(?:N[.º°OQE02*£#]*\s*)?)(\d{1,2}[. ]?\d{3}[. ]?\d{3}\s*[-–]\s*[0-9K])\b/g;
+ const valores=[...new Set([...n.matchAll(patron)].map(m=>m[1].replace(/[.\s–-]/g,'')))];
+ return valores.length===1&&rutValidoContenido(valores[0])?extraerRutTexto(valores[0]):'';
+}
+
+function fechasLaboralesContratoMiner(texto){
+ const n=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
+ const fecha='(?:[0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{4}|[0-9]{1,2}\\s+(?:DE\\s+)?(?:ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|SETIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\\s+(?:DE\\s+)?[0-9]{4})(?![0-9])';
+ const rotulos={inicio:'(?:FECHA DE INICIO\\s*[:：]|INICIO\\s*[:：]|INGRESO AL SERVICIO DEL EMPLEADOR\\s+(?:EL|DESDE(?: EL)?)|COMENZARA A PRESTAR (?:SUS )?SERVICIOS (?:EL|DESDE(?: EL)?))\\s*',termino:'(?:FECHA DE TERMINO\\s*[:：]|TERMINO\\s*[:：]|(?:CONTRATO TENDRA (?:UNA )?DURACION|DURACION|VIGENCIA) HASTA (?:EL DIA|EL))\\s*[:：]?\\s*'};
+ const salida={};
+ for(const [key,rotulo] of Object.entries(rotulos)){
+  const valores=[];let invalida=false;
+  for(const m of n.matchAll(new RegExp(rotulo+'('+fecha+')','g'))){const f=fechaDocumentoChileno('VENCIMIENTO '+m[1].replace(/\bDE\b/g,' '),'cedula');if(f.fecha)valores.push(f.fecha);else invalida=true;}
+  const unicas=[...new Set(valores)];salida[key]=!invalida&&unicas.length===1?unicas[0]:'';salida[key+'Aviso']=invalida?'Fecha etiquetada inválida.':unicas.length>1?'Fechas contradictorias; revisa el original.':unicas.length?'':'Sin fecha inequívoca junto a su rótulo.';
+ }
+ if(salida.inicio&&salida.termino&&salida.inicio>salida.termino){salida.inicioAviso=salida.terminoAviso='El inicio leído es posterior al término; revisa ambas fechas.';salida.inicio=salida.termino='';}
+ return salida;
+}
+
 function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
  const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
  const titulos={antecedentes:/CERTIFICADO\s*(?:DE\s*)?ANTECEDENTES/,contrato:/CONTRATO\s*(?:INDIVIDUAL\s*)?(?:DE\s*)?TRABAJO/,epp:/ENTREGA\s*(?:DE\s*)?CARGO(?=[\s\S]*RUT\s*TRABAJADOR)(?=[\s\S]*\bEPP\b)|(?:ENTREGA|REGISTRO|RECEPCION)[^\n]{0,80}(?:EPP|ELEMENTOS?\s*(?:DE\s*)?PROTECCION)|ELEMENTOS?\s*(?:DE\s*)?PROTECCION\s*PERSONAL/,curso:/(?:CERTIFICADO[^\n]{0,60})?(?:CURSO|CAPACITACION|INDUCCION)/,odi:/OBLIGACION\s*(?:DE\s*)?INFORMAR|DERECHO\s*A\s*SABER|\bODI\b/,hoja_vida:/HOJA\s*(?:DE\s*)?VIDA\s*(?:DEL?\s*)?CONDUCTOR/};
@@ -4829,6 +4998,7 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
  const ruts=[...new Set(coincidenciasRutTextoMiner(normal).filter(m=>/[-–]/.test(m[0])||/\d{1,2}[.]\d{3}[.]\d{3}/.test(m[0])||/\bR\.?U\.?[NT]\.?(?:\s*TRABAJADOR)?\s*[:\-]?\s*$/.test(normal.slice(Math.max(0,m.index-35),m.index))).map(m=>m[0].replace(/[.\s–-]/g,'').toUpperCase()))],validos=ruts.filter(rutValidoContenido);
  const esperado=String(rutEsperado||'').toUpperCase().replace(/[.\s-]/g,''),tokens=String(nombreEsperado||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().match(/[A-Z]+/g)||[],palabras=new Set(normal.match(/[A-Z]+/g)||[]);
  const campos=[];
+ if(['epp','contrato'].includes(tipo)){const trabajador=rutTrabajadorRotuladoMiner(normal);campos.push({etiqueta:'RUN/RUT del trabajador por rótulo',valor:trabajador||'No confirmado; distingue trabajador, empleador y representante en el original.'});}
  const agregar=(etiqueta,patron)=>{const m=normal.match(patron);if(m)campos.push({etiqueta,valor:m[1].trim()});};
  const emision=normal.match(/(?:FECHA\s*(?:DE\s*)?(?:EMISION|EXPEDICION)|EMITIDO\s*EL)\s*[:\-]?\s*([^\n]{1,60})/);
  if(emision){const raw=emision[1].trim(),leida=fechaDocumentoChileno('VENCIMIENTO '+raw,'cedula');campos.push({etiqueta:'Fecha de emisión',valor:leida.fecha?leida.fecha.split('-').reverse().join('/'):'No confirmada: lectura incompleta o inválida ('+raw+')'});}
@@ -4846,7 +5016,7 @@ function analizarDocumentoLaboralMiner(texto,nombreEsperado,rutEsperado,tipo){
   agregar('Empleador',/(?:EMPLEADOR|RAZON\s*SOCIAL)\s*[:\-]\s*([^\n]{1,100})/);
   agregar('Trabajador',/(?:TRABAJADOR|TRABAJADORA)\s*[:\-]\s*([^\n]{1,100})/);
   agregar('Cargo',/CARGO\s*[:\-]\s*([^\n]{1,100})/);
-  agregar('Inicio',/(?:FECHA\s*(?:DE\s*)?INICIO|INICIO)\s*[:\-]\s*([^\n]{1,60})/);
+  const fechas=fechasLaboralesContratoMiner(normal);for(const [key,label] of [['inicio','Inicio del contrato'],['termino','Término del contrato']])campos.push({etiqueta:label,valor:fechas[key]?fechas[key].split('-').reverse().join('/'):'No confirmado: '+fechas[key+'Aviso']});
   agregar('Duración',/(?:DURACION|PLAZO)\s*[:\-]\s*([^\n]{1,100})/);
   agregar('Contrato comercial / PO',/(?:CONTRATO\s*COMERCIAL|ORDEN\s*(?:DE\s*)?COMPRA|PO)\s*[:\-]\s*([^\n]{1,60})/);
  }
@@ -4900,6 +5070,18 @@ function analizarDocumentoChileno(texto,nombreEsperado='',rutEsperado='',tipoEsp
     nombre:tokens.length?tokens.every(t=>palabras.has(t))?'Coincidencia textual; comprobar visualmente':'No coincide o lectura incompleta':'Sin nombre de referencia',
     rut:esperado?rutValidoContenido(esperado)?validos.length===1&&validos[0]===esperado?'Coincide':'No coincide o lectura incompleta':'RUT de referencia inválido':'Sin RUT de referencia'};
 }
+function vencimientoMRZMiner(texto,fechaVisual){
+ if(!fechaDecisionValidaMiner(fechaVisual))return '';
+ const compactas=String(texto||'').toUpperCase().split(/\r?\n/).map(l=>l.replace(/\s/g,''));
+ const comprobar=(s,d)=>{const pesos=[7,3,1];return s.split('').reduce((n,c,i)=>n+Number(c)*pesos[i%3],0)%10===Number(d);};
+ const candidatos=[];
+ for(const linea of compactas)for(const m of linea.matchAll(/(?:^|[^0-9])([0-9]{6})([0-9])[MFX<]([0-9]{6})([0-9])CHL[0-9<]{6,}/g)){
+  if(!comprobar(m[1],m[2])||!comprobar(m[3],m[4]))continue;
+  if(m[3]===fechaVisual.slice(2,4)+fechaVisual.slice(5,7)+fechaVisual.slice(8,10))candidatos.push(fechaVisual);else candidatos.push('conflicto');
+ }
+ return candidatos.length&&candidatos.every(f=>f===fechaVisual)?fechaVisual:'';
+}
+
 function fechasCamposCedulaMiner(texto){
  const t=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
  const fechas={};
@@ -4987,6 +5169,7 @@ function localizarNombreOCR(datos){
       const linea=lineas[i],palabras=linea.palabras,indice=palabras.findIndex(w=>normal(w.text)===etiqueta);
       if(indice<0||!palabras[indice].bbox)continue;
       const label=palabras[indice].bbox,altura=Math.max(1,label.y1-label.y0);let valores=[];
+      const corteY=Math.min(Infinity,...lineas.flatMap(l=>l.palabras||[]).filter(w=>w.bbox&&w.bbox.y0>label.y1&&w.bbox.x0>=label.x0-altura*2&&w.bbox.x0<label.x0+altura*18&&(limite.test(normal(w.text))||['NOMBRES','APELLIDOS'].includes(normal(w.text)))).map(w=>w.bbox.y0));
       const resto=palabras.slice(indice+1).filter(w=>w.bbox&&w.bbox.x0>=label.x1&&w.bbox.x0<=label.x1+altura*12&&Math.abs(w.bbox.y0-label.y0)<altura&&normal(w.text));
       if(resto.length&&resto[0].bbox.x0>label.x1+altura*3)resto.length=0;
       if(resto.length&&!limite.test(normal(resto.map(w=>w.text).join(' '))))valores=resto;
@@ -4994,7 +5177,7 @@ function localizarNombreOCR(datos){
         const otra=lineas[j],caja=otra.caja;if(!caja)continue;
         if(caja.y0<label.y1-altura*.4)continue;
         if(caja.y0>label.y1+altura*7)break;
-        const candidatas=otra.palabras.filter(w=>w.bbox&&w.bbox.x0>=label.x0-altura*2&&w.bbox.x0<label.x0+altura*18&&normal(w.text));
+        const candidatas=otra.palabras.filter(w=>w.bbox&&w.bbox.x0>=label.x0-altura*2&&w.bbox.x0<label.x0+altura*18&&w.bbox.y0<corteY&&normal(w.text));
         const texto=normal(candidatas.map(w=>w.text).join(' '));
         if(!texto)continue;
         if(limite.test(texto)||/\b(?:NOMBRES|APELLIDOS)\b/.test(texto))break;
@@ -5002,6 +5185,7 @@ function localizarNombreOCR(datos){
         valores.push(...candidatas);
       }
       valores=valores.filter(w=>w.bbox&&normal(w.text)&&Number(w.confidence)>=45&&!/\d/.test(w.text));
+      if(valores.some(w=>!/^[-A-ZÁÉÍÓÚÑ]+(?:['’][-A-ZÁÉÍÓÚÑ]+)*$/i.test(w.text)))continue;
       const texto=valores.map(w=>w.text).join(' ').trim();if(!texto||limite.test(normal(texto))||/^(?:DN|NN|MN|RN|XX|II|VV)$/i.test(texto)||!/[A-ZÁÉÍÓÚÑ]{3}/i.test(texto))continue;
       campos.push({etiqueta,texto,cajas:valores.map(w=>w.bbox)});break;
     }
@@ -5043,6 +5227,19 @@ function localizarCamposCedulaOCR(datos){
  }
  return campos;
 }
+function acumularCamposCedulaMiner(mapa,campos,origen){
+ const key=[origen.pagina,origen.rotacion||0,origen.base.width,origen.base.height].join(':');
+ if(!mapa.has(key))mapa.set(key,{campos:new Map(),evidencia:null});const pagina=mapa.get(key);
+ for(const c of campos){
+  const valor=c.texto.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[.\s-]/g,'');
+  if(!pagina.campos.has(c.etiqueta))pagina.campos.set(c.etiqueta,new Map());
+  const opciones=pagina.campos.get(c.etiqueta);if(opciones.size<10&&!opciones.has(valor))opciones.set(valor,{...c,cajas:c.cajas.map(b=>({x0:b.x0+origen.x,x1:b.x1+origen.x,y0:b.y0+origen.y,y1:b.y1+origen.y}))});
+ }
+ const confirmados=[...pagina.campos.values()].filter(v=>v.size===1).map(v=>[...v.values()][0]);
+ pagina.evidencia=confirmados.length?dibujarEvidenciaNombre(origen.base,confirmados,{x:0,y:0,rotacion:origen.rotacion},origen.pagina):null;
+ return [...mapa.values()].map(p=>p.evidencia).filter(Boolean).sort((a,b)=>puntajeCamposCedula(b.campos)-puntajeCamposCedula(a.campos))[0]||null;
+}
+
 function dibujarEvidenciaNombre(base,campos,origen,pagina){
   const escala=Math.min(1,1400/base.width),canvas=document.createElement('canvas');canvas.width=Math.round(base.width*escala);canvas.height=Math.round(base.height*escala);
   const ctx=canvas.getContext('2d');ctx.drawImage(base,0,0,canvas.width,canvas.height);ctx.strokeStyle='#ffb000';ctx.fillStyle='rgba(255,176,0,.16)';ctx.lineWidth=3;
@@ -5056,7 +5253,7 @@ function renderEvidenciaNombre(e){
   const nombres=e.campos.find(c=>c.etiqueta==='NOMBRES')?.texto,apellidos=e.campos.find(c=>c.etiqueta==='APELLIDOS')?.texto;
   const completo=nombres&&apellidos?'Nombre completo leído: '+nombres+' '+apellidos:'Nombre completo no confirmado; revisa nombres y apellidos por separado.';
   const marcas=e.original?(e.cajas||[]).map(b=>`<span style="position:absolute;left:${b.x*100}%;top:${b.y*100}%;width:${b.w*100}%;height:${b.h*100}%;border:2px solid #ffb000;background:rgba(255,176,0,.16);pointer-events:none"></span>`).join(''):'';
-  return `<div style="margin-top:12px"><b>Datos leídos y su origen visual</b><p class="meta">${esc(completo)}<br>${['NOMBRES','APELLIDOS','RUN','NACIMIENTO','EMISIÓN','VENCIMIENTO','NÚMERO DE DOCUMENTO','NACIONALIDAD','SEXO'].map(k=>esc(k)+': '+esc(e.campos.find(c=>c.etiqueta===k)?.texto||'No confirmado')).join('<br>')}<br>Página ${esc(e.pagina)} · Recuadros amarillos sobre las palabras leídas. Comprueba el original; no verifica identidad.</p><div style="position:relative"><img src="${esc(e.imagen)}" alt="Documento con los campos leídos resaltados" style="display:block;width:100%;height:auto;border-radius:12px">${marcas}</div></div>`;
+  return `<div style="margin-top:12px"><b>Datos leídos y su origen visual</b><p class="meta">${esc(completo)}<br>${['NOMBRES','APELLIDOS','RUN','NACIMIENTO','EMISIÓN','VENCIMIENTO','NÚMERO DE DOCUMENTO','NACIONALIDAD','SEXO'].map(k=>esc(k)+': '+esc(e.campos.find(c=>c.etiqueta===k)?.texto||'No confirmado')+(e.campos.find(c=>c.etiqueta===k)?.fuente?' ('+esc(e.campos.find(c=>c.etiqueta===k).fuente)+')':'')).join('<br>')}<br>Página ${esc(e.pagina)} · Recuadros amarillos sobre las palabras leídas. Comprueba el original; no verifica identidad.</p><div style="position:relative"><img src="${esc(e.imagen)}" alt="Documento con los campos leídos resaltados" style="display:block;width:100%;height:auto;border-radius:12px">${marcas}</div></div>`;
 }
 const evidenciasNombreOriginal=new WeakMap();
 function evidenciaNombreEnFicha(d,t){
@@ -5141,8 +5338,8 @@ async function leerImagenDocumento(imagen,reconocer,informar,pagina=1,registrarO
     informar('Lectura '+(n+1)+' de '+zonas.length+' · ajustando contraste y zonas…');
     const [zx,zy,zw,zh,filtrar]=zonas[n],c=document.createElement('canvas');c.width=Math.round(w*zw);c.height=Math.round(h*zh);
     try{const cctx=c.getContext('2d',{willReadFrequently:true});cctx.drawImage(base,x+w*zx,y+h*zy,w*zw,h*zh,0,0,c.width,c.height);
-      if(filtrar){const d=cctx.getImageData(0,0,c.width,c.height);for(let i=0;i<d.data.length;i+=4){const a=Math.max(d.data[i],d.data[i+1],d.data[i+2]);const gris=Math.max(0,Math.min(255,(a-100)*255/130));d.data[i]=d.data[i+1]=d.data[i+2]=gris;}cctx.putImageData(d,0,0);}
-      textos.push(await reconocer(c,n>=2?'6':'3',{base,x:x+w*zx,y:y+h*zy,pagina,rotacion:giro,tabla:n===0}));
+      if(filtrar){const d=cctx.getImageData(0,0,c.width,c.height);for(let i=0;i<d.data.length;i+=4){const a=n===2?Math.min(d.data[i],d.data[i+1],d.data[i+2]):Math.max(d.data[i],d.data[i+1],d.data[i+2]);const gris=Math.max(0,Math.min(255,(a-100)*255/130));d.data[i]=d.data[i+1]=d.data[i+2]=gris;}cctx.putImageData(d,0,0);}
+      textos.push(await reconocer(c,n>=2?'6':'3',{base,x:x+w*zx,y:y+h*zy,pagina,rotacion:giro,tabla:n===0,soloCampos:n===2}));
     }finally{c.width=0;c.height=0;}
   }}finally{base.width=0;base.height=0;}
   return textos.join('\n\nFIN DE LECTURA\n\n');
@@ -5161,7 +5358,8 @@ async function revisarContenidoCedula(){
   lecturaContenidoActiva=true;
   for(const id of ['archivoContenido','nombreContenido','rutContenido','leerContenido','guardarOriginalLector','detectarFotoDocumento','destinoFechaContenido'])document.getElementById(id).disabled=true;
   ultimaLecturaGuardable=null;evidenciaLecturaContenido=null;resultado.replaceChildren();textoPanel.textContent='';estado.textContent='Preparando lectura local. La primera vez se descargan los motores de lectura…';
-  let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,tituloVisual=null,lecturaTerminada=false,paginaLectura=1,totalPaginasLectura=1;
+  const camposAcumuladosMiner=new Map();
+  let falloNumeros=false,worker=null,workerNumeros=null,pdf=null,evidenciaNombre=null,tituloVisual=null,portalVisual=null,lecturaTerminada=false,paginaLectura=1,totalPaginasLectura=1;
   try{
     const motores=esOffice?null:await cargarMotorContenido();comprobarLectura();
     async function reconocer(imagen,modo='3',origen=null){
@@ -5169,9 +5367,10 @@ async function revisarContenidoCedula(){
       await worker.setParameters({tessedit_pageseg_mode:modo,preserve_interword_spaces:'1',tessedit_char_whitelist:''});
       const {data}=await worker.recognize(imagen,{}, {text:true,blocks:true});comprobarLectura();
       reconocer.confianzaOrientacion=Number(data.confidence)||0;
-      if(origen&&tipo==='cedula'){const campos=localizarCamposCedulaOCR(data);if(campos.length&&(!evidenciaNombre||puntajeCamposCedula(campos)>puntajeCamposCedula(evidenciaNombre.campos)))evidenciaNombre=dibujarEvidenciaNombre(origen.base,campos,origen,origen.pagina);}
+      if(origen&&tipo==='cedula'){const campos=localizarCamposCedulaOCR(data);if(campos.length)evidenciaNombre=acumularCamposCedulaMiner(camposAcumuladosMiner,campos,origen);}
+      if(origen?.tabla&&tipo==='portal'&&!portalVisual)portalVisual=portalPorColumnasMiner(data,origen);
       if(origen?.tabla&&!tituloVisual){const titulo=tituloReconocidoVisualMiner(data,tipo);if(titulo)tituloVisual=dibujarTituloVisualMiner(origen.base,titulo,origen);}
-      let texto=data.text||'';
+      let texto=origen?.soloCampos&&tipo==='cedula'?'':data.text||'';
       if(origen?.tabla)for(const zona of zonasFechaTablaMiner(data,origen)){
        texto+=await releerFechaTablaMiner(origen,zona,async(celda,modoCelda,idioma)=>{
         let motor=worker;
@@ -5195,7 +5394,7 @@ async function revisarContenidoCedula(){
         const pagina=await pdf.getPage(i),contenido=await pagina.getTextContent();
         let parcial=contenido.items.map(x=>(x.str||'')+(x.hasEOL?'\n':' ')).join('');
         // Renderizar también PDFs con una capa de texto escasa o irrelevante.
-        if(parcial.replace(/\s/g,'').length<80||tipo==='cedula'||tipo==='licencia'||tipo==='medico'){
+        if(parcial.replace(/\s/g,'').length<80||tipo==='cedula'||tipo==='licencia'||tipo==='medico'||tipo==='portal'){
           const inicial=pagina.getViewport({scale:1}),escala=Math.min(2,2400/Math.max(inicial.width,inicial.height));
           const viewport=pagina.getViewport({scale:escala}),canvas=document.createElement('canvas');
           canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
@@ -5213,9 +5412,11 @@ async function revisarContenidoCedula(){
     comprobarLectura();
     const analisis=analizarDocumentoChileno(texto,nombre,rut,tipo);
     const fechasCedula=tipo==='cedula'?fechasCamposCedulaMiner(texto):null;
+    if(tipo==='cedula'&&analisis.tipo==='cedula'&&!analisis.fecha){const contrastada=vencimientoMRZMiner(texto,fechasCedula?.['VENCIMIENTO']);if(contrastada){analisis.fecha=contrastada;analisis.evidenciaFecha='Vencimiento etiquetado y zona de lectura mecánica con dígitos de control coincidentes. Comprueba el original.';analisis.fechaMotivo='';}}
     // Una zona recortada puede perder su rótulo o su valor. No mostrar recuadros
     // si contradicen la lectura etiquetada del documento completo.
-    if(fechasCedula&&evidenciaNombre?.campos.some(c=>Object.hasOwn(fechasCedula,c.etiqueta)&&c.texto!==fechasCedula[c.etiqueta]))evidenciaNombre=null;
+    if(fechasCedula&&evidenciaNombre?.campos.some(c=>Boolean(fechasCedula[c.etiqueta])&&c.texto!==fechasCedula[c.etiqueta]))evidenciaNombre=null;
+    if(evidenciaNombre&&tipo==='cedula'&&analisis.fecha&&vencimientoMRZMiner(texto,analisis.fecha)&&!evidenciaNombre.campos.some(c=>c.etiqueta==='VENCIMIENTO'))evidenciaNombre.campos.push({etiqueta:'VENCIMIENTO',texto:analisis.fecha,fuente:'Texto etiquetado contrastado con MRZ; sin recuadro del campo.'});
     evidenciaLecturaContenido={archivo,fecha:analisis.fecha,tipo:analisis.tipo,fragmento:analisis.evidenciaFecha,paginas,limitado};
     document.getElementById('fechaConfirmadaContenido').value=analisis.fecha||'';
     document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido();
@@ -5226,26 +5427,27 @@ async function revisarContenidoCedula(){
       ...(avisoOffice?[avisoOffice]:[]),
       'Tipo leído: '+tipoLeido,
       ...(tipo==='medico'?['Autenticidad: pendiente de comprobar con el emisor. La lectura, el RUN válido, el logo o una firma dibujada no prueban que el centro haya emitido el examen.']:[]),
-      ...(analisis.camposLaborales||[]).map(c=>c.etiqueta+': '+c.valor),
+      ...(portalVisual?[]:analisis.camposLaborales||[]).map(c=>c.etiqueta+': '+c.valor),
       ...(analisis.avisoLaboral?[analisis.avisoLaboral]:[]),
       'Evidencia del tipo: '+analisis.evidenciaTipo,
       'Comparación de tipo: '+(analisis.coincideTipo?'Coincide con la tarjeta seleccionada':'No coincide con la tarjeta; revisar antes de asociar'),
       'RUN/RUT detectados: '+(analisis.ruts.map(r=>extraerRutTexto(r)).join(', ')||'Ninguno'),
       'RUN/RUT con dígito verificador válido: '+(analisis.validos.map(r=>extraerRutTexto(r)).join(', ')||(analisis.ruts.length?'No coincide el dígito verificador; comprobar el original':'Ninguno')),
       'Comparación de RUN/RUT: '+analisis.rut,'Comparación de nombre: '+analisis.nombre,
-      analisis.etiquetaFecha+': '+(analisis.fecha?analisis.fecha.split('-').reverse().join('/'):'No confirmada. '+analisis.fechaMotivo),
+      tipo==='portal'?'Vencimiento global: no aplica; consulta cada calificación.':analisis.etiquetaFecha+': '+(analisis.fecha?analisis.fecha.split('-').reverse().join('/'):'No confirmada. '+analisis.fechaMotivo),
       'Origen de la fecha: '+(analisis.evidenciaFecha||'Sin evidencia suficiente'),
       ...(analisis.avisoFecha?[analisis.avisoFecha]:[]),
       'Estado por fecha detectada: '+(limitado?'Revisar (lectura parcial)':tipo==='cedula'&&(!coberturaCedulaMiner(texto).frente||!coberturaCedulaMiner(texto).reverso)?'Revisar (ambos lados pendientes)':analisis.estado),
-      'Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.',
+      ...(tipo==='portal'?[]:['Indicios del documento: '+analisis.indicios.filter(Boolean).length+' de 4.']),
       tipo==='portal'?'Comprueba por separado el estado y la fecha de cada calificación. No se guarda un vencimiento global ni se acredita acceso.':'Confirma la fecha en el original. No se aplican prórrogas ni se comprueba autenticidad o acreditación. No modifica tus registros.'];
     for(const linea of lineas){const p=document.createElement('p');p.className='meta';p.textContent=linea;resultado.append(p);}
+    if(portalVisual){const columnas=document.createElement('div');columnas.innerHTML=renderPortalColumnasMiner(portalVisual);resultado.prepend(columnas);}
     if(!esOffice&&['cedula','medico'].includes(tipo)){const titulo=document.createElement('div');titulo.innerHTML=renderTituloVisualMiner(tituloVisual);resultado.prepend(titulo);}
     if(!esOffice&&tipo==='cedula'){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);}
     if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
     estado.textContent='Lectura terminada · '+(esOffice?'archivo '+formato.toUpperCase():paginas+' página(s).')+(analisis.tipo==='sin identificar'||!analisis.fecha?' Datos sin confirmar: revisa el original.':'');
-    ultimaLecturaGuardable={archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre,tituloVisual};
+    ultimaLecturaGuardable={resumenAutomatico:resumenLecturaAutomaticoMiner(analisis,texto,tipo,evidenciaNombre,portalVisual),versionLector:VERSION_LECTOR_MINER,archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre,tituloVisual,portalVisual};
     if(!esOffice)await guardarDesdeLector().catch(errorGuardarLector);else document.getElementById('estadoGuardadoLector').textContent='Revisa el texto y la ficha antes de guardar este archivo Office.';lecturaTerminada=true;
   }catch(error){estado.textContent=/^Cambió la cuenta, el día o la ficha/.test(error.message)?error.message:esOffice?'No se completó la lectura: '+String(error.message||'Archivo no legible').slice(0,240):'No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
   finally{
@@ -5489,20 +5691,23 @@ async function guardarDesdeLector(){
  const lectura=ultimaLecturaGuardable?.archivo===file?ultimaLecturaGuardable:null;
  const elementosFoto=[...document.getElementById('resultadoFotoDocumento').querySelectorAll('img,p')].map(e=>e.tagName==='IMG'?{imagen:e.src,alt:e.alt}:{texto:e.textContent});
  const rostros=elementosFoto.length?{elementos:elementosFoto,estado:document.getElementById('estadoFotoDocumento').textContent}:originalRecuperadoLector?.file===file?originalRecuperadoLector.rostros:null;
- const registro={key,file,rostros,nombre:file.name,tipo:file.type,requisito:t.requisito,trabajador:t.trabajador,rut:t.rut,faena:t.faena,guardadoEn:new Date().toISOString(),lectura:lectura?{lineas:lectura.lineas,texto:lectura.texto,nombreVisual:lectura.nombreVisual,tituloVisual:lectura.tituloVisual}:originalRecuperadoLector?.file===file?originalRecuperadoLector.lectura:null};
+ const registro={key,file,rostros,nombre:file.name,tipo:file.type,requisito:t.requisito,trabajador:t.trabajador,rut:t.rut,faena:t.faena,guardadoEn:new Date().toISOString(),lectura:lectura?{versionLector:lectura.versionLector,lineas:lectura.lineas,texto:lectura.texto,nombreVisual:lectura.nombreVisual,tituloVisual:lectura.tituloVisual,portalVisual:lectura.portalVisual,resumenAutomatico:lectura.resumenAutomatico}:originalRecuperadoLector?.file===file?originalRecuperadoLector.lectura:null};
  document.getElementById('estadoGuardadoLector').textContent='Guardando original y lectura en este navegador…';
  await operarOriginalFicha(key,registro);
+ if(lectura)await vincularResultadoAutomaticoMiner(t,file,lectura);
  const anteriorCache=originalesFichaCache.get(key);if(anteriorCache?.url)URL.revokeObjectURL(anteriorCache.url);
  originalesFichaCache.set(key,{...registro,url:URL.createObjectURL(file)});
  if(contextoFechaContenido===t&&claveOriginalFicha(t,t.requisito)===key){originalRecuperadoLector=registro;document.getElementById('estadoGuardadoLector').textContent=(registro.lectura?'Documento y lectura guardados':'Documento guardado')+' en esta ficha, en este navegador. Puedes cerrar y volver a abrirlos. Este guardado no acredita el documento.';}
  renderizar();if(document.getElementById('centroRevision')?.classList.contains('active'))pintarDocumentosCentroRevision();return registro;
 }
 async function recuperarDocumentoLector(){
- const t=contextoFechaContenido,key=claveOriginalFicha(t,t.requisito);const r=await operarOriginalFicha(key);
+ const t=contextoFechaContenido,key=claveOriginalFicha(t,t.requisito);let r=await operarOriginalFicha(key);
  if(!r||contextoFechaContenido!==t||claveOriginalFicha(t,t.requisito)!==key)return;
+ const actual=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
+ if(actual&&r.file!==actual){const [guardado,actualHash]=await Promise.all([hashArchivoLocal(r.file),hashArchivoLocal(actual)]);if(contextoFechaContenido!==t||claveOriginalFicha(t,t.requisito)!==key)return;if(r.file.name!==actual.name||guardado!==actualHash){document.getElementById('estadoGuardadoLector').textContent='El original cambió: se necesita una lectura nueva.';return;}r={...r,file:actual};}
  originalRecuperadoLector=r;mostrarOriginalContenido();
  const resultado=document.getElementById('resultadoContenido');resultado.replaceChildren();
- if(r.lectura){for(const texto of r.lectura.lineas||[]){const p=document.createElement('p');p.className='meta';p.textContent=texto;resultado.append(p);}if(r.lectura.tituloVisual){const titulo=document.createElement('div');titulo.innerHTML=renderTituloVisualMiner(r.lectura.tituloVisual);resultado.prepend(titulo);}if(r.lectura.nombreVisual?.imagen?.startsWith('data:image/jpeg')){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(r.lectura.nombreVisual);resultado.prepend(visual);}document.getElementById('textoContenido').textContent=r.lectura.texto||'';}
+ if(r.lectura){for(const texto of r.lectura.lineas||[]){const p=document.createElement('p');p.className='meta';p.textContent=texto;resultado.append(p);}if(r.lectura.portalVisual){const columnas=document.createElement('div');columnas.innerHTML=renderPortalColumnasMiner(r.lectura.portalVisual);resultado.prepend(columnas);}if(r.lectura.tituloVisual){const titulo=document.createElement('div');titulo.innerHTML=renderTituloVisualMiner(r.lectura.tituloVisual);resultado.prepend(titulo);}if(r.lectura.nombreVisual?.imagen?.startsWith('data:image/jpeg')){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(r.lectura.nombreVisual);resultado.prepend(visual);}document.getElementById('textoContenido').textContent=r.lectura.texto||'';}
  if(r.rostros){const panel=document.getElementById('resultadoFotoDocumento');panel.replaceChildren();for(const item of r.rostros.elementos||[]){if(item.imagen&&/^data:image\/(jpeg|png);base64,/.test(item.imagen)){const img=document.createElement('img');img.src=item.imagen;img.alt=item.alt||'Resultado de detección guardado';img.style.cssText='max-width:100%;max-height:340px;object-fit:contain';panel.append(img);}else if(item.texto){const p=document.createElement('p');p.textContent=item.texto;panel.append(p);}}document.getElementById('estadoFotoDocumento').textContent=r.rostros.estado||'Detección guardada; no verifica identidad.';}
  document.getElementById('estadoContenido').textContent='Original guardado: '+r.nombre;
  document.getElementById('estadoGuardadoLector').textContent='Documento recuperado de esta ficha · guardado el '+new Date(r.guardadoEn).toLocaleString('es-CL')+'. Revisa o vuelve a leer el original cuando lo necesites.';
@@ -5613,6 +5818,7 @@ function validarDatosLocales(d){
   if(Array.isArray(x)){for(const v of x)revisarCampos(v);return;}
   if(!objeto(x))return;
   for(const [k,v] of Object.entries(x)){
+   if(k==='resultadoAutomatico'){validarResumenAutomaticoMiner(v,true);continue;}
    if(k==='procedenciaCampos'){revisarProcedencia(v);continue;}
    if(k==='columnasDetectadas'){revisarColumnas(v);continue;}
    if(textos.has(k)&&v!=null&&typeof v!=='string')fallo();
@@ -5647,6 +5853,9 @@ function validarLecturaLocal(row){
  const fail=()=>{throw new Error('Lectura de ficha mal formada. No se restauró nada.');};
  if(!obj(row)||typeof row.nombre!=='string'||typeof row.tipo!=='string'||typeof row.trabajador!=='string'||typeof row.rut!=='string'||typeof row.faena!=='string'||typeof row.requisito!=='string')fail();
  if(row.lectura!=null){const l=row.lectura;if(!obj(l)||typeof l.texto!=='string'||!Array.isArray(l.lineas)||l.lineas.some(x=>typeof x!=='string'))fail();const e=l.nombreVisual;if(e!=null&&(!obj(e)||typeof e.imagen!=='string'||!Array.isArray(e.campos)||e.campos.some(x=>!obj(x)||typeof x.etiqueta!=='string'||typeof x.texto!=='string')))fail();}
+ if(row.lectura?.resumenAutomatico!==undefined)validarResumenAutomaticoMiner(row.lectura.resumenAutomatico);
+ if(row.lectura?.versionLector!==undefined&&(typeof row.lectura.versionLector!=='string'||row.lectura.versionLector.length>100))fail();
+ if(row.lectura?.portalVisual!=null){const p=row.lectura.portalVisual;if(!obj(p)||!Array.isArray(p.categorias)||p.categorias.length>10)fail();for(const c of p.categorias){if(!obj(c)||!(['SALUD','LEGAL','ENTRENAMIENTO'].includes(c.categoria)||typeof c.categoria==='string'&&c.categoria.length<=60&&/^[A-Z0-9]+(?:-[A-Z0-9]+){2,5}$/.test(c.categoria))||!['rojo','verde','sin confirmar'].includes(c.color)||typeof c.fecha!=='string'||c.fecha&&!fechaDecisionValidaMiner(c.fecha)||typeof c.sinFecha!=='boolean'||typeof c.detalle!=='string'||!Number.isInteger(c.pagina)||c.pagina<1)fail();}}
  if(row.lectura?.tituloVisual!=null){const t=row.lectura.tituloVisual;if(!obj(t)||typeof t.texto!=='string'||t.texto.length>300||typeof t.imagen!=='string'||!/^data:image\/jpeg;base64,/.test(t.imagen)||!Number.isInteger(t.pagina)||t.pagina<1)fail();}
  if(row.rostros!=null&&(!obj(row.rostros)||!Array.isArray(row.rostros.elementos)||row.rostros.elementos.some(x=>!obj(x)||(x.imagen!==undefined&&typeof x.imagen!=='string')||(x.texto!==undefined&&typeof x.texto!=='string'))))fail();
 }
