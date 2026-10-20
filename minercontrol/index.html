@@ -2170,16 +2170,20 @@ function seleccionarCentroRevision(cod){
  const t=personasCentroRevision().find(t=>idTrabajador(t)===cod);if(!t)return;trabajadorCentroRevision=t;
  pintarDocumentosCentroRevision();
 }
+function requisitosDecisionFaenaMiner(c){
+ const configurados=requisitosFaena[nombreFaenaCanonico(c.faena)];
+ return [...new Set(Array.isArray(configurados)?configurados:[])];
+}
 function clavesDocumentosCentroRevision(t,req){
  const cargados=documentosDelTrabajador(t).map(requisitoDeDocumento);
  for(const c of carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,t)))for(const a of c.archivos||[])cargados.push(tipoCarpetaLaboralMiner(a));
- return [...CLAVES_CARPETA_LABORAL,...CLAVES_MEDICAS_LABORAL.filter(k=>cargados.includes(k)),...new Set(cargados.filter(k=>k&&!CLAVES_CARPETA_LABORAL.includes(k)&&!CLAVES_MEDICAS_LABORAL.includes(k)))];
+ return [...new Set([...requisitosDecisionFaenaMiner(t),...cargados.filter(k=>k&&k!=='carpeta')])];
 }
 function pintarDocumentosCentroRevision(){
  const t=trabajadorCentroRevision,panel=document.getElementById('documentosCentroRevision');if(!t||!panel)return;
  const esc=escaparPerfilDocumento,req=evaluarRequisitosTrabajador(t);
  const keys=clavesDocumentosCentroRevision(t,req);
- panel.innerHTML='<h3>'+esc(t.trabajador)+' · '+esc(t.rut)+'</h3><p class="meta">Revisa los cinco documentos de esta carpeta. Los exámenes médicos se muestran cuando están cargados. Presencia de archivo y autenticidad se comprueban por separado.</p>';
+ panel.innerHTML='<h3>'+esc(t.trabajador)+' · '+esc(t.rut)+'</h3><p class="meta">Revisa los requisitos configurados para esta faena y los demás documentos cargados. Presencia de archivo y autenticidad se comprueban por separado.</p>';
  for(const key of keys){const item=req.checklist.find(i=>i.key===key)||{key,nombre:nombreReq(key),estado:'Falta',documentos:[]};const c=document.createElement('div');c.className='section';const carpetasDecision=carpetasTrabajadores.filter(c=>coincidePerfilDocumento(c,t)),propietaria=carpetasDecision.length===1?carpetasDecision[0]:null;c.innerHTML='<h3>'+esc(item.nombre)+'</h3>'+(propietaria?badgeDecisionMiner(estadoDocumentoDecisionMiner(propietaria,key))+botonesDecisionMiner(propietaria,key):'')+originalGuardadoEnTarjeta(item,t);const b=document.createElement('button');b.className='mini blue';b.textContent='Abrir '+item.nombre;b.onclick=()=>abrirLectorContenido(t.trabajador,t.rut,key==='cedula'||key==='licencia'?key:'medico',t.faena,key);c.append(b);panel.append(c);}
 }
 function abrirPerfilTrabajador(cod){
@@ -3351,7 +3355,7 @@ let contextoDecisionMiner=null,guardandoDecisionMiner=false;
 function perfilDecisionMiner(c){return JSON.stringify([rutIdentidad(c.rut),normalizar(c.trabajador),nombreFaenaClave(c.faena),normalizar(c.empresa||''),normalizar(c.cargo||'')]);}
 function fechaDecisionValidaMiner(f){if(!/^\d{4}-\d{2}-\d{2}$/.test(f||''))return false;const d=new Date(f+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===f;}
 function emisorObligatorioDecisionMiner(key){return ['antecedentes',...CLAVES_MEDICAS_LABORAL].includes(key);}
-function clavesDecisionMiner(c){return [...new Set([...CLAVES_CARPETA_LABORAL,...(c.archivos||[]).map(tipoCarpetaLaboralMiner).filter(k=>k&&k!=='carpeta')])];}
+function clavesDecisionMiner(c){return [...new Set([...requisitosDecisionFaenaMiner(c),...(c.archivos||[]).map(tipoCarpetaLaboralMiner).filter(k=>k&&k!=='carpeta')])];}
 function hashDecisionMiner(file){
  if(!file)return {error:'No está disponible el original.'};
  const existente=hashesDecisionMiner.get(file);if(existente)return existente;
@@ -3387,12 +3391,16 @@ function estadoDocumentoDecisionMiner(c,key){
 function capturaCarpetaDecisionMiner(c){
  const cap=capturaDecisionMiner(c,'carpeta');if(!cap.firma)return cap;
  const documentos=clavesDecisionMiner(c).map(key=>({key,...estadoDocumentoDecisionMiner(c,key)}));
- return {...cap,documentos,firma:JSON.stringify([cap.firma,documentos.map(d=>[d.key,d.estado,d.registro?.id||''])])};
+ return {...cap,documentos,firma:JSON.stringify([cap.firma,requisitosDecisionFaenaMiner(c).slice().sort(),documentos.map(d=>[d.key,d.estado,d.registro?.id||''])])};
 }
 function motivoAprobacionCarpetaMiner(c,cap){
  if(!rutValidoContenido(c.rut)||!normalizar(c.trabajador)||normalizar(c.trabajador)==='sinnombre'||!c.faena||nombreFaenaClave(c.faena)==='sinfaena')return 'Completa y confirma nombre, RUN/RUT válido y faena antes de aprobar.';
  if(!cap.firma)return cap.motivo;
- const faltan=cap.documentos.filter(d=>d.estado!=='Aprobado');return faltan.length?'Falta aprobar o resolver: '+faltan.map(d=>nombreReq(d.key)).join(', ')+'.':'';
+ const requeridos=requisitosDecisionFaenaMiner(c);
+ if(!requeridos.length)return 'Configura los requisitos de esta faena antes de aprobar la carpeta.';
+ const desconocidos=requeridos.filter(k=>!CATALOGO_REQUISITOS.some(r=>r.key===k));
+ if(desconocidos.length)return 'Revisa los requisitos no reconocidos de esta faena: '+desconocidos.join(', ')+'.';
+ const faltan=clavesDecisionMiner(c).filter(key=>!cap.documentos.some(d=>d.key===key&&d.estado==='Aprobado')).map(key=>({key}));return faltan.length?'Falta aprobar o resolver: '+faltan.map(d=>nombreReq(d.key)).join(', ')+'.':'';
 }
 function estadoCarpetaDecisionMiner(c){
  const cap=capturaCarpetaDecisionMiner(c);if(!cap.firma)return {estado:'Pendiente',motivo:cap.motivo};
@@ -3465,7 +3473,7 @@ function tipoCarpetaLaboralMiner(a){
 }
 function resumenCarpetaLaboralMiner(c){
  const archivos=c.archivos||[];
- return CLAVES_CARPETA_LABORAL.map(key=>({key,nombre:nombreReq(key),archivos:archivos.filter(a=>tipoCarpetaLaboralMiner(a)===key)}));
+ return requisitosDecisionFaenaMiner(c).map(key=>({key,nombre:nombreReq(key),archivos:archivos.filter(a=>tipoCarpetaLaboralMiner(a)===key)}));
 }
 function abrirCarpetaLaboralMiner(id){
  const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
@@ -3562,7 +3570,7 @@ function abrirDocumentoCarpetaLaboralMiner(id,key){
  if(loteDocumentalMiner){mostrarToast('El análisis de la carpeta está en curso.','warn');return;}
  if(ubicacionLectorInlineMiner?.id===id&&ubicacionLectorInlineMiner.key===key&&document.getElementById('lectorContenidoModal').open){cerrarLectorContenido();return;}
  const c=carpetasTrabajadores.find(c=>c.id===id);if(!c)return;
- const permitido=[...CLAVES_CARPETA_LABORAL,...CLAVES_MEDICAS_LABORAL,'otro'];if(!permitido.includes(key))return;
+ const permitido=[...CATALOGO_REQUISITOS.map(r=>r.key),'otro'];if(!permitido.includes(key))return;
  if(!(c.archivos||[]).some(a=>tipoCarpetaLaboralMiner(a)===key)){mostrarToast('Este documento no está cargado. Añádelo a la carpeta.','warn');return;}
  return abrirLectorContenido(c.trabajador,c.rut,key==='cedula'?'cedula':CLAVES_MEDICAS_LABORAL.includes(key)?'medico':key,c.faena,key,{id:c.id,key,contexto:contextoLocalMiner()});
 }
@@ -3677,8 +3685,8 @@ function renderizarCarpetasLaboralesMiner(){
  const q=normalizar(document.getElementById('buscarCarpeta')?.value||''),esc=escaparPerfilDocumento;
  const lista=carpetasTrabajadores.filter(c=>!q||normalizar([c.trabajador,c.rut,c.faena,...(c.archivos||[]).map(a=>a.nombre)].join(' ')).includes(q));
  grid.innerHTML=lista.map(c=>{
-  const resumen=resumenCarpetaLaboralMiner(c),recibidos=resumen.filter(i=>i.archivos.length).length,decision=estadoCarpetaDecisionMiner(c),extras=clavesDecisionMiner(c).filter(k=>!CLAVES_CARPETA_LABORAL.includes(k));
-  return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3>${renderResultadoCarpetaAutomaticoMiner(c)}<h4>Decisión del responsable</h4>${badgeDecisionMiner(decision)}<p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de 5 tipos de documento presentes</b></p><p class="meta">Decisión documental de la carpeta. No determina aptitud médica ni autoriza acceso a faena.</p><div class="check-grid">${CLAVES_CARPETA_LABORAL.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')}</div>${extras.length?'<h4 style="margin-top:16px">Otros documentos cargados</h4><div class="check-grid">'+extras.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')+'</div>':''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button>${botonesDecisionMiner(c,'carpeta')}<button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div>${historialDecisionMiner(c)}<details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
+  const resumen=resumenCarpetaLaboralMiner(c),recibidos=resumen.filter(i=>i.archivos.length).length,decision=estadoCarpetaDecisionMiner(c),requeridos=requisitosDecisionFaenaMiner(c),extras=clavesDecisionMiner(c).filter(k=>!requeridos.includes(k));
+  return `<article class="folder-card"><h3>${esc(c.trabajador)}</h3>${renderResultadoCarpetaAutomaticoMiner(c)}<h4>Decisión del responsable</h4>${badgeDecisionMiner(decision)}<p class="meta">RUN/RUT: ${esc(c.rut==='Sin RUT'?'Por completar':c.rut)} · Faena: ${esc(c.faena||'Por completar')}</p><p><b>${recibidos} de ${requeridos.length} requisitos presentes${requeridos.length?'':' · Configura los requisitos de la faena'}</b></p><p class="meta">Decisión documental de la carpeta. No determina aptitud médica ni autoriza acceso a faena.</p><div class="check-grid">${requeridos.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')}</div>${extras.length?'<h4 style="margin-top:16px">Otros documentos cargados</h4><div class="check-grid">'+extras.map(k=>tarjetaDocumentoDecisionMiner(c,k)).join('')+'</div>':''}<div class="folder-actions"><button class="mini blue" onclick="${esc('abrirCarpetaLaboralMiner('+JSON.stringify(c.id)+')')}">Revisar carpeta completa</button>${botonesDecisionMiner(c,'carpeta')}<button class="mini yellow" onclick="${esc('editarDatosCarpeta('+JSON.stringify(c.id)+')')}">Completar datos</button></div>${historialDecisionMiner(c)}<details class="extra-options"><summary>Ver archivos de esta carpeta</summary>${(c.archivos||[]).map(a=>'<p class="meta">'+esc(a.nombre)+'</p>').join('')}</details></article>`;
  }).join('')||'<p class="empty">Elige una carpeta o varios archivos para empezar. Se esperan cédula, Cero Daño, antecedentes, contrato y EPP.</p>';
  montarLectorInlineMiner();pintarPendientesCarpetaLaboralMiner();
 }
@@ -5350,6 +5358,18 @@ async function leerImagenDocumento(imagen,reconocer,informar,pagina=1,registrarO
   }}finally{base.width=0;base.height=0;}
   return textos.join('\n\nFIN DE LECTURA\n\n');
 }
+function ayudaLecturaMiner(analisis,tipo,limitado){
+ const avisos=[];
+ if(limitado)avisos.push('Lectura parcial: revisa las páginas restantes antes de confirmar.');
+ if(analisis.tipo==='sin identificar')avisos.push('Tipo sin identificar: vuelve a cargar una imagen nítida del documento completo.');
+ if(!analisis.coincideTipo&&analisis.tipo!=='sin identificar')avisos.push('Tipo distinto: comprueba que abriste la tarjeta correcta.');
+ if(!analisis.validos?.length)avisos.push('RUN/RUT sin confirmar: incluye el número completo y su dígito verificador en una foto enfocada.');
+ if(tipo!=='portal'&&analisis.tipo!=='portal'&&!analisis.fecha){
+  avisos.push('Fecha sin confirmar: '+(analisis.fechaMotivo||'No hay evidencia suficiente para leerla.'));
+  avisos.push('Si corresponde vencimiento, carga una imagen enfocada que incluya el rótulo y la fecha completa. Si hay fechas contradictorias, compáralas con el original. Cuando el tipo de documento permita no tener vencimiento, indícalo en la revisión del responsable.');
+ }
+ return avisos;
+}
 async function revisarContenidoCedula(){
   if(lecturaContenidoActiva)return;
   const input=document.getElementById('archivoContenido'),archivo=input.files?.[0]||originalRecuperadoLector?.file||destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)]?.file;
@@ -5428,7 +5448,8 @@ async function revisarContenidoCedula(){
     document.getElementById('fechaConfirmadaContenido').value=analisis.fecha||'';
     document.getElementById('aceptarFechaContenido').checked=false;estadoFechaContenido();
     const tipoLeido=analisis.tipo==='licencia'?'licencia de conducir chilena':analisis.tipo==='cedula'?'cédula de identidad chilena':analisis.tipo==='medico'?'documento médico':analisis.tipo==='antecedentes'?'certificado de antecedentes':analisis.tipo==='contrato'?'contrato de trabajo':analisis.tipo==='portal'?'captura de calificaciones de portal':analisis.tipo==='hoja_vida'?'hoja de vida del conductor':({epp:'registro de entrega EPP',curso:'curso / inducción',odi:'ODI / derecho a saber'}[analisis.tipo]||'documento sin identificar');
-    const lineas=[limitado?'Lectura parcial: quedan páginas pendientes.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':analisis.tipo!=='sin identificar'?'Tipo de documento reconocido. Falta confirmar el RUN o completar la lectura antes de asociarlo.':'No se pudo identificar el documento. Prueba una foto más nítida y encuadrada.',
+    const ayudaLectura=ayudaLecturaMiner(analisis,tipo,limitado);
+    const lineas=[...ayudaLectura,limitado?'Lectura parcial: quedan páginas pendientes.':analisis.compatible?'Contenido compatible con '+tipoLeido+'. Revisión visual pendiente.':analisis.tipo!=='sin identificar'?'Tipo de documento reconocido. Falta confirmar el RUN o completar la lectura antes de asociarlo.':'No se pudo identificar el documento. Prueba una foto más nítida y encuadrada.',
       ...(tipo==='cedula'?[coberturaCedulaMiner(texto).mensaje,...Object.entries(fechasCedula).map(([k,v])=>k+' (texto etiquetado): '+(v||'No confirmado'))]:[]),
       ...orientaciones.filter(o=>o.grados).map(o=>'Orientación de lectura: página '+o.pagina+' girada '+o.grados+'°. El original se conserva sin cambios.'),
       ...(avisoOffice?[avisoOffice]:[]),
@@ -5453,7 +5474,7 @@ async function revisarContenidoCedula(){
     if(!esOffice&&tipo==='cedula'){const visual=document.createElement('div');visual.innerHTML=renderEvidenciaNombre(evidenciaNombre);resultado.prepend(visual);}
     if(evidenciaNombre){const destino=destinosFechaContenido[Number(document.getElementById('destinoFechaContenido').value)];if(!input.files?.length&&destino?.file===archivo){evidenciasNombreOriginal.set(archivo,evidenciaNombre);const {imagen,...posiciones}=evidenciaNombre;destino.a.evidenciaNombre=posiciones;guardarLocal(false);renderizar();}}
     textoPanel.textContent=texto.trim()||'No se pudo extraer texto legible.';
-    estado.textContent='Lectura terminada · '+(esOffice?'archivo '+formato.toUpperCase():paginas+' página(s).')+(analisis.tipo==='sin identificar'||!analisis.fecha?' Datos sin confirmar: revisa el original.':'');
+    estado.textContent='Lectura terminada · '+(esOffice?'archivo '+formato.toUpperCase():paginas+' página(s).')+(ayudaLectura.length?' '+ayudaLectura.join(' '):' Revisa los datos con el original antes de confirmar.');
     ultimaLecturaGuardable={resumenAutomatico:resumenLecturaAutomaticoMiner(analisis,texto,tipo,evidenciaNombre,portalVisual),versionLector:VERSION_LECTOR_MINER,archivo,lineas,texto: texto.trim(),nombreVisual:evidenciaNombre,tituloVisual,portalVisual};
     if(!esOffice)await guardarDesdeLector().catch(errorGuardarLector);else document.getElementById('estadoGuardadoLector').textContent='Revisa el texto y la ficha antes de guardar este archivo Office.';lecturaTerminada=true;
   }catch(error){estado.textContent=/^Cambió la cuenta, el día o la ficha/.test(error.message)?error.message:esOffice?'No se completó la lectura: '+String(error.message||'Archivo no legible').slice(0,240):'No se completó la lectura. Comprueba el formato, que el PDF no esté protegido y la conexión para cargar el motor. Puedes volver a intentarlo.';}
