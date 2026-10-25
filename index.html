@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerControl Enterprise Pro</title>
+<title>MinerControl</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -294,7 +294,7 @@ button{transition:.15s ease}
 
 <div id="loginView">
   <div class="login-card">
-    <div class="logo">MinerControl<br><span>Enterprise</span></div>
+    <div class="logo">MinerControl</div>
     <input id="loginUser" placeholder="Usuario">
     <input id="loginPass" type="password" placeholder="Contraseña">
     <button class="btn-orange" onclick="iniciarSesion()">Ingresar</button>
@@ -305,7 +305,7 @@ button{transition:.15s ease}
 <div class="layout">
 
 <aside class="sidebar">
-  <button type="button" id="logoHome" class="logo logo-home" title="Volver al inicio / cerrar sesión">MinerControl<br><span>Enterprise</span></button>
+  <button type="button" id="logoHome" class="logo logo-home" title="Volver al inicio / cerrar sesión">MinerControl</button>
   <div class="nav">
     <button class="active" onclick="mostrarModulo('dashboard',this)">📊 Dashboard</button>
     <button onclick="mostrarModulo('trabajadores',this)">👷 Trabajadores</button>
@@ -2129,7 +2129,7 @@ function exportarExcel(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(errores),"Errores");
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(obtenerAlertasCriticas()),"Alertas");
 
-  XLSX.writeFile(wb,"MinerControl_Enterprise.xlsx");
+  XLSX.writeFile(wb,"MinerControl.xlsx");
 }
 
 function guardarLocal(mostrar=true){
