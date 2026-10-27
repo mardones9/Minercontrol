@@ -4759,7 +4759,7 @@ window.addEventListener('beforeunload',event=>{if(revisionTemporal){event.preven
 
 </script>
 <script>
-const VERSION_LECTOR_MINER='fechas-cedula-2026-10-19-v2';
+const VERSION_LECTOR_MINER='2026-10-27-columnas-v3';
 let lecturaContenidoActiva=false;
 let motorContenidoPromesa=null;
 let tipoDocumentoContenido='cedula';
@@ -4925,11 +4925,12 @@ function rutValidoContenido(rut){
 function fechaDocumentoChileno(texto,tipo,campoCedula=''){
   const normal=String(texto||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const meses={ENE:1,ENERO:1,FEB:2,FEBRERO:2,MAR:3,MARZO:3,ABR:4,ABRIL:4,MAY:5,MAYO:5,JUN:6,JUNIO:6,JUL:7,JULIO:7,AGO:8,AGOSTO:8,SEP:9,SEPT:9,SET:9,SEPTIEMBRE:9,SETIEMBRE:9,OCT:10,OCTUBRE:10,NOV:11,NOVIEMBRE:11,DIC:12,DICIEMBRE:12};
-  const formato=/\b(\d{1,2})\s*(?:[/.\-]\s*(\d{1,2})\s*[/.\-]\s*|([A-Z]{3,10})\.?\s*)(\d{4})\b|\b(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})\b/g;
+  const formato=/\b(\d{1,2})\s*(?:[/.\-]\s*(\d{1,2})\s*[/.\-]\s*|[.]?([A-Z]{3,10})\.?\s*)(\d{4})\b|\b(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})\b/g;
   const etiquetas=/\b(?:(?:FECHA\s*(?:DE\s*)?)?(?:ULTIMO\s*CONTROL|ULTIMA\s*EVALUACION|NACIMIENTO|EMISION|EXPEDICION|REALIZACION|EVALUACION|EXAMEN|INGRESO|INICIO|TERMINO|REGISTRO|VENCIMIENTO|CADUCIDAD|EXPIRACION)|(?:VIGENTE|VIGENCIA|VALID[OA])\s*HASTA|PROXIMO\s*CONTROL|FECHA\s*(?:DE\s*)?CONTROL)\b/g;
   const resultados=[],excluidas=new Set();let invalida=false,ambigua=false,malformada=false,ausente=false;
   function fechas(linea){return [...linea.matchAll(formato)].map(m=>{
-    const extendida=/(?:\d\s*[/.-]\s*)$/.test(linea.slice(0,m.index))||/^\s*[/.-]\s*\d/.test(linea.slice(m.index+m[0].length));
+    const antes=linea.slice(0,m.index),despues=linea.slice(m.index+m[0].length);
+    const extendida=(/(?:\d\s*[/.-]\s*)$/.test(antes)&&! /\b\d{4}\.\s+$/.test(antes))||(/^\s*[/.-]\s*\d/.test(despues)&&! /^\.\s+\d{1,2}[. ]?[A-Z]{3}/.test(despues));
     const dia=Number(m[7]||m[1]),mes=m[6]?Number(m[6]):m[2]?Number(m[2]):meses[m[3]],anio=Number(m[5]||m[4]),d=new Date(Date.UTC(anio,(mes||0)-1,dia));
     return {x:m.index,fin:m.index+m[0].length,raw:m[0],fecha:!extendida&&mes&&anio>=1900&&anio<=2199&&d.getUTCFullYear()===anio&&d.getUTCMonth()+1===mes&&d.getUTCDate()===dia?d.toISOString().slice(0,10):''};
   });}
@@ -4957,7 +4958,8 @@ function fechaDocumentoChileno(texto,tipo,campoCedula=''){
             if(rotulos.length>1){
               if(todas.length>rotulos.length){if(permitida)ambigua=true;valores=[];break;}
               // Conservar columnas: la fecha de emisión a la izquierda no pertenece al vencimiento de la derecha.
-              valores=todas.filter(f=>f.x>=Math.max(0,r.index-4)&&(j+1===rotulos.length||f.x<rotulos[j+1].index-4));
+              // OCR comprime los espacios: con todos los rótulos y todas las fechas, conservar su orden de columnas.
+              valores=todas.length===rotulos.length?[todas[j]]:todas.filter(f=>f.x>=Math.max(0,r.index-4)&&(j+1===rotulos.length||f.x<rotulos[j+1].index-4));
             }else if(todas.length===1&&(r.index<8||todas[0].x>=r.index-4))valores=todas;
             else if(todas.length>1&&permitida)ambigua=true;
             break;
@@ -5221,7 +5223,7 @@ function localizarCamposCedulaOCR(datos){
    const b={...label.bbox,x0:fechaLabel?.bbox.x0??label.bbox.x0},h=Math.max(1,b.y1-b.y0),izquierda=b.x0-h*1.5;
    const otros=palabras.filter(w=>w!==label&&/^(NACIMIENTO|EMISION|VENCIMIENTO|NUMERO|NACIONALIDAD|SEXO)$/.test(norm(w.text))&&Math.abs(w.bbox.y0-b.y0)<h&&w.bbox.x0>b.x1);
    const derecha=otros.length?Math.min(...otros.map(w=>w.bbox.x0))-h*.5:b.x0+h*18;
-   let candidatos=palabras.filter(w=>w!==label&&w.bbox.x0>=izquierda&&w.bbox.x1<=derecha&&w.bbox.y0>=b.y1-h*.2&&w.bbox.y0<=b.y1+h*3.5&&!/^(FECHA|DE|DOCUMENTO|DEL|FIRMA|TITULAR|EMISION|VENCIMIENTO|NACIMIENTO|SEXO|NACIONALIDAD)$/.test(norm(w.text)));
+   let candidatos=palabras.filter(w=>w!==label&&w.bbox.x0>=izquierda&&w.bbox.x1<=derecha&&w.bbox.y0>=b.y1-h*.2&&w.bbox.y0<=b.y1+h*3.5&&!/^(FECHA|DE|DOCUMENTO|DEL|FIRMA|TITULAR|NUMERO|NOMBRES|APELLIDOS|RUN|RUT|EMISION|VENCIMIENTO|NACIMIENTO|SEXO|NACIONALIDAD)$/.test(norm(w.text)));
    if(['NACIMIENTO','EMISIÓN','VENCIMIENTO'].includes(etiqueta)){
     const mismaFila=palabras.filter(w=>w!==label&&w.bbox.x0>=label.bbox.x1&&w.bbox.x1<=derecha&&Math.abs(w.bbox.y0-label.bbox.y0)<h*.65).sort((a,b)=>a.bbox.x0-b.bbox.x0);
     if(fechaDocumentoChileno('VENCIMIENTO '+mismaFila.map(w=>w.text).join(' '),'cedula').fecha)candidatos=mismaFila;
@@ -5447,6 +5449,9 @@ async function revisarContenidoCedula(){
     // Una zona recortada puede perder su rótulo o su valor. No mostrar recuadros
     // si contradicen la lectura etiquetada del documento completo.
     if(fechasCedula&&evidenciaNombre)evidenciaNombre.campos=evidenciaNombre.campos.filter(c=>!['NACIMIENTO','EMISIÓN','VENCIMIENTO'].includes(c.etiqueta)||(Boolean(fechasCedula[c.etiqueta])&&c.texto===fechasCedula[c.etiqueta]));
+    if(evidenciaNombre&&fechasCedula)for(const [etiqueta,textoFecha] of Object.entries(fechasCedula)){
+      if(textoFecha&&!evidenciaNombre.campos.some(c=>c.etiqueta===etiqueta))evidenciaNombre.campos.push({etiqueta,texto:textoFecha,fuente:'Texto etiquetado; sin recuadro del campo.'});
+    }
     if(evidenciaNombre&&tipo==='cedula'&&analisis.fecha&&vencimientoMRZMiner(texto,analisis.fecha)&&!evidenciaNombre.campos.some(c=>c.etiqueta==='VENCIMIENTO'))evidenciaNombre.campos.push({etiqueta:'VENCIMIENTO',texto:analisis.fecha,fuente:'Texto etiquetado contrastado con MRZ; sin recuadro del campo.'});
     evidenciaLecturaContenido={archivo,fecha:analisis.fecha,tipo:analisis.tipo,fragmento:analisis.evidenciaFecha,paginas,limitado};
     document.getElementById('fechaConfirmadaContenido').value=analisis.fecha||'';
